@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
+import { format } from 'date-fns'
 import useAppStore from '@/stores/useAppStore'
 import {
   Table,
@@ -19,26 +20,42 @@ import { TicketRecord } from '@/types'
 const TICKET_VALUE = 31.59
 
 export default function Ticket() {
-  const { currentUser, users, ticketData, saveAllTickets, isLoading } = useAppStore()
+  const { currentUser, users, ticketData, saveAllTickets, isLoading, shifts } = useAppStore()
   const { toast } = useToast()
 
   const [localData, setLocalData] = useState<Record<string, TicketRecord>>({})
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
+    const mesAno = format(new Date(), 'yyyy-MM')
+    const currentMonthShifts: Record<string, number> = {}
+
+    Object.keys(shifts || {}).forEach((date) => {
+      if (date.startsWith(mesAno)) {
+        shifts[date].forEach((uid) => {
+          currentMonthShifts[uid] = (currentMonthShifts[uid] || 0) + 1
+        })
+      }
+    })
+
     // Initialize local state with global state or defaults
     const initial: Record<string, TicketRecord> = {}
     users
       .filter((u) => u.role === 'user')
       .forEach((u) => {
-        initial[u.id] = ticketData[u.id] || { regular: 20, shifts: 0, sick: 0, vacation: 0 }
+        const data = ticketData[u.id] || { regular: 20, shifts: 0, sick: 0, vacation: 0 }
+        initial[u.id] = {
+          ...data,
+          shifts: currentMonthShifts[u.id] || 0,
+        }
       })
     setLocalData(initial)
-  }, [users, ticketData])
+  }, [users, ticketData, shifts])
 
   if (currentUser?.role !== 'admin') return <Navigate to="/app/mural" replace />
 
   const handleInputChange = (userId: string, field: keyof TicketRecord, value: string) => {
+    if (field === 'shifts') return // Prevent manual edit of auto-calculated field
     const num = parseInt(value) || 0
     setLocalData((prev) => ({
       ...prev,
@@ -121,10 +138,10 @@ export default function Ticket() {
                       <TableCell>
                         <Input
                           type="number"
-                          min="0"
                           value={data.shifts}
-                          onChange={(e) => handleInputChange(u.id, 'shifts', e.target.value)}
-                          className="h-8"
+                          readOnly
+                          className="h-8 bg-slate-50 cursor-not-allowed border-slate-200 text-slate-500 font-medium"
+                          title="Calculado automaticamente a partir do mural de plantões"
                         />
                       </TableCell>
                       <TableCell>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
+import { format } from 'date-fns'
 import useAppStore from '@/stores/useAppStore'
 import {
   Table,
@@ -19,7 +20,7 @@ import { TransportRecord } from '@/types'
 const TRANSPORT_DAILY_VALUE = 10.2
 
 export default function Transport() {
-  const { currentUser, users, transportData, saveAllTransport, isLoading } = useAppStore()
+  const { currentUser, users, transportData, saveAllTransport, isLoading, shifts } = useAppStore()
   const { toast } = useToast()
 
   const [localData, setLocalData] = useState<Record<string, TransportRecord>>({})
@@ -27,14 +28,29 @@ export default function Transport() {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
+    const mesAno = format(new Date(), 'yyyy-MM')
+    const currentMonthShifts: Record<string, number> = {}
+
+    Object.keys(shifts || {}).forEach((date) => {
+      if (date.startsWith(mesAno)) {
+        shifts[date].forEach((uid) => {
+          currentMonthShifts[uid] = (currentMonthShifts[uid] || 0) + 1
+        })
+      }
+    })
+
     const initial: Record<string, TransportRecord> = {}
     users
       .filter((u) => u.role === 'user')
       .forEach((u) => {
-        initial[u.id] = transportData[u.id] || { businessDays: 20, homeOffice: 0, vacation: 0 }
+        const data = transportData[u.id] || { businessDays: 20, homeOffice: 0, vacation: 0 }
+        initial[u.id] = {
+          ...data,
+          shifts: currentMonthShifts[u.id] || 0,
+        }
       })
     setLocalData(initial)
-  }, [users, transportData])
+  }, [users, transportData, shifts])
 
   if (currentUser?.role !== 'admin') return <Navigate to="/app/mural" replace />
 
@@ -113,9 +129,10 @@ export default function Transport() {
               <TableRow>
                 <TableHead className="min-w-[200px]">Colaborador</TableHead>
                 <TableHead className="w-[140px]">Dias Úteis</TableHead>
-                <TableHead className="w-[140px]">Home Office</TableHead>
-                <TableHead className="w-[140px]">Férias</TableHead>
-                <TableHead className="text-center w-[140px]">Dias Devidos</TableHead>
+                <TableHead className="w-[120px]">Plantões</TableHead>
+                <TableHead className="w-[120px]">Home Office</TableHead>
+                <TableHead className="w-[120px]">Férias</TableHead>
+                <TableHead className="text-center w-[120px]">Dias Devidos</TableHead>
                 <TableHead className="text-right min-w-[150px]">Valor Total</TableHead>
               </TableRow>
             </TableHeader>
@@ -123,10 +140,15 @@ export default function Transport() {
               {users
                 .filter((u) => u.role === 'user')
                 .map((u) => {
-                  const data = localData[u.id] || { businessDays: 0, homeOffice: 0, vacation: 0 }
+                  const data = localData[u.id] || {
+                    businessDays: 0,
+                    homeOffice: 0,
+                    vacation: 0,
+                    shifts: 0,
+                  }
                   const eligibleDays = Math.max(
                     0,
-                    data.businessDays - data.homeOffice - data.vacation,
+                    data.businessDays + (data.shifts || 0) - data.homeOffice - data.vacation,
                   )
                   const totalValue = eligibleDays * TRANSPORT_DAILY_VALUE
                   grandTotal += totalValue
@@ -141,6 +163,15 @@ export default function Transport() {
                           value={data.businessDays}
                           onChange={(e) => handleInputChange(u.id, 'businessDays', e.target.value)}
                           className="h-8"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={data.shifts || 0}
+                          readOnly
+                          className="h-8 bg-slate-50 cursor-not-allowed border-slate-200 text-slate-500 font-medium"
+                          title="Calculado automaticamente a partir do mural de plantões"
                         />
                       </TableCell>
                       <TableCell>
