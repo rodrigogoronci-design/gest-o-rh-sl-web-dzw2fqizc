@@ -42,14 +42,15 @@ export const saveTicketsBatch = async (rows: any[], month: string) => {
   }, {})
 
   const transportRows = rows.map((r: any) => {
+    const existing = transportsMap[r.colaborador_id] || { dias_uteis: 20, home_office: 0 }
     return {
       colaborador_id: r.colaborador_id,
       mes_ano: r.mes_ano,
-      dias_uteis: r.dias_uteis,
+      dias_uteis: existing.dias_uteis,
       ferias: r.ferias,
       atestados: r.atestados,
       faltas: r.faltas,
-      home_office: 0,
+      home_office: existing.home_office,
     }
   })
 
@@ -75,11 +76,11 @@ export const saveTransportBatch = async (rows: any[], month: string) => {
   }, {})
 
   const ticketRows = rows.map((r: any) => {
-    const existing = ticketsMap[r.colaborador_id] || { plantoes: 0 }
+    const existing = ticketsMap[r.colaborador_id] || { dias_uteis: 20, plantoes: 0 }
     return {
       colaborador_id: r.colaborador_id,
       mes_ano: r.mes_ano,
-      dias_uteis: r.dias_uteis,
+      dias_uteis: existing.dias_uteis,
       ferias: r.ferias,
       atestados: r.atestados,
       faltas: r.faltas,
