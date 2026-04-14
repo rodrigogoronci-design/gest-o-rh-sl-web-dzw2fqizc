@@ -17,8 +17,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { Save, Info, Calendar as CalendarIcon, RefreshCw, Minus, Plus } from 'lucide-react'
-import { syncAllUsersBeneficios } from '@/services/beneficios'
+import { Save, Info, Calendar as CalendarIcon, Minus, Plus } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TransportRecord } from '@/types'
 
@@ -86,8 +85,6 @@ export default function Transport() {
   const [preCalculatedFaltas, setPreCalculatedFaltas] = useState<Record<string, number>>({})
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [reloadKey, setReloadKey] = useState(0)
   const toastShownRef = useRef<Record<string, boolean>>({})
 
   const year = parseInt(selectedMonth.split('-')[0])
@@ -177,7 +174,7 @@ export default function Transport() {
     }
 
     loadData()
-  }, [users, selectedMonth, pStart, pEnd, reloadKey])
+  }, [users, selectedMonth, pStart, pEnd])
 
   if (currentUser?.role !== 'admin' && currentUser?.role !== 'Admin') {
     return <Navigate to="/app/mural" replace />
@@ -229,23 +226,6 @@ export default function Transport() {
     }
   }
 
-  const handleSync = async () => {
-    setIsSyncing(true)
-    try {
-      await syncAllUsersBeneficios(selectedMonth)
-      setReloadKey((prev) => prev + 1)
-      toast({
-        title: 'Sincronizado!',
-        description: 'Dados do mural importados com sucesso.',
-        className: 'bg-emerald-50 text-emerald-900 border-emerald-200',
-      })
-    } catch (error: any) {
-      toast({ title: 'Erro ao sincronizar', description: error.message, variant: 'destructive' })
-    } finally {
-      setIsSyncing(false)
-    }
-  }
-
   let grandTotal = 0
 
   return (
@@ -270,18 +250,6 @@ export default function Transport() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            onClick={handleSync}
-            disabled={isSaving || isLoading || isSyncing}
-            className="gap-1.5 bg-white text-slate-700 shadow-sm h-8 text-xs"
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
-            <span className="hidden sm:inline">
-              {isSyncing ? 'Sincronizando...' : 'Sincronizar Lançamentos'}
-            </span>
-            <span className="sm:hidden">{isSyncing ? '...' : 'Sincronizar'}</span>
-          </Button>
           <Input
             type="month"
             value={selectedMonth}
@@ -290,7 +258,7 @@ export default function Transport() {
           />
           <Button
             onClick={handleSave}
-            disabled={isSaving || isLoading || isSyncing}
+            disabled={isSaving || isLoading}
             className="gap-1.5 bg-[#10b981] hover:bg-[#059669] text-white shadow-sm h-8 text-xs"
           >
             <Save className="w-3.5 h-3.5" /> {isSaving ? 'Salvando...' : 'Salvar'}
