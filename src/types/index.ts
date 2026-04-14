@@ -13,6 +13,7 @@ export interface TicketRecord {
   shifts: number
   sick: number
   vacation: number
+  faltas: number
 }
 
 export interface TransportRecord {
@@ -21,6 +22,7 @@ export interface TransportRecord {
   vacation: number
   shifts?: number
   sick?: number
+  faltas: number
 }
 
 export interface AppState {

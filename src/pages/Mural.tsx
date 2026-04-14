@@ -51,9 +51,11 @@ export default function Mural() {
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [assignUserId, setAssignUserId] = useState<string>('')
+  const [assignFaltaUserId, setAssignFaltaUserId] = useState<string>('')
   const [feriados, setFeriados] = useState<Record<string, boolean>>({})
   const [escalaStatus, setEscalaStatus] = useState<'Rascunho' | 'Pendente' | 'Aprovada'>('Rascunho')
   const [feriasList, setFeriasList] = useState<any[]>([])
+  const [faltas, setFaltas] = useState<Record<string, string[]>>({})
   const [reloadKey, setReloadKey] = useState(0)
 
   const mesAno = format(selectedDate, 'yyyy-MM')
@@ -69,7 +71,7 @@ export default function Mural() {
 
       setEscalaStatus((escala?.status as any) || 'Rascunho')
 
-      // Feriados
+      // Feriados & Férias & Faltas period
       const periodEnd = setDate(selectedDate, 24)
       const periodStart = setDate(subMonths(selectedDate, 1), 25)
       const start = format(periodStart, 'yyyy-MM-dd')
@@ -103,6 +105,24 @@ export default function Mural() {
       } else {
         setFeriasList([])
       }
+
+      // Faltas
+      const { data: faltasData } = await supabase
+        .from('faltas')
+        .select('*')
+        .gte('data', start)
+        .lte('data', end)
+
+      if (faltasData) {
+        const faltasMap: Record<string, string[]> = {}
+        faltasData.forEach((f) => {
+          if (!faltasMap[f.data]) faltasMap[f.data] = []
+          faltasMap[f.data].push(f.colaborador_id)
+        })
+        setFaltas(faltasMap)
+      } else {
+        setFaltas({})
+      }
     }
     fetchMonthData()
   }, [mesAno, reloadKey])
@@ -130,6 +150,24 @@ export default function Mural() {
       const next = { ...feriados }
       delete next[dateStr]
       setFeriados(next)
+    }
+  }
+
+  const toggleFalta = async (dateStr: string, userId: string) => {
+    const dayFaltas = faltas[dateStr] || []
+    const hasFalta = dayFaltas.includes(userId)
+    if (hasFalta) {
+      await supabase.from('faltas').delete().match({ data: dateStr, colaborador_id: userId })
+      setFaltas((prev) => ({
+        ...prev,
+        [dateStr]: prev[dateStr].filter((id) => id !== userId),
+      }))
+    } else {
+      await supabase.from('faltas').insert({ data: dateStr, colaborador_id: userId })
+      setFaltas((prev) => ({
+        ...prev,
+        [dateStr]: [...(prev[dateStr] || []), userId],
+      }))
     }
   }
 
@@ -250,6 +288,7 @@ export default function Mural() {
             {days.map((day, idx) => {
               const dateStr = format(day, 'yyyy-MM-dd')
               const dayShifts = shifts[dateStr] || []
+              const dayFaltas = faltas[dateStr] || []
               const dayFerias = feriasList.filter(
                 (f) => dateStr >= f.data_inicio && dateStr <= f.data_fim,
               )
@@ -295,11 +334,24 @@ export default function Mural() {
                                 if (!u || u.role === 'admin') return null
                                 return (
                                   <Badge
-                                    key={userId}
+                                    key={`s-${userId}`}
                                     variant="secondary"
                                     className="text-[10px] px-1.5 py-0 justify-start font-normal truncate bg-primary/10 text-primary hover:bg-primary/20"
                                   >
                                     {u.name.split(' ')[0]}
+                                  </Badge>
+                                )
+                              })}
+                              {dayFaltas.map((userId) => {
+                                const u = users.find((u) => u.id === userId)
+                                if (!u || u.role === 'admin') return null
+                                return (
+                                  <Badge
+                                    key={`f-${userId}`}
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 justify-start font-normal truncate bg-red-100 text-red-800 hover:bg-red-200"
+                                  >
+                                    ⚠️ {u.name.split(' ')[0]}
                                   </Badge>
                                 )
                               })}
@@ -337,6 +389,19 @@ export default function Mural() {
                           </ul>
                         </div>
                       )}
+                      {dayFaltas.length > 0 && (
+                        <div className="mb-2">
+                          <strong className="text-red-600 block mb-1">Faltas:</strong>
+                          <ul className="list-disc pl-4 space-y-0.5">
+                            {dayFaltas.map((uid) => {
+                              const u = users.find((u) => u.id === uid)
+                              return u && u.role !== 'admin' ? (
+                                <li key={`tt-f-${uid}`}>{u.name}</li>
+                              ) : null
+                            })}
+                          </ul>
+                        </div>
+                      )}
                       {dayFerias.length > 0 && (
                         <div>
                           <strong className="text-orange-600 block mb-1">Férias:</strong>
@@ -348,9 +413,11 @@ export default function Mural() {
                           </ul>
                         </div>
                       )}
-                      {dayShifts.length === 0 && dayFerias.length === 0 && (
-                        <p className="text-muted-foreground">Sem plantões ou férias</p>
-                      )}
+                      {dayShifts.length === 0 &&
+                        dayFerias.length === 0 &&
+                        dayFaltas.length === 0 && (
+                          <p className="text-muted-foreground">Sem plantões, faltas ou férias</p>
+                        )}
                     </TooltipContent>
                   </Tooltip>
                   <DialogContent>
@@ -413,7 +480,107 @@ export default function Mural() {
                         )}
                       </div>
 
+                      {canEdit && (
+                        <div className="space-y-3">
+                          <div className="flex gap-2">
+                            <Select value={assignUserId} onValueChange={setAssignUserId}>
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder="Adicionar Plantonista" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {users
+                                  .filter((u) => u.role === 'user' && !dayShifts.includes(u.id))
+                                  .map((u) => (
+                                    <SelectItem key={u.id} value={u.id}>
+                                      {u.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              onClick={() => {
+                                if (assignUserId) {
+                                  toggleShift(dateStr, assignUserId)
+                                  setAssignUserId('')
+                                }
+                              }}
+                            >
+                              Adicionar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="space-y-4 mt-4">
+                        <h4 className="font-semibold text-sm text-slate-700">Faltas neste dia</h4>
+                        {dayFaltas.filter((uid) => {
+                          const u = users.find((u) => u.id === uid)
+                          return u && u.role !== 'admin'
+                        }).length > 0 ? (
+                          <div className="space-y-2">
+                            {dayFaltas.map((userId) => {
+                              const u = users.find((u) => u.id === userId)
+                              if (!u || u.role === 'admin') return null
+                              return (
+                                <div
+                                  key={`falta-${userId}`}
+                                  className="flex justify-between items-center p-2 rounded-md bg-red-50 border border-red-100 shadow-sm"
+                                >
+                                  <span className="text-sm font-medium text-red-800">{u.name}</span>
+                                  {canEdit && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => toggleFalta(dateStr, userId)}
+                                      className="text-red-500 hover:text-red-700 hover:bg-red-100 h-8"
+                                    >
+                                      Remover
+                                    </Button>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground p-4 text-center border border-dashed rounded-lg">
+                            Nenhuma falta registrada.
+                          </p>
+                        )}
+                      </div>
+
+                      {canEdit && (
+                        <div className="space-y-3">
+                          <div className="flex gap-2">
+                            <Select value={assignFaltaUserId} onValueChange={setAssignFaltaUserId}>
+                              <SelectTrigger className="flex-1 border-red-200 focus:ring-red-500">
+                                <SelectValue placeholder="Registrar Falta" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {users
+                                  .filter((u) => u.role === 'user' && !dayFaltas.includes(u.id))
+                                  .map((u) => (
+                                    <SelectItem key={u.id} value={u.id}>
+                                      {u.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="destructive"
+                              onClick={() => {
+                                if (assignFaltaUserId) {
+                                  toggleFalta(dateStr, assignFaltaUserId)
+                                  setAssignFaltaUserId('')
+                                }
+                              }}
+                            >
+                              Registrar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-4 mt-4 pt-4 border-t">
                         <h4 className="font-semibold text-sm text-slate-700">Férias neste dia</h4>
                         {dayFerias.length > 0 ? (
                           <div className="space-y-2">
@@ -448,38 +615,6 @@ export default function Mural() {
                           </p>
                         )}
                       </div>
-
-                      {canEdit && (
-                        <div className="pt-4 border-t space-y-3">
-                          <Label>Adicionar Plantonista</Label>
-                          <div className="flex gap-2">
-                            <Select value={assignUserId} onValueChange={setAssignUserId}>
-                              <SelectTrigger className="flex-1">
-                                <SelectValue placeholder="Selecione um usuário" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {users
-                                  .filter((u) => u.role === 'user' && !dayShifts.includes(u.id))
-                                  .map((u) => (
-                                    <SelectItem key={u.id} value={u.id}>
-                                      {u.name}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              onClick={() => {
-                                if (assignUserId) {
-                                  toggleShift(dateStr, assignUserId)
-                                  setAssignUserId('')
-                                }
-                              }}
-                            >
-                              Adicionar
-                            </Button>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </DialogContent>
                 </Dialog>
