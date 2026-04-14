@@ -28,6 +28,7 @@ export default function Transport() {
 
   const [localData, setLocalData] = useState<Record<string, TransportRecord>>({})
   const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
+  const [preCalculatedAtestados, setPreCalculatedAtestados] = useState<Record<string, number>>({})
   const [globalHomeOffice, setGlobalHomeOffice] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const toastShownRef = useRef<Record<string, boolean>>({})
@@ -40,30 +41,35 @@ export default function Transport() {
       const pEnd = format(new Date(today.getFullYear(), today.getMonth(), 24), 'yyyy-MM-dd')
       const pStart = format(new Date(today.getFullYear(), today.getMonth() - 1, 25), 'yyyy-MM-dd')
 
-      const { data: ferias } = await supabase
-        .from('ferias')
-        .select('*')
-        .lte('data_inicio', pEnd)
-        .gte('data_fim', pStart)
+      const [{ data: ferias }, { data: atestados }] = await Promise.all([
+        supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
+        supabase.from('atestados').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
+      ])
 
-      const vacationDaysCount: Record<string, number> = {}
-      const start = parseISO(pStart)
-      const end = parseISO(pEnd)
+      const calcDays = (records: any[]) => {
+        const counts: Record<string, number> = {}
+        const start = parseISO(pStart)
+        const end = parseISO(pEnd)
+        records?.forEach((r) => {
+          if (!r.colaborador_id) return
+          const rStart = parseISO(r.data_inicio)
+          const rEnd = parseISO(r.data_fim)
+          if (rStart <= end && rEnd >= start) {
+            const overlapStart = rStart < start ? start : rStart
+            const overlapEnd = rEnd > end ? end : rEnd
+            counts[r.colaborador_id] =
+              (counts[r.colaborador_id] || 0) +
+              eachDayOfInterval({ start: overlapStart, end: overlapEnd }).length
+          }
+        })
+        return counts
+      }
 
-      ferias?.forEach((f) => {
-        if (!f.colaborador_id) return
-        const fStart = parseISO(f.data_inicio)
-        const fEnd = parseISO(f.data_fim)
-
-        if (fStart <= end && fEnd >= start) {
-          const overlapStart = fStart < start ? start : fStart
-          const overlapEnd = fEnd > end ? end : fEnd
-          const days = eachDayOfInterval({ start: overlapStart, end: overlapEnd }).length
-          vacationDaysCount[f.colaborador_id] = (vacationDaysCount[f.colaborador_id] || 0) + days
-        }
-      })
+      const vacationDaysCount = calcDays(ferias || [])
+      const atestadoDaysCount = calcDays(atestados || [])
 
       setPreCalculatedVacations(vacationDaysCount)
+      setPreCalculatedAtestados(atestadoDaysCount)
 
       const currentMonthShifts: Record<string, number> = {}
       Object.keys(shifts || {}).forEach((dateStr) => {
@@ -79,13 +85,18 @@ export default function Transport() {
         .filter((u) => u.role === 'user')
         .forEach((u) => {
           const isStored = !!transportData[u.id]
-          const data = transportData[u.id] || { businessDays: 20, homeOffice: 0, vacation: 0 }
-          const preCalcVacation = vacationDaysCount[u.id] || 0
+          const data = transportData[u.id] || {
+            businessDays: 20,
+            homeOffice: 0,
+            vacation: 0,
+            sick: 0,
+          }
 
           initial[u.id] = {
             ...data,
             shifts: currentMonthShifts[u.id] || 0,
-            vacation: isStored ? data.vacation : preCalcVacation,
+            vacation: isStored ? data.vacation : vacationDaysCount[u.id] || 0,
+            sick: isStored ? data.sick || 0 : atestadoDaysCount[u.id] || 0,
           }
         })
       setLocalData(initial)
@@ -100,23 +111,22 @@ export default function Transport() {
     if (field === 'shifts') return
     const num = parseInt(value) || 0
 
-    if (field === 'vacation') {
-      const preCalc = preCalculatedVacations[userId] || 0
-      if (num !== preCalc && !toastShownRef.current[`${userId}-vacation`]) {
+    const checkWarning = (f: string, preCalc: number, label: string) => {
+      if (num !== preCalc && !toastShownRef.current[`${userId}-${f}`]) {
         toast({
           title: 'Atenção: Edição Manual',
-          description:
-            'Você está alterando os dias de férias que foram importados automaticamente do mural.',
+          description: `Você está alterando os dias de ${label} importados automaticamente.`,
           variant: 'destructive',
         })
-        toastShownRef.current[`${userId}-vacation`] = true
+        toastShownRef.current[`${userId}-${f}`] = true
       }
     }
 
-    setLocalData((prev) => ({
-      ...prev,
-      [userId]: { ...prev[userId], [field]: num },
-    }))
+    if (field === 'vacation')
+      checkWarning('vacation', preCalculatedVacations[userId] || 0, 'férias')
+    if (field === 'sick') checkWarning('sick', preCalculatedAtestados[userId] || 0, 'atestados')
+
+    setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: num } }))
   }
 
   const applyGlobalHomeOffice = () => {
@@ -134,8 +144,7 @@ export default function Transport() {
     await saveAllTransport(localData)
     setIsSaving(false)
     toast({
-      title: 'Cálculos salvos com sucesso!',
-      description: 'Os dados de Vale Transporte foram atualizados no banco de dados.',
+      title: 'Salvo com sucesso!',
       className: 'bg-emerald-50 text-emerald-900 border-emerald-200',
     })
   }
@@ -151,13 +160,9 @@ export default function Transport() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Controle de Vale Transporte</h1>
           <p className="text-muted-foreground mt-1">
-            Período: 25/
-            {format(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 25), 'MM')} a 24/
-            {format(new Date(), 'MM')} • Valor diário base: R${' '}
-            {TRANSPORT_DAILY_VALUE.toFixed(2).replace('.', ',')}
+            Valor diário base: R$ {TRANSPORT_DAILY_VALUE.toFixed(2).replace('.', ',')}
           </p>
         </div>
-
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-white p-1 rounded-md border shadow-sm">
             <span className="text-sm font-medium px-2 text-slate-600">Home Office Global:</span>
@@ -187,13 +192,14 @@ export default function Transport() {
           <Table>
             <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
               <TableRow>
-                <TableHead className="min-w-[200px]">Colaborador</TableHead>
-                <TableHead className="w-[130px]">Dias Úteis</TableHead>
-                <TableHead className="w-[130px]">Plantões</TableHead>
-                <TableHead className="w-[130px]">Home Office</TableHead>
-                <TableHead className="w-[130px]">Férias</TableHead>
-                <TableHead className="text-center w-[120px]">Dias Devidos</TableHead>
-                <TableHead className="text-right min-w-[150px]">Valor Total</TableHead>
+                <TableHead className="min-w-[180px]">Colaborador</TableHead>
+                <TableHead className="w-[110px]">Dias Úteis</TableHead>
+                <TableHead className="w-[110px]">Plantões</TableHead>
+                <TableHead className="w-[110px]">Home Office</TableHead>
+                <TableHead className="w-[110px]">Atestados</TableHead>
+                <TableHead className="w-[110px]">Férias</TableHead>
+                <TableHead className="text-center w-[100px]">Dias Devidos</TableHead>
+                <TableHead className="text-right min-w-[130px]">Valor Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -205,11 +211,17 @@ export default function Transport() {
                     homeOffice: 0,
                     vacation: 0,
                     shifts: 0,
+                    sick: 0,
                   }
                   const preCalcVacation = preCalculatedVacations[u.id] || 0
+                  const preCalcSick = preCalculatedAtestados[u.id] || 0
                   const eligibleDays = Math.max(
                     0,
-                    data.businessDays - data.homeOffice - data.vacation - (data.shifts || 0),
+                    data.businessDays -
+                      data.homeOffice -
+                      data.vacation -
+                      (data.shifts || 0) -
+                      (data.sick || 0),
                   )
                   const totalValue = eligibleDays * TRANSPORT_DAILY_VALUE
                   grandTotal += totalValue
@@ -243,7 +255,6 @@ export default function Transport() {
                             value={data.shifts || 0}
                             readOnly
                             className="h-8 bg-slate-50 cursor-not-allowed border-slate-200 text-slate-500 font-medium"
-                            title="Plantões contam como home office (trabalho remoto) para o VT"
                           />
                           <span className="text-[10px] text-red-600 font-medium">
                             - R${' '}
@@ -273,12 +284,43 @@ export default function Transport() {
                           <Input
                             type="number"
                             min="0"
+                            value={data.sick || 0}
+                            onChange={(e) => handleInputChange(u.id, 'sick', e.target.value)}
+                            className={cn(
+                              'h-8 text-red-600 transition-colors',
+                              data.sick !== preCalcSick && 'border-orange-300 bg-orange-50',
+                            )}
+                          />
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] text-red-600 font-medium">
+                              - R${' '}
+                              {((data.sick || 0) * TRANSPORT_DAILY_VALUE)
+                                .toFixed(2)
+                                .replace('.', ',')}
+                            </span>
+                            {data.sick !== preCalcSick && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Diferente ({preCalcSick} dias)</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Input
+                            type="number"
+                            min="0"
                             value={data.vacation}
                             onChange={(e) => handleInputChange(u.id, 'vacation', e.target.value)}
                             className={cn(
                               'h-8 text-red-600 transition-colors',
-                              data.vacation !== preCalcVacation &&
-                                'border-orange-300 bg-orange-50 focus-visible:ring-orange-400',
+                              data.vacation !== preCalcVacation && 'border-orange-300 bg-orange-50',
                             )}
                           />
                           <div className="flex justify-between items-center">
@@ -292,7 +334,7 @@ export default function Transport() {
                                   <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Diferente do mural (Mural: {preCalcVacation} dias)</p>
+                                  <p>Diferente ({preCalcVacation} dias)</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}

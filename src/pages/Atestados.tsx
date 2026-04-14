@@ -1,0 +1,289 @@
+import { useState, useEffect } from 'react'
+import { format, parseISO, differenceInDays } from 'date-fns'
+import { supabase } from '@/lib/supabase/client'
+import useAppStore from '@/stores/useAppStore'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { useToast } from '@/hooks/use-toast'
+import { FileText, Plus, Trash2, Eye, Download } from 'lucide-react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+
+export default function Atestados() {
+  const { currentUser, users } = useAppStore()
+  const { toast } = useToast()
+
+  const [atestados, setAtestados] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<any>(null)
+
+  const [colaboradorId, setColaboradorId] = useState(currentUser?.id || '')
+  const [dataInicio, setDataInicio] = useState('')
+  const [dataFim, setDataFim] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+
+  useEffect(() => {
+    fetchAtestados()
+  }, [currentUser])
+
+  const fetchAtestados = async () => {
+    let query = supabase
+      .from('atestados')
+      .select('*, colaboradores(nome)')
+      .order('created_at', { ascending: false })
+    if (currentUser?.role !== 'admin') {
+      query = query.eq('colaborador_id', currentUser?.id)
+    }
+    const { data } = await query
+    setAtestados(data || [])
+    setLoading(false)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!colaboradorId || !dataInicio || !dataFim || !file) return
+
+    setUploading(true)
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage.from('atestados').upload(fileName, file)
+      if (uploadError) throw uploadError
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('atestados').getPublicUrl(fileName)
+
+      const start = parseISO(dataInicio)
+      const end = parseISO(dataFim)
+      const dias = differenceInDays(end, start) + 1
+
+      const { error: dbError } = await supabase.from('atestados').insert({
+        colaborador_id: colaboradorId,
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        quantidade_dias: dias > 0 ? dias : 1,
+        arquivo_url: publicUrl,
+      })
+
+      if (dbError) throw dbError
+
+      toast({ title: 'Atestado salvo com sucesso' })
+      setIsOpen(false)
+      setFile(null)
+      fetchAtestados()
+    } catch (error: any) {
+      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDelete = async (id: string, url: string) => {
+    if (!confirm('Deseja realmente excluir?')) return
+    const fileName = url.split('/').pop()
+    if (fileName) await supabase.storage.from('atestados').remove([fileName])
+    await supabase.from('atestados').delete().eq('id', id)
+    fetchAtestados()
+    if (selectedFile?.id === id) setSelectedFile(null)
+  }
+
+  const validUsers = users.filter((u) => u.role === 'user')
+
+  return (
+    <div className="h-full flex flex-col gap-6">
+      <div className="flex justify-between items-center shrink-0">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Gestão de Atestados</h1>
+          <p className="text-muted-foreground mt-1">Envie e consulte atestados médicos</p>
+        </div>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2 bg-primary hover:bg-primary/90 text-white">
+              <Plus className="w-4 h-4" /> Novo Atestado
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Enviar Atestado</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+              {currentUser?.role === 'admin' && (
+                <div className="space-y-2">
+                  <Label>Colaborador</Label>
+                  <Select value={colaboradorId} onValueChange={setColaboradorId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {validUsers.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Data Início</Label>
+                  <Input
+                    type="date"
+                    value={dataInicio}
+                    onChange={(e) => setDataInicio(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Data Fim</Label>
+                  <Input
+                    type="date"
+                    value={dataFim}
+                    onChange={(e) => setDataFim(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Arquivo (PDF ou JPG)</Label>
+                <Input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={uploading}>
+                {uploading ? 'Enviando...' : 'Salvar Atestado'}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="flex-1 grid md:grid-cols-2 gap-6 min-h-0">
+        <Card className="flex flex-col border-0 shadow-sm overflow-hidden">
+          <CardHeader className="bg-slate-50 py-3 shrink-0">
+            <CardTitle className="text-sm text-slate-600 uppercase">Lista de Atestados</CardTitle>
+          </CardHeader>
+          <ScrollArea className="flex-1 p-4">
+            {loading ? (
+              <p>Carregando...</p>
+            ) : atestados.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Nenhum atestado encontrado.</p>
+            ) : (
+              <div className="space-y-3">
+                {atestados.map((a) => (
+                  <div
+                    key={a.id}
+                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${selectedFile?.id === a.id ? 'border-primary bg-primary/5' : 'hover:bg-slate-50'}`}
+                    onClick={() => setSelectedFile(a)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium text-sm">
+                          {a.colaboradores?.nome || currentUser?.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {format(parseISO(a.data_inicio), 'dd/MM/yyyy')} a{' '}
+                          {format(parseISO(a.data_fim), 'dd/MM/yyyy')} ({a.quantidade_dias} dias)
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-primary"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedFile(a)
+                          }}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(a.id, a.arquivo_url)
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </Card>
+
+        <Card className="flex flex-col border-0 shadow-sm overflow-hidden bg-slate-50/50">
+          <CardHeader className="bg-slate-50 py-3 shrink-0">
+            <CardTitle className="text-sm text-slate-600 uppercase">
+              Visualização do Documento
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 p-0 relative overflow-hidden flex items-center justify-center">
+            {!selectedFile ? (
+              <div className="text-center text-muted-foreground flex flex-col items-center">
+                <FileText className="w-12 h-12 mb-2 opacity-20" />
+                <p>Selecione um atestado para visualizar</p>
+              </div>
+            ) : (
+              <div className="absolute inset-0 w-full h-full flex flex-col">
+                <div className="bg-white p-2 border-b flex justify-between items-center shrink-0">
+                  <span className="text-sm font-medium truncate px-2">
+                    {selectedFile.colaboradores?.nome} - {selectedFile.quantidade_dias} dias
+                  </span>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={selectedFile.arquivo_url} target="_blank" rel="noopener noreferrer">
+                      <Download className="w-4 h-4 mr-2" /> Baixar
+                    </a>
+                  </Button>
+                </div>
+                {selectedFile.arquivo_url.toLowerCase().includes('.pdf') ? (
+                  <iframe
+                    src={selectedFile.arquivo_url}
+                    className="w-full flex-1 border-0"
+                    title="PDF Preview"
+                  />
+                ) : (
+                  <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-slate-100">
+                    <img
+                      src={selectedFile.arquivo_url}
+                      alt="Atestado"
+                      className="max-w-full max-h-full object-contain shadow-sm rounded-md"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}

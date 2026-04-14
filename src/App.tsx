@@ -12,6 +12,7 @@ import Mural from './pages/Mural'
 import Users from './pages/Users'
 import Ticket from './pages/Ticket'
 import Transport from './pages/Transport'
+import Atestados from './pages/Atestados'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -37,6 +38,7 @@ const App = () => (
                 <Route path="usuarios" element={<Users />} />
                 <Route path="ticket" element={<Ticket />} />
                 <Route path="transporte" element={<Transport />} />
+                <Route path="atestados" element={<Atestados />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

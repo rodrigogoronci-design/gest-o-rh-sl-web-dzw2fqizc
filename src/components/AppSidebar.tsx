@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { CalendarDays, Users, Utensils, Bus, Star } from 'lucide-react'
+import { CalendarDays, Users, Utensils, Bus, Star, FileText } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
 import {
@@ -21,6 +21,12 @@ export default function AppSidebar() {
       title: 'Mural de Plantões',
       path: '/app/mural',
       icon: CalendarDays,
+      roles: ['admin', 'user'],
+    },
+    {
+      title: 'Atestados',
+      path: '/app/atestados',
+      icon: FileText,
       roles: ['admin', 'user'],
     },
     { title: 'Gestão de Usuários', path: '/app/usuarios', icon: Users, roles: ['admin'] },

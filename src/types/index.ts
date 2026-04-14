@@ -20,6 +20,7 @@ export interface TransportRecord {
   homeOffice: number
   vacation: number
   shifts?: number
+  sick?: number
 }
 
 export interface AppState {
