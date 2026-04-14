@@ -119,10 +119,21 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const startStr = format(periodStart, 'yyyy-MM-dd')
   const endStr = format(periodEnd, 'yyyy-MM-dd')
 
-  const [cols, faltas, ferias, tickets, transports] = await Promise.all([
+  const prevPeriodEnd = setDate(subMonths(selectedDate, 1), 24)
+  const prevPeriodStart = setDate(subMonths(selectedDate, 2), 25)
+  const prevStartStr = format(prevPeriodStart, 'yyyy-MM-dd')
+  const prevEndStr = format(prevPeriodEnd, 'yyyy-MM-dd')
+
+  const [cols, faltas, ferias, atestados, plantoes, tickets, transports] = await Promise.all([
     supabase.from('colaboradores').select('id, role'),
     supabase.from('faltas').select('*').gte('data', startStr).lte('data', endStr),
     supabase.from('ferias').select('*').lte('data_inicio', endStr).gte('data_fim', startStr),
+    supabase
+      .from('atestados')
+      .select('*')
+      .lte('data_inicio', prevEndStr)
+      .gte('data_fim', prevStartStr),
+    supabase.from('plantoes').select('*').gte('data', startStr).lte('data', endStr),
     supabase.from('beneficios_ticket').select('*').eq('mes_ano', month),
     supabase.from('beneficios_transporte').select('*').eq('mes_ano', month),
   ])
@@ -130,11 +141,16 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const users = cols.data || []
   const faltasData = faltas.data || []
   const feriasData = ferias.data || []
+  const atestadosData = atestados.data || []
+  const plantoesData = plantoes.data || []
   const ticketsData = tickets.data || []
   const transportsData = transports.data || []
 
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd })
   const daysStrs = days.map((d) => format(d, 'yyyy-MM-dd'))
+
+  const prevDays = eachDayOfInterval({ start: prevPeriodStart, end: prevPeriodEnd })
+  const prevDaysStrs = prevDays.map((d) => format(d, 'yyyy-MM-dd'))
 
   const ticketUpdates: any[] = []
   const transportUpdates: any[] = []
@@ -145,6 +161,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
     const userId = user.id
 
     const userFaltas = faltasData.filter((f) => f.colaborador_id === userId).length
+    const userPlantoes = plantoesData.filter((p) => p.colaborador_id === userId).length
 
     let userFerias = 0
     const userFeriasList = feriasData.filter((f) => f.colaborador_id === userId)
@@ -157,13 +174,26 @@ export const syncAllUsersBeneficios = async (month: string) => {
       })
     }
 
+    let userAtestados = 0
+    const userAtestadosList = atestadosData.filter((a) => a.colaborador_id === userId)
+    if (userAtestadosList.length > 0) {
+      prevDaysStrs.forEach((dateStr) => {
+        const isAtestado = userAtestadosList.some(
+          (a) => dateStr >= a.data_inicio && dateStr <= a.data_fim,
+        )
+        if (isAtestado) userAtestados++
+      })
+    }
+
     const existingTicket = ticketsData.find((t) => t.colaborador_id === userId)
     const existingTransport = transportsData.find((t) => t.colaborador_id === userId)
 
     if (
       !existingTicket ||
       existingTicket.faltas !== userFaltas ||
-      existingTicket.ferias !== userFerias
+      existingTicket.ferias !== userFerias ||
+      existingTicket.atestados !== userAtestados ||
+      existingTicket.plantoes !== userPlantoes
     ) {
       ticketUpdates.push({
         id: existingTicket?.id,
@@ -171,16 +201,17 @@ export const syncAllUsersBeneficios = async (month: string) => {
         mes_ano: month,
         faltas: userFaltas,
         ferias: userFerias,
-        dias_uteis: existingTicket?.dias_uteis ?? 22,
-        atestados: existingTicket?.atestados ?? 0,
-        plantoes: existingTicket?.plantoes ?? 0,
+        atestados: userAtestados,
+        plantoes: userPlantoes,
+        dias_uteis: existingTicket?.dias_uteis ?? 20,
       })
     }
 
     if (
       !existingTransport ||
       existingTransport.faltas !== userFaltas ||
-      existingTransport.ferias !== userFerias
+      existingTransport.ferias !== userFerias ||
+      existingTransport.atestados !== userAtestados
     ) {
       transportUpdates.push({
         id: existingTransport?.id,
@@ -188,8 +219,8 @@ export const syncAllUsersBeneficios = async (month: string) => {
         mes_ano: month,
         faltas: userFaltas,
         ferias: userFerias,
-        dias_uteis: existingTransport?.dias_uteis ?? 22,
-        atestados: existingTransport?.atestados ?? 0,
+        atestados: userAtestados,
+        dias_uteis: existingTransport?.dias_uteis ?? 20,
         home_office: existingTransport?.home_office ?? 0,
       })
     }

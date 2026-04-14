@@ -236,12 +236,12 @@ export default function Ticket() {
             </div>
             <div className="h-4 w-px bg-slate-300 hidden sm:block"></div>
             <div
-              className="flex items-center gap-1.5 text-sm text-slate-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200"
+              className="flex items-center gap-1.5 text-sm text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200"
               title="Atestados são descontados na escala seguinte"
             >
-              <Info className="w-3.5 h-3.5 text-orange-500" />
-              <span className="text-orange-700">Atestados (Mês Anterior):</span>
-              <strong className="text-orange-800">
+              <Info className="w-3.5 h-3.5 text-slate-500" />
+              <span>Período Atestados:</span>
+              <strong className="text-slate-700">
                 {format(parseISO(prevPStart), 'dd/MM/yyyy')} a{' '}
                 {format(parseISO(prevPEnd), 'dd/MM/yyyy')}
               </strong>
