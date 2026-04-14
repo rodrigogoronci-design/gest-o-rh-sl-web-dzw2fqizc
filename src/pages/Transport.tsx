@@ -24,6 +24,7 @@ export default function Transport() {
 
   const [localData, setLocalData] = useState<Record<string, TransportRecord>>({})
   const [globalHomeOffice, setGlobalHomeOffice] = useState(0)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     const initial: Record<string, TransportRecord> = {}
@@ -52,8 +53,6 @@ export default function Transport() {
       return next
     })
   }
-
-  const [isSaving, setIsSaving] = useState(false)
 
   const handleSave = async () => {
     setIsSaving(true)

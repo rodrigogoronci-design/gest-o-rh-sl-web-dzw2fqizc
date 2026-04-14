@@ -2,6 +2,16 @@
 DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.plantoes;
 DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.beneficios_ticket;
 DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.beneficios_transporte;
+DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.colaboradores;
+
+CREATE TABLE IF NOT EXISTS public.colaboradores (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    nome TEXT NOT NULL,
+    role TEXT DEFAULT 'Colaborador',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS public.plantoes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,6 +45,9 @@ CREATE TABLE IF NOT EXISTS public.beneficios_transporte (
 );
 
 -- RLS
+ALTER TABLE public.colaboradores ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access to authenticated users" ON public.colaboradores FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
 ALTER TABLE public.plantoes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all access to authenticated users" ON public.plantoes FOR ALL TO authenticated USING (true) WITH CHECK (true);
 

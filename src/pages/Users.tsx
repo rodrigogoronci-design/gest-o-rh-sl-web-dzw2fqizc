@@ -40,6 +40,7 @@ export default function Users() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('user')
+  const [isSaving, setIsSaving] = useState(false)
 
   if (currentUser?.role !== 'admin') {
     return <Navigate to="/app/mural" replace />

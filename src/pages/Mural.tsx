@@ -33,9 +33,11 @@ import {
 export default function Mural() {
   const { currentUser, users, shifts, toggleShift, isLoading } = useAppStore()
 
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [assignUserId, setAssignUserId] = useState<string>('')
+
   if (isLoading)
     return <div className="p-8 text-center text-muted-foreground">Carregando mural...</div>
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   const monthStart = startOfMonth(selectedDate)
   const monthEnd = endOfMonth(monthStart)
@@ -44,8 +46,6 @@ export default function Mural() {
 
   const days = eachDayOfInterval({ start: startDate, end: endDate })
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-
-  const [assignUserId, setAssignUserId] = useState<string>('')
 
   const isAdmin = currentUser?.role === 'admin'
 

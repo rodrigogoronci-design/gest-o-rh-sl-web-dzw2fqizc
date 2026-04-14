@@ -23,6 +23,7 @@ export default function Ticket() {
   const { toast } = useToast()
 
   const [localData, setLocalData] = useState<Record<string, TicketRecord>>({})
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     // Initialize local state with global state or defaults
@@ -42,8 +43,6 @@ export default function Ticket() {
       [userId]: { ...prev[userId], [field]: num },
     }))
   }
-
-  const [isSaving, setIsSaving] = useState(false)
 
   const handleSave = async () => {
     setIsSaving(true)
