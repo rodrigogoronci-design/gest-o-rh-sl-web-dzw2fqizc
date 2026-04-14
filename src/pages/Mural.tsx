@@ -42,6 +42,8 @@ import {
   ChevronRight,
   Clock,
 } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { FeriasDialog } from '@/components/FeriasDialog'
 
 export default function Mural() {
   const { currentUser, users, shifts, toggleShift, isLoading } = useAppStore()
@@ -51,6 +53,8 @@ export default function Mural() {
   const [assignUserId, setAssignUserId] = useState<string>('')
   const [feriados, setFeriados] = useState<Record<string, boolean>>({})
   const [escalaStatus, setEscalaStatus] = useState<'Rascunho' | 'Pendente' | 'Aprovada'>('Rascunho')
+  const [feriasList, setFeriasList] = useState<any[]>([])
+  const [reloadKey, setReloadKey] = useState(0)
 
   const mesAno = format(selectedDate, 'yyyy-MM')
 
@@ -86,9 +90,22 @@ export default function Mural() {
       } else {
         setFeriados({})
       }
+
+      // Férias
+      const { data: feriasData } = await supabase
+        .from('ferias')
+        .select('*')
+        .lte('data_inicio', end)
+        .gte('data_fim', start)
+
+      if (feriasData) {
+        setFeriasList(feriasData)
+      } else {
+        setFeriasList([])
+      }
     }
     fetchMonthData()
-  }, [mesAno])
+  }, [mesAno, reloadKey])
 
   if (isLoading)
     return <div className="p-8 text-center text-muted-foreground">Carregando mural...</div>
@@ -120,6 +137,16 @@ export default function Mural() {
     await supabase.from('escala_mes').upsert({ mes_ano: mesAno, status })
     setEscalaStatus(status)
     toast({ title: `Escala alterada para: ${status}` })
+  }
+
+  const removeFerias = async (id: string) => {
+    await supabase.from('ferias').delete().eq('id', id)
+    setFeriasList((prev) => prev.filter((f) => f.id !== id))
+    toast({ title: 'Férias removidas' })
+  }
+
+  const handleFeriasAdded = () => {
+    setReloadKey((prev) => prev + 1)
   }
 
   return (
@@ -202,6 +229,8 @@ export default function Mural() {
                 Reverter
               </Button>
             )}
+
+            {isAdmin && <FeriasDialog onFeriasAdded={handleFeriasAdded} />}
           </div>
         </div>
       </div>
@@ -221,55 +250,109 @@ export default function Mural() {
             {days.map((day, idx) => {
               const dateStr = format(day, 'yyyy-MM-dd')
               const dayShifts = shifts[dateStr] || []
+              const dayFerias = feriasList.filter(
+                (f) => dateStr >= f.data_inicio && dateStr <= f.data_fim,
+              )
+
               const isCurrentMonth = day >= startOfDay(monthStart) && day <= endOfDay(monthEnd)
               const isWeekend = day.getDay() === 0 || day.getDay() === 6
               const isFeriado = feriados[dateStr]
 
               return (
                 <Dialog key={idx}>
-                  <DialogTrigger asChild>
-                    <div
-                      className={cn(
-                        'min-h-[100px] p-2 bg-white flex flex-col gap-1 cursor-pointer transition-colors hover:bg-slate-50',
-                        !isCurrentMonth && 'bg-slate-50 opacity-50',
-                        isToday(day) && 'bg-blue-50/50',
-                        isFeriado && 'bg-amber-50/50',
-                      )}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span
-                          className={cn(
-                            'text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full',
-                            isToday(day) ? 'bg-primary text-white' : 'text-slate-700',
-                            (isWeekend || isFeriado) && !isToday(day) && 'text-red-500',
-                          )}
-                        >
-                          {format(day, 'd')}
-                        </span>
-                        {isFeriado && (
-                          <span className="text-[10px] uppercase font-bold text-amber-600 bg-amber-100 px-1 rounded">
-                            Feriado
-                          </span>
-                        )}
-                      </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="h-full">
+                        <DialogTrigger asChild>
+                          <div
+                            className={cn(
+                              'min-h-[100px] p-2 bg-white flex flex-col gap-1 cursor-pointer transition-colors hover:bg-slate-50 h-full',
+                              !isCurrentMonth && 'bg-slate-50 opacity-50',
+                              isToday(day) && 'bg-blue-50/50',
+                              isFeriado && 'bg-amber-50/50',
+                            )}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span
+                                className={cn(
+                                  'text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full',
+                                  isToday(day) ? 'bg-primary text-white' : 'text-slate-700',
+                                  (isWeekend || isFeriado) && !isToday(day) && 'text-red-500',
+                                )}
+                              >
+                                {format(day, 'd')}
+                              </span>
+                              {isFeriado && (
+                                <span className="text-[10px] uppercase font-bold text-amber-600 bg-amber-100 px-1 rounded">
+                                  Feriado
+                                </span>
+                              )}
+                            </div>
 
-                      <div className="flex-1 flex flex-col gap-1 overflow-y-auto mt-1">
-                        {dayShifts.map((userId) => {
-                          const u = users.find((u) => u.id === userId)
-                          if (!u || u.role === 'admin') return null
-                          return (
-                            <Badge
-                              key={userId}
-                              variant="secondary"
-                              className="text-[10px] px-1.5 py-0 justify-start font-normal truncate bg-primary/10 text-primary hover:bg-primary/20"
-                            >
-                              {u.name.split(' ')[0]}
-                            </Badge>
-                          )
-                        })}
+                            <div className="flex-1 flex flex-col gap-1 overflow-y-auto mt-1">
+                              {dayShifts.map((userId) => {
+                                const u = users.find((u) => u.id === userId)
+                                if (!u || u.role === 'admin') return null
+                                return (
+                                  <Badge
+                                    key={userId}
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 justify-start font-normal truncate bg-primary/10 text-primary hover:bg-primary/20"
+                                  >
+                                    {u.name.split(' ')[0]}
+                                  </Badge>
+                                )
+                              })}
+                              {dayFerias.map((f) => {
+                                const u = users.find((u) => u.id === f.colaborador_id)
+                                if (!u) return null
+                                return (
+                                  <Badge
+                                    key={`ferias-${f.id}`}
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 justify-start font-normal truncate bg-orange-100 text-orange-800 hover:bg-orange-200"
+                                  >
+                                    🌴 {u.name.split(' ')[0]}
+                                  </Badge>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        </DialogTrigger>
                       </div>
-                    </div>
-                  </DialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      className="text-sm p-3 max-w-[250px]"
+                      side="right"
+                      align="start"
+                    >
+                      {dayShifts.length > 0 && (
+                        <div className="mb-2">
+                          <strong className="text-primary block mb-1">Plantão:</strong>
+                          <ul className="list-disc pl-4 space-y-0.5">
+                            {dayShifts.map((uid) => {
+                              const u = users.find((u) => u.id === uid)
+                              return u && u.role !== 'admin' ? <li key={uid}>{u.name}</li> : null
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                      {dayFerias.length > 0 && (
+                        <div>
+                          <strong className="text-orange-600 block mb-1">Férias:</strong>
+                          <ul className="list-disc pl-4 space-y-0.5">
+                            {dayFerias.map((f) => {
+                              const u = users.find((u) => u.id === f.colaborador_id)
+                              return u ? <li key={f.id}>{u.name}</li> : null
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                      {dayShifts.length === 0 && dayFerias.length === 0 && (
+                        <p className="text-muted-foreground">Sem plantões ou férias</p>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>
@@ -295,7 +378,10 @@ export default function Mural() {
                         <h4 className="font-semibold text-sm text-slate-700">
                           Plantonistas Escalados
                         </h4>
-                        {dayShifts.length > 0 ? (
+                        {dayShifts.filter((uid) => {
+                          const u = users.find((u) => u.id === uid)
+                          return u && u.role !== 'admin'
+                        }).length > 0 ? (
                           <div className="space-y-2">
                             {dayShifts.map((userId) => {
                               const u = users.find((u) => u.id === userId)
@@ -323,6 +409,42 @@ export default function Mural() {
                         ) : (
                           <p className="text-sm text-muted-foreground p-4 text-center border border-dashed rounded-lg">
                             Nenhum plantonista para este dia.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-4 mt-4">
+                        <h4 className="font-semibold text-sm text-slate-700">Férias neste dia</h4>
+                        {dayFerias.length > 0 ? (
+                          <div className="space-y-2">
+                            {dayFerias.map((f) => {
+                              const u = users.find((u) => u.id === f.colaborador_id)
+                              if (!u) return null
+                              return (
+                                <div
+                                  key={f.id}
+                                  className="flex justify-between items-center p-2 rounded-md bg-orange-50 border border-orange-100 shadow-sm"
+                                >
+                                  <span className="text-sm font-medium text-orange-800">
+                                    {u.name}
+                                  </span>
+                                  {canEdit && isAdmin && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeFerias(f.id)}
+                                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8"
+                                    >
+                                      Remover
+                                    </Button>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground p-4 text-center border border-dashed rounded-lg">
+                            Nenhum colaborador de férias.
                           </p>
                         )}
                       </div>
