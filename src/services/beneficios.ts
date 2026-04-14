@@ -42,7 +42,6 @@ export const saveTicketsBatch = async (rows: any[], month: string) => {
   }, {})
 
   const transportRows = rows.map((r: any) => {
-    const existing = transportsMap[r.colaborador_id] || { home_office: 0 }
     return {
       colaborador_id: r.colaborador_id,
       mes_ano: r.mes_ano,
@@ -50,7 +49,7 @@ export const saveTicketsBatch = async (rows: any[], month: string) => {
       ferias: r.ferias,
       atestados: r.atestados,
       faltas: r.faltas,
-      home_office: existing.home_office,
+      home_office: 0,
     }
   })
 
@@ -221,7 +220,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
         ferias: userFerias,
         atestados: userAtestados,
         dias_uteis: existingTransport?.dias_uteis ?? 20,
-        home_office: existingTransport?.home_office ?? 0,
+        home_office: 0,
       })
     }
   })

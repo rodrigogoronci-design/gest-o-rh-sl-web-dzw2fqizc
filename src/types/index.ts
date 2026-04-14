@@ -18,9 +18,7 @@ export interface TicketRecord {
 
 export interface TransportRecord {
   businessDays: number
-  homeOffice: number
   vacation: number
-  shifts?: number
   sick?: number
   faltas: number
 }

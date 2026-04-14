@@ -49,7 +49,6 @@ export default function Transport() {
   const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
   const [preCalculatedAtestados, setPreCalculatedAtestados] = useState<Record<string, number>>({})
   const [preCalculatedFaltas, setPreCalculatedFaltas] = useState<Record<string, number>>({})
-  const [globalHomeOffice, setGlobalHomeOffice] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -115,11 +114,6 @@ export default function Transport() {
       setPreCalculatedVacations(vacationDaysCount)
       setPreCalculatedAtestados(atestadoDaysCount)
 
-      const currentMonthShifts: Record<string, number> = {}
-      plantoes?.forEach((p) => {
-        currentMonthShifts[p.colaborador_id] = (currentMonthShifts[p.colaborador_id] || 0) + 1
-      })
-
       const currentMonthFaltas: Record<string, number> = {}
       faltas?.forEach((f) => {
         currentMonthFaltas[f.colaborador_id] = (currentMonthFaltas[f.colaborador_id] || 0) + 1
@@ -137,12 +131,10 @@ export default function Transport() {
         .forEach((u) => {
           const t = transportsByColab[u.id]
           const isStored = !!t
-          const data = t || { dias_uteis: 20, home_office: 0, atestados: 0, ferias: 0, faltas: 0 }
+          const data = t || { dias_uteis: 20, atestados: 0, ferias: 0, faltas: 0 }
 
           initial[u.id] = {
             businessDays: isStored ? data.dias_uteis : 20,
-            homeOffice: isStored ? data.home_office : 0,
-            shifts: currentMonthShifts[u.id] || 0,
             vacation: isStored ? data.ferias : vacationDaysCount[u.id] || 0,
             sick: isStored ? data.atestados : atestadoDaysCount[u.id] || 0,
             faltas: isStored ? data.faltas : currentMonthFaltas[u.id] || 0,
@@ -160,7 +152,6 @@ export default function Transport() {
   }
 
   const handleInputChange = (userId: string, field: keyof TransportRecord, value: string) => {
-    if (field === 'shifts') return
     const num = parseInt(value) || 0
 
     const checkWarning = (f: string, preCalc: number, label: string) => {
@@ -182,23 +173,13 @@ export default function Transport() {
     setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: num } }))
   }
 
-  const applyGlobalHomeOffice = () => {
-    setLocalData((prev) => {
-      const next = { ...prev }
-      Object.keys(next).forEach((id) => {
-        next[id] = { ...next[id], homeOffice: globalHomeOffice }
-      })
-      return next
-    })
-  }
-
   const handleSave = async () => {
     setIsSaving(true)
     const rows = Object.entries(localData).map(([colaborador_id, data]) => ({
       colaborador_id,
       mes_ano: selectedMonth,
       dias_uteis: data.businessDays,
-      home_office: data.homeOffice,
+      home_office: 0,
       ferias: data.vacation,
       atestados: data.sick,
       faltas: data.faltas,
@@ -267,22 +248,6 @@ export default function Transport() {
           </div>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-white p-1 rounded-md border shadow-sm">
-            <span className="text-xs font-semibold px-2 text-slate-500 uppercase tracking-wider">
-              Home Office Global:
-            </span>
-            <Input
-              type="number"
-              min="0"
-              className="w-16 h-8 text-center"
-              value={globalHomeOffice}
-              onChange={(e) => setGlobalHomeOffice(parseInt(e.target.value) || 0)}
-            />
-            <Button variant="secondary" size="sm" className="h-8" onClick={applyGlobalHomeOffice}>
-              Aplicar
-            </Button>
-          </div>
-          <div className="h-8 w-px bg-slate-200 hidden md:block"></div>
           <Button
             variant="outline"
             onClick={handleSync}
@@ -323,8 +288,6 @@ export default function Transport() {
               <TableRow>
                 <TableHead className="min-w-[160px]">Colaborador</TableHead>
                 <TableHead className="w-[100px]">Dias Úteis</TableHead>
-                <TableHead className="w-[100px]">Plantões</TableHead>
-                <TableHead className="w-[100px]">Home Office</TableHead>
                 <TableHead className="w-[100px]">Atestados</TableHead>
                 <TableHead className="w-[100px]">Férias</TableHead>
                 <TableHead className="w-[100px]">Faltas</TableHead>
@@ -338,9 +301,7 @@ export default function Transport() {
                 .map((u) => {
                   const data = localData[u.id] || {
                     businessDays: 0,
-                    homeOffice: 0,
                     vacation: 0,
-                    shifts: 0,
                     sick: 0,
                     faltas: 0,
                   }
@@ -349,12 +310,7 @@ export default function Transport() {
                   const preCalcFaltas = preCalculatedFaltas[u.id] || 0
                   const eligibleDays = Math.max(
                     0,
-                    data.businessDays -
-                      data.homeOffice -
-                      data.vacation -
-                      (data.shifts || 0) -
-                      (data.sick || 0) -
-                      (data.faltas || 0),
+                    data.businessDays - data.vacation - (data.sick || 0) - (data.faltas || 0),
                   )
                   const totalValue = eligibleDays * TRANSPORT_DAILY_VALUE
                   grandTotal += totalValue
@@ -376,38 +332,6 @@ export default function Transport() {
                             {(data.businessDays * TRANSPORT_DAILY_VALUE)
                               .toFixed(2)
                               .replace('.', ',')}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <UnitInput
-                            value={data.shifts || 0}
-                            readOnly
-                            unit="dias"
-                            className="bg-slate-50 cursor-not-allowed border-slate-200 text-slate-500"
-                          />
-                          <span className="text-[10px] text-red-600 font-medium">
-                            - R${' '}
-                            {((data.shifts || 0) * TRANSPORT_DAILY_VALUE)
-                              .toFixed(2)
-                              .replace('.', ',')}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <UnitInput
-                            value={data.homeOffice}
-                            onChange={(e: any) =>
-                              handleInputChange(u.id, 'homeOffice', e.target.value)
-                            }
-                            unit="dias"
-                            className="text-amber-600"
-                          />
-                          <span className="text-[10px] text-amber-600 font-medium">
-                            - R${' '}
-                            {(data.homeOffice * TRANSPORT_DAILY_VALUE).toFixed(2).replace('.', ',')}
                           </span>
                         </div>
                       </TableCell>
