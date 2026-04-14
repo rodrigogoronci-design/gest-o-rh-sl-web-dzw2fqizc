@@ -1010,25 +1010,34 @@ export const Constants = {
 //    LANGUAGE plpgsql
 //    SECURITY DEFINER
 //   AS $function$
+//   DECLARE
+//     v_recebe boolean;
 //   BEGIN
 //     -- Prevent infinite recursion
 //     IF pg_trigger_depth() > 1 THEN
 //       RETURN NEW;
 //     END IF;
 //
-//     INSERT INTO public.beneficios_transporte (
-//       colaborador_id, mes_ano, ferias, atestados, faltas, dias_uteis, home_office
-//     ) VALUES (
-//       NEW.colaborador_id, NEW.mes_ano, NEW.ferias, NEW.atestados, NEW.faltas, 20, 0
-//     )
-//     ON CONFLICT (colaborador_id, mes_ano) DO UPDATE SET
-//       ferias = EXCLUDED.ferias,
-//       atestados = EXCLUDED.atestados,
-//       faltas = EXCLUDED.faltas
-//     WHERE
-//       public.beneficios_transporte.ferias IS DISTINCT FROM EXCLUDED.ferias OR
-//       public.beneficios_transporte.atestados IS DISTINCT FROM EXCLUDED.atestados OR
-//       public.beneficios_transporte.faltas IS DISTINCT FROM EXCLUDED.faltas;
+//     -- Check if the user is eligible for Vale Transporte
+//     SELECT recebe_transporte INTO v_recebe
+//     FROM public.colaboradores
+//     WHERE id = NEW.colaborador_id;
+//
+//     IF v_recebe = true THEN
+//       INSERT INTO public.beneficios_transporte (
+//         colaborador_id, mes_ano, ferias, atestados, faltas, dias_uteis, home_office
+//       ) VALUES (
+//         NEW.colaborador_id, NEW.mes_ano, NEW.ferias, NEW.atestados, NEW.faltas, 20, 0
+//       )
+//       ON CONFLICT (colaborador_id, mes_ano) DO UPDATE SET
+//         ferias = EXCLUDED.ferias,
+//         atestados = EXCLUDED.atestados,
+//         faltas = EXCLUDED.faltas
+//       WHERE
+//         public.beneficios_transporte.ferias IS DISTINCT FROM EXCLUDED.ferias OR
+//         public.beneficios_transporte.atestados IS DISTINCT FROM EXCLUDED.atestados OR
+//         public.beneficios_transporte.faltas IS DISTINCT FROM EXCLUDED.faltas;
+//     END IF;
 //
 //     RETURN NEW;
 //   END;

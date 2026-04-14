@@ -74,6 +74,15 @@ export default function Users() {
       })
       if (error || data?.error) throw error || new Error(data?.error)
 
+      if (data?.id) {
+        await supabase
+          .from('colaboradores')
+          .update({
+            recebe_transporte: recebeTransporte,
+          })
+          .eq('id', data.id)
+      }
+
       setIsOpen(false)
       setName('')
       setEmail('')
@@ -126,6 +135,14 @@ export default function Users() {
         },
       })
       if (error || data?.error) throw error || new Error(data?.error)
+
+      // Garantia de persistência no banco independentemente do deploy da edge function
+      await supabase
+        .from('colaboradores')
+        .update({
+          recebe_transporte: editRecebeTransporte,
+        })
+        .eq('id', editId)
 
       toast({
         title: 'Usuário atualizado',
