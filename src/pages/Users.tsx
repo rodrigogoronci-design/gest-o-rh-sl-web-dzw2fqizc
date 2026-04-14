@@ -133,8 +133,8 @@ export default function Users() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">Usuário Normal</SelectItem>
-                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="user">Usuário Normal (Funcionário)</SelectItem>
+                    <SelectItem value="admin">Administrador (Gestor)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -163,11 +163,8 @@ export default function Users() {
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
-                    <Badge
-                      variant={u.role === 'admin' ? 'default' : 'secondary'}
-                      className="capitalize"
-                    >
-                      {u.role === 'admin' ? 'Admin' : 'Normal'}
+                    <Badge variant={u.role === 'admin' ? 'default' : 'secondary'}>
+                      {u.role === 'admin' ? 'Administrador' : 'Funcionário'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">

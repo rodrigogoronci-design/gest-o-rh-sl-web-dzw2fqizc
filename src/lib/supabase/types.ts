@@ -70,6 +70,85 @@ export type Database = {
           },
         ]
       }
+      beneficios_ticket: {
+        Row: {
+          atestados: number
+          colaborador_id: string
+          created_at: string
+          dias_uteis: number
+          ferias: number
+          id: string
+          mes_ano: string
+          plantoes: number
+        }
+        Insert: {
+          atestados?: number
+          colaborador_id: string
+          created_at?: string
+          dias_uteis?: number
+          ferias?: number
+          id?: string
+          mes_ano: string
+          plantoes?: number
+        }
+        Update: {
+          atestados?: number
+          colaborador_id?: string
+          created_at?: string
+          dias_uteis?: number
+          ferias?: number
+          id?: string
+          mes_ano?: string
+          plantoes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'beneficios_ticket_colaborador_id_fkey'
+            columns: ['colaborador_id']
+            isOneToOne: false
+            referencedRelation: 'colaboradores'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      beneficios_transporte: {
+        Row: {
+          colaborador_id: string
+          created_at: string
+          dias_uteis: number
+          ferias: number
+          home_office: number
+          id: string
+          mes_ano: string
+        }
+        Insert: {
+          colaborador_id: string
+          created_at?: string
+          dias_uteis?: number
+          ferias?: number
+          home_office?: number
+          id?: string
+          mes_ano: string
+        }
+        Update: {
+          colaborador_id?: string
+          created_at?: string
+          dias_uteis?: number
+          ferias?: number
+          home_office?: number
+          id?: string
+          mes_ano?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'beneficios_transporte_colaborador_id_fkey'
+            columns: ['colaborador_id']
+            isOneToOne: false
+            referencedRelation: 'colaboradores'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       colaboradores: {
         Row: {
           cargo: string | null
@@ -212,6 +291,35 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      plantoes: {
+        Row: {
+          colaborador_id: string
+          created_at: string
+          data: string
+          id: string
+        }
+        Insert: {
+          colaborador_id: string
+          created_at?: string
+          data: string
+          id?: string
+        }
+        Update: {
+          colaborador_id?: string
+          created_at?: string
+          data?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'plantoes_colaborador_id_fkey'
+            columns: ['colaborador_id']
+            isOneToOne: false
+            referencedRelation: 'colaboradores'
+            referencedColumns: ['id']
+          },
+        ]
       }
       ponto: {
         Row: {
@@ -520,6 +628,23 @@ export const Constants = {
 //   nota_trabalho_equipe: numeric (not null)
 //   observacoes: text (nullable)
 //   organization_id: uuid (nullable)
+// Table: beneficios_ticket
+//   id: uuid (not null, default: gen_random_uuid())
+//   colaborador_id: uuid (not null)
+//   mes_ano: text (not null)
+//   dias_uteis: integer (not null, default: 0)
+//   plantoes: integer (not null, default: 0)
+//   atestados: integer (not null, default: 0)
+//   ferias: integer (not null, default: 0)
+//   created_at: timestamp with time zone (not null, default: now())
+// Table: beneficios_transporte
+//   id: uuid (not null, default: gen_random_uuid())
+//   colaborador_id: uuid (not null)
+//   mes_ano: text (not null)
+//   dias_uteis: integer (not null, default: 0)
+//   home_office: integer (not null, default: 0)
+//   ferias: integer (not null, default: 0)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: colaboradores
 //   id: uuid (not null, default: gen_random_uuid())
 //   created_at: timestamp with time zone (not null, default: timezone('utc'::text, now()))
@@ -554,6 +679,11 @@ export const Constants = {
 //   id: uuid (not null, default: gen_random_uuid())
 //   created_at: timestamp with time zone (not null, default: now())
 //   nome: text (not null)
+// Table: plantoes
+//   id: uuid (not null, default: gen_random_uuid())
+//   colaborador_id: uuid (not null)
+//   data: date (not null)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: ponto
 //   id: uuid (not null, default: gen_random_uuid())
 //   created_at: timestamp with time zone (not null, default: timezone('utc'::text, now()))
@@ -592,6 +722,14 @@ export const Constants = {
 //   PRIMARY KEY avaliacoes_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY fk_avaliacoes_avaliador: FOREIGN KEY (avaliador_id) REFERENCES colaboradores(id) ON DELETE SET NULL
 //   FOREIGN KEY fk_avaliacoes_colaborador: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
+// Table: beneficios_ticket
+//   FOREIGN KEY beneficios_ticket_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
+//   UNIQUE beneficios_ticket_colaborador_id_mes_ano_key: UNIQUE (colaborador_id, mes_ano)
+//   PRIMARY KEY beneficios_ticket_pkey: PRIMARY KEY (id)
+// Table: beneficios_transporte
+//   FOREIGN KEY beneficios_transporte_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
+//   UNIQUE beneficios_transporte_colaborador_id_mes_ano_key: UNIQUE (colaborador_id, mes_ano)
+//   PRIMARY KEY beneficios_transporte_pkey: PRIMARY KEY (id)
 // Table: colaboradores
 //   FOREIGN KEY colaboradores_organization_id_fkey: FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 //   PRIMARY KEY colaboradores_pkey: PRIMARY KEY (id)
@@ -603,6 +741,10 @@ export const Constants = {
 //   PRIMARY KEY ferias_pkey: PRIMARY KEY (id)
 // Table: organizations
 //   PRIMARY KEY organizations_pkey: PRIMARY KEY (id)
+// Table: plantoes
+//   UNIQUE plantoes_colaborador_id_data_key: UNIQUE (colaborador_id, data)
+//   FOREIGN KEY plantoes_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
+//   PRIMARY KEY plantoes_pkey: PRIMARY KEY (id)
 // Table: ponto
 //   FOREIGN KEY ponto_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
 //   FOREIGN KEY ponto_organization_id_fkey: FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
@@ -620,6 +762,14 @@ export const Constants = {
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+// Table: beneficios_ticket
+//   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: beneficios_transporte
+//   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: colaboradores
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
@@ -629,6 +779,10 @@ export const Constants = {
 //     USING: true
 //     WITH CHECK: true
 // Table: organizations
+//   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: plantoes
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
@@ -664,6 +818,12 @@ export const Constants = {
 //
 
 // --- INDEXES ---
+// Table: beneficios_ticket
+//   CREATE UNIQUE INDEX beneficios_ticket_colaborador_id_mes_ano_key ON public.beneficios_ticket USING btree (colaborador_id, mes_ano)
+// Table: beneficios_transporte
+//   CREATE UNIQUE INDEX beneficios_transporte_colaborador_id_mes_ano_key ON public.beneficios_transporte USING btree (colaborador_id, mes_ano)
 // Table: colaboradores
 //   CREATE INDEX idx_colaboradores_organization_id ON public.colaboradores USING btree (organization_id)
 //   CREATE INDEX idx_colaboradores_user_id ON public.colaboradores USING btree (user_id)
+// Table: plantoes
+//   CREATE UNIQUE INDEX plantoes_colaborador_id_data_key ON public.plantoes USING btree (colaborador_id, data)

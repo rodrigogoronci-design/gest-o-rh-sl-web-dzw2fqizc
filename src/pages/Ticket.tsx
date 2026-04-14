@@ -28,9 +28,11 @@ export default function Ticket() {
   useEffect(() => {
     // Initialize local state with global state or defaults
     const initial: Record<string, TicketRecord> = {}
-    users.forEach((u) => {
-      initial[u.id] = ticketData[u.id] || { regular: 20, shifts: 0, sick: 0, vacation: 0 }
-    })
+    users
+      .filter((u) => u.role === 'user')
+      .forEach((u) => {
+        initial[u.id] = ticketData[u.id] || { regular: 20, shifts: 0, sick: 0, vacation: 0 }
+      })
     setLocalData(initial)
   }, [users, ticketData])
 
@@ -93,63 +95,65 @@ export default function Ticket() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => {
-                const data = localData[u.id] || { regular: 0, shifts: 0, sick: 0, vacation: 0 }
-                const eligibleDays = Math.max(
-                  0,
-                  data.regular + data.shifts - (data.sick + data.vacation),
-                )
-                const totalValue = eligibleDays * TICKET_VALUE
-                grandTotal += totalValue
+              {users
+                .filter((u) => u.role === 'user')
+                .map((u) => {
+                  const data = localData[u.id] || { regular: 0, shifts: 0, sick: 0, vacation: 0 }
+                  const eligibleDays = Math.max(
+                    0,
+                    data.regular + data.shifts - (data.sick + data.vacation),
+                  )
+                  const totalValue = eligibleDays * TICKET_VALUE
+                  grandTotal += totalValue
 
-                return (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.name}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={data.regular}
-                        onChange={(e) => handleInputChange(u.id, 'regular', e.target.value)}
-                        className="h-8"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={data.shifts}
-                        onChange={(e) => handleInputChange(u.id, 'shifts', e.target.value)}
-                        className="h-8"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={data.sick}
-                        onChange={(e) => handleInputChange(u.id, 'sick', e.target.value)}
-                        className="h-8 text-red-600"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={data.vacation}
-                        onChange={(e) => handleInputChange(u.id, 'vacation', e.target.value)}
-                        className="h-8 text-red-600"
-                      />
-                    </TableCell>
-                    <TableCell className="text-center font-bold text-slate-700">
-                      {eligibleDays}
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-primary">
-                      R$ {totalValue.toFixed(2).replace('.', ',')}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
+                  return (
+                    <TableRow key={u.id}>
+                      <TableCell className="font-medium">{u.name}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={data.regular}
+                          onChange={(e) => handleInputChange(u.id, 'regular', e.target.value)}
+                          className="h-8"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={data.shifts}
+                          onChange={(e) => handleInputChange(u.id, 'shifts', e.target.value)}
+                          className="h-8"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={data.sick}
+                          onChange={(e) => handleInputChange(u.id, 'sick', e.target.value)}
+                          className="h-8 text-red-600"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={data.vacation}
+                          onChange={(e) => handleInputChange(u.id, 'vacation', e.target.value)}
+                          className="h-8 text-red-600"
+                        />
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-slate-700">
+                        {eligibleDays}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-primary">
+                        R$ {totalValue.toFixed(2).replace('.', ',')}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
             </TableBody>
           </Table>
         </CardContent>

@@ -101,7 +101,7 @@ export default function Mural() {
                       <div className="flex-1 flex flex-col gap-1 overflow-y-auto mt-1">
                         {dayShifts.map((userId) => {
                           const u = users.find((u) => u.id === userId)
-                          if (!u) return null
+                          if (!u || u.role === 'admin') return null
                           return (
                             <Badge
                               key={userId}
@@ -127,12 +127,13 @@ export default function Mural() {
                           <p className="text-sm font-medium">Plantonistas escalados:</p>
                           {dayShifts.map((userId) => {
                             const u = users.find((u) => u.id === userId)
+                            if (!u || u.role === 'admin') return null
                             return (
                               <div
                                 key={userId}
                                 className="flex justify-between items-center p-2 rounded-md bg-slate-50 border"
                               >
-                                <span>{u?.name}</span>
+                                <span>{u.name}</span>
                                 {isAdmin && (
                                   <Button
                                     variant="destructive"
@@ -162,7 +163,7 @@ export default function Mural() {
                               </SelectTrigger>
                               <SelectContent>
                                 {users
-                                  .filter((u) => !dayShifts.includes(u.id))
+                                  .filter((u) => u.role === 'user' && !dayShifts.includes(u.id))
                                   .map((u) => (
                                     <SelectItem key={u.id} value={u.id}>
                                       {u.name}

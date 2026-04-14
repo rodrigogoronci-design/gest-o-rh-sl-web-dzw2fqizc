@@ -28,9 +28,11 @@ export default function Transport() {
 
   useEffect(() => {
     const initial: Record<string, TransportRecord> = {}
-    users.forEach((u) => {
-      initial[u.id] = transportData[u.id] || { businessDays: 20, homeOffice: 0, vacation: 0 }
-    })
+    users
+      .filter((u) => u.role === 'user')
+      .forEach((u) => {
+        initial[u.id] = transportData[u.id] || { businessDays: 20, homeOffice: 0, vacation: 0 }
+      })
     setLocalData(initial)
   }, [users, transportData])
 
@@ -118,54 +120,56 @@ export default function Transport() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => {
-                const data = localData[u.id] || { businessDays: 0, homeOffice: 0, vacation: 0 }
-                const eligibleDays = Math.max(
-                  0,
-                  data.businessDays - data.homeOffice - data.vacation,
-                )
-                const totalValue = eligibleDays * TRANSPORT_DAILY_VALUE
-                grandTotal += totalValue
+              {users
+                .filter((u) => u.role === 'user')
+                .map((u) => {
+                  const data = localData[u.id] || { businessDays: 0, homeOffice: 0, vacation: 0 }
+                  const eligibleDays = Math.max(
+                    0,
+                    data.businessDays - data.homeOffice - data.vacation,
+                  )
+                  const totalValue = eligibleDays * TRANSPORT_DAILY_VALUE
+                  grandTotal += totalValue
 
-                return (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.name}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={data.businessDays}
-                        onChange={(e) => handleInputChange(u.id, 'businessDays', e.target.value)}
-                        className="h-8"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={data.homeOffice}
-                        onChange={(e) => handleInputChange(u.id, 'homeOffice', e.target.value)}
-                        className="h-8 text-amber-600"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={data.vacation}
-                        onChange={(e) => handleInputChange(u.id, 'vacation', e.target.value)}
-                        className="h-8 text-red-600"
-                      />
-                    </TableCell>
-                    <TableCell className="text-center font-bold text-slate-700">
-                      {eligibleDays}
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-primary">
-                      R$ {totalValue.toFixed(2).replace('.', ',')}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
+                  return (
+                    <TableRow key={u.id}>
+                      <TableCell className="font-medium">{u.name}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={data.businessDays}
+                          onChange={(e) => handleInputChange(u.id, 'businessDays', e.target.value)}
+                          className="h-8"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={data.homeOffice}
+                          onChange={(e) => handleInputChange(u.id, 'homeOffice', e.target.value)}
+                          className="h-8 text-amber-600"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={data.vacation}
+                          onChange={(e) => handleInputChange(u.id, 'vacation', e.target.value)}
+                          className="h-8 text-red-600"
+                        />
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-slate-700">
+                        {eligibleDays}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-primary">
+                        R$ {totalValue.toFixed(2).replace('.', ',')}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
             </TableBody>
           </Table>
         </CardContent>
