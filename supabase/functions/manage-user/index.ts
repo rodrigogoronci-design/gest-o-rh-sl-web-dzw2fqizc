@@ -37,8 +37,23 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'delete') {
-      const { error } = await supabase.auth.admin.deleteUser(payload.id)
-      if (error) throw error
+      const { data: colab } = await supabase
+        .from('colaboradores')
+        .select('user_id')
+        .eq('id', payload.id)
+        .single()
+      const authUserId = colab?.user_id || payload.id
+
+      const { error: dbErr } = await supabase.from('colaboradores').delete().eq('id', payload.id)
+      if (dbErr) throw dbErr
+
+      if (authUserId) {
+        const { error } = await supabase.auth.admin.deleteUser(authUserId)
+        if (error && !error.message.toLowerCase().includes('user not found')) {
+          console.error('Error deleting auth user:', error)
+        }
+      }
+
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

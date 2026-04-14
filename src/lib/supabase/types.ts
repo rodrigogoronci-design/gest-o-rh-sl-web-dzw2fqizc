@@ -9,6 +9,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      atestados: {
+        Row: {
+          arquivo_url: string | null
+          colaborador_id: string
+          created_at: string
+          data_fim: string
+          data_inicio: string
+          id: string
+          observacoes: string | null
+          organization_id: string | null
+          quantidade_dias: number
+        }
+        Insert: {
+          arquivo_url?: string | null
+          colaborador_id: string
+          created_at?: string
+          data_fim: string
+          data_inicio: string
+          id?: string
+          observacoes?: string | null
+          organization_id?: string | null
+          quantidade_dias: number
+        }
+        Update: {
+          arquivo_url?: string | null
+          colaborador_id?: string
+          created_at?: string
+          data_fim?: string
+          data_inicio?: string
+          id?: string
+          observacoes?: string | null
+          organization_id?: string | null
+          quantidade_dias?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'atestados_colaborador_id_fkey'
+            columns: ['colaborador_id']
+            isOneToOne: false
+            referencedRelation: 'colaboradores'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'atestados_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       avaliacoes: {
         Row: {
           avaliador_id: string | null
@@ -113,6 +164,7 @@ export type Database = {
       }
       beneficios_transporte: {
         Row: {
+          atestados: number
           colaborador_id: string
           created_at: string
           dias_uteis: number
@@ -122,6 +174,7 @@ export type Database = {
           mes_ano: string
         }
         Insert: {
+          atestados?: number
           colaborador_id: string
           created_at?: string
           dias_uteis?: number
@@ -131,6 +184,7 @@ export type Database = {
           mes_ano: string
         }
         Update: {
+          atestados?: number
           colaborador_id?: string
           created_at?: string
           dias_uteis?: number
@@ -656,6 +710,16 @@ export const Constants = {
 // --- COLUMN TYPES (actual PostgreSQL types) ---
 // Use this to know the real database type when writing migrations.
 // "string" in TypeScript types above may be uuid, text, varchar, timestamptz, etc.
+// Table: atestados
+//   id: uuid (not null, default: gen_random_uuid())
+//   colaborador_id: uuid (not null)
+//   data_inicio: date (not null)
+//   data_fim: date (not null)
+//   quantidade_dias: integer (not null)
+//   arquivo_url: text (nullable)
+//   observacoes: text (nullable)
+//   created_at: timestamp with time zone (not null, default: now())
+//   organization_id: uuid (nullable)
 // Table: avaliacoes
 //   id: uuid (not null, default: gen_random_uuid())
 //   created_at: timestamp with time zone (not null, default: now())
@@ -684,6 +748,7 @@ export const Constants = {
 //   home_office: integer (not null, default: 0)
 //   ferias: integer (not null, default: 0)
 //   created_at: timestamp with time zone (not null, default: now())
+//   atestados: integer (not null, default: 0)
 // Table: colaboradores
 //   id: uuid (not null, default: gen_random_uuid())
 //   created_at: timestamp with time zone (not null, default: timezone('utc'::text, now()))
@@ -765,6 +830,10 @@ export const Constants = {
 //   organization_id: uuid (nullable)
 
 // --- CONSTRAINTS ---
+// Table: atestados
+//   FOREIGN KEY atestados_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
+//   FOREIGN KEY atestados_organization_id_fkey: FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+//   PRIMARY KEY atestados_pkey: PRIMARY KEY (id)
 // Table: avaliacoes
 //   FOREIGN KEY avaliacoes_organization_id_fkey: FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 //   PRIMARY KEY avaliacoes_pkey: PRIMARY KEY (id)
@@ -811,6 +880,10 @@ export const Constants = {
 //   PRIMARY KEY vagas_pkey: PRIMARY KEY (id)
 
 // --- ROW LEVEL SECURITY POLICIES ---
+// Table: atestados
+//   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: avaliacoes
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true

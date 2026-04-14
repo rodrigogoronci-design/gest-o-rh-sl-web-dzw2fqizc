@@ -150,8 +150,15 @@ export default function Users() {
     if (!confirm('Deseja realmente remover este usuário?')) return
 
     try {
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: { action: 'delete', payload: { id } },
+      })
+
+      if (error || data?.error) throw error || new Error(data?.error)
+
       await removeUser(id)
       toast({ title: 'Usuário removido', description: `${userName} foi removido do sistema.` })
+      setTimeout(() => window.location.reload(), 1500)
     } catch (err: any) {
       toast({
         title: 'Erro',
