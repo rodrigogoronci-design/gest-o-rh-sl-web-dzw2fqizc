@@ -56,6 +56,9 @@ export default function Ticket() {
   const pStart = format(new Date(year, month - 1, 25), 'yyyy-MM-dd')
   const pEnd = format(new Date(year, month, 24), 'yyyy-MM-dd')
 
+  const prevPStart = format(new Date(year, month - 2, 25), 'yyyy-MM-dd')
+  const prevPEnd = format(new Date(year, month - 1, 24), 'yyyy-MM-dd')
+
   useEffect(() => {
     if (!users || users.length === 0) return
 
@@ -63,16 +66,24 @@ export default function Ticket() {
       setIsLoading(true)
       const [{ data: ferias }, { data: atestados }, { data: plantoes }, { data: tickets }] =
         await Promise.all([
-          supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
-          supabase.from('atestados').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
+          supabase
+            .from('ferias')
+            .select('*')
+            .lte('data_inicio', prevPEnd)
+            .gte('data_fim', prevPStart),
+          supabase
+            .from('atestados')
+            .select('*')
+            .lte('data_inicio', prevPEnd)
+            .gte('data_fim', prevPStart),
           supabase.from('plantoes').select('*').gte('data', pStart).lte('data', pEnd),
           supabase.from('beneficios_ticket').select('*').eq('mes_ano', selectedMonth),
         ])
 
       const calcDays = (records: any[]) => {
         const counts: Record<string, number> = {}
-        const start = parseISO(pStart)
-        const end = parseISO(pEnd)
+        const start = parseISO(prevPStart)
+        const end = parseISO(prevPEnd)
         records?.forEach((r) => {
           if (!r.colaborador_id) return
           const rStart = parseISO(r.data_inicio)
@@ -189,6 +200,18 @@ export default function Ticket() {
               <span>Ciclo de Apuração:</span>
               <strong className="text-slate-700">
                 {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
+              </strong>
+            </div>
+            <div className="h-4 w-px bg-slate-300 hidden sm:block"></div>
+            <div
+              className="flex items-center gap-1.5 text-sm text-slate-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200"
+              title="Atestados e férias são descontados na escala seguinte"
+            >
+              <Info className="w-3.5 h-3.5 text-orange-500" />
+              <span className="text-orange-700">Descontos referem-se a:</span>
+              <strong className="text-orange-800">
+                {format(parseISO(prevPStart), 'dd/MM/yyyy')} a{' '}
+                {format(parseISO(prevPEnd), 'dd/MM/yyyy')}
               </strong>
             </div>
           </div>
@@ -327,7 +350,9 @@ export default function Ticket() {
                                   <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Diferente do sistema ({preCalcVacation} dias)</p>
+                                  <p>
+                                    Diferente do sistema ({preCalcVacation} dias no ciclo anterior)
+                                  </p>
                                 </TooltipContent>
                               </Tooltip>
                             )}
