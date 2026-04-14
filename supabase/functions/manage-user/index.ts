@@ -1,6 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { corsHeaders } from '../_shared/cors.ts'
-import { createClient } from 'jsr:@supabase/supabase-js'
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
