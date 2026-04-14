@@ -81,10 +81,10 @@ export default function Users() {
         description: `${name} foi adicionado com sucesso.`,
       })
       setTimeout(() => window.location.reload(), 1500)
-    } catch (err) {
+    } catch (err: any) {
       toast({
         title: 'Erro',
-        description: 'Não foi possível adicionar o usuário.',
+        description: err.message || 'Não foi possível adicionar o usuário.',
         variant: 'destructive',
       })
     } finally {
@@ -127,10 +127,10 @@ export default function Users() {
       })
       setIsEditOpen(false)
       setTimeout(() => window.location.reload(), 1500)
-    } catch (err) {
+    } catch (err: any) {
       toast({
         title: 'Erro',
-        description: 'Não foi possível atualizar o usuário.',
+        description: err.message || 'Não foi possível atualizar o usuário.',
         variant: 'destructive',
       })
     } finally {
@@ -152,8 +152,12 @@ export default function Users() {
     try {
       await removeUser(id)
       toast({ title: 'Usuário removido', description: `${userName} foi removido do sistema.` })
-    } catch (err) {
-      toast({ title: 'Erro', description: 'Não foi possível remover.', variant: 'destructive' })
+    } catch (err: any) {
+      toast({
+        title: 'Erro',
+        description: err.message || 'Não foi possível remover.',
+        variant: 'destructive',
+      })
     }
   }
 

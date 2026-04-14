@@ -47,6 +47,13 @@ Deno.serve(async (req: Request) => {
     if (action === 'update') {
       const { id, email, name, role, password } = payload
 
+      const { data: colab } = await supabase
+        .from('colaboradores')
+        .select('user_id')
+        .eq('id', id)
+        .single()
+      const authUserId = colab?.user_id || id
+
       const updateData: any = {
         email,
         user_metadata: { name },
@@ -57,8 +64,10 @@ Deno.serve(async (req: Request) => {
         updateData.password = password
       }
 
-      const { error: authErr } = await supabase.auth.admin.updateUserById(id, updateData)
-      if (authErr) throw authErr
+      if (authUserId) {
+        const { error: authErr } = await supabase.auth.admin.updateUserById(authUserId, updateData)
+        if (authErr) throw authErr
+      }
 
       const { error: dbErr } = await supabase
         .from('colaboradores')
@@ -67,7 +76,7 @@ Deno.serve(async (req: Request) => {
           nome: name,
           role: role === 'admin' ? 'Admin' : 'Colaborador',
         })
-        .eq('user_id', id)
+        .eq('id', id)
       if (dbErr) throw dbErr
 
       return new Response(JSON.stringify({ success: true }), {
