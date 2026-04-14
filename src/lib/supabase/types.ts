@@ -224,6 +224,7 @@ export type Database = {
           image_gender: string | null
           nome: string
           organization_id: string | null
+          recebe_transporte: boolean
           rg: string | null
           role: string
           salario: number | null
@@ -246,6 +247,7 @@ export type Database = {
           image_gender?: string | null
           nome: string
           organization_id?: string | null
+          recebe_transporte?: boolean
           rg?: string | null
           role?: string
           salario?: number | null
@@ -268,6 +270,7 @@ export type Database = {
           image_gender?: string | null
           nome?: string
           organization_id?: string | null
+          recebe_transporte?: boolean
           rg?: string | null
           role?: string
           salario?: number | null
@@ -807,6 +810,7 @@ export const Constants = {
 //   role: text (not null, default: 'Colaborador'::text)
 //   user_id: uuid (nullable)
 //   organization_id: uuid (nullable)
+//   recebe_transporte: boolean (not null, default: true)
 // Table: escala_mes
 //   mes_ano: text (not null)
 //   status: text (not null, default: 'Rascunho'::text)
