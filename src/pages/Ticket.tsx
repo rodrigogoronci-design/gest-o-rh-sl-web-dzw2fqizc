@@ -72,11 +72,7 @@ export default function Ticket() {
         { data: tickets },
         { data: faltas },
       ] = await Promise.all([
-        supabase
-          .from('ferias')
-          .select('*')
-          .lte('data_inicio', prevPEnd)
-          .gte('data_fim', prevPStart),
+        supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
         supabase
           .from('atestados')
           .select('*')
@@ -87,10 +83,10 @@ export default function Ticket() {
         supabase.from('faltas').select('*').gte('data', pStart).lte('data', pEnd),
       ])
 
-      const calcDays = (records: any[]) => {
+      const calcDays = (records: any[], startStr: string, endStr: string) => {
         const counts: Record<string, number> = {}
-        const start = parseISO(prevPStart)
-        const end = parseISO(prevPEnd)
+        const start = parseISO(startStr)
+        const end = parseISO(endStr)
         records?.forEach((r) => {
           if (!r.colaborador_id) return
           const rStart = parseISO(r.data_inicio)
@@ -106,8 +102,8 @@ export default function Ticket() {
         return counts
       }
 
-      const vacationDaysCount = calcDays(ferias || [])
-      const atestadoDaysCount = calcDays(atestados || [])
+      const vacationDaysCount = calcDays(ferias || [], pStart, pEnd)
+      const atestadoDaysCount = calcDays(atestados || [], prevPStart, prevPEnd)
       setPreCalculatedVacations(vacationDaysCount)
       setPreCalculatedAtestados(atestadoDaysCount)
 
@@ -221,10 +217,10 @@ export default function Ticket() {
             <div className="h-4 w-px bg-slate-300 hidden sm:block"></div>
             <div
               className="flex items-center gap-1.5 text-sm text-slate-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200"
-              title="Atestados e férias são descontados na escala seguinte"
+              title="Atestados são descontados na escala seguinte"
             >
               <Info className="w-3.5 h-3.5 text-orange-500" />
-              <span className="text-orange-700">Descontos referem-se a:</span>
+              <span className="text-orange-700">Atestados (Mês Anterior):</span>
               <strong className="text-orange-800">
                 {format(parseISO(prevPStart), 'dd/MM/yyyy')} a{' '}
                 {format(parseISO(prevPEnd), 'dd/MM/yyyy')}
@@ -375,7 +371,7 @@ export default function Ticket() {
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>
-                                    Diferente do sistema ({preCalcVacation} dias no ciclo anterior)
+                                    Diferente do sistema ({preCalcVacation} dias na escala atual)
                                   </p>
                                 </TooltipContent>
                               </Tooltip>

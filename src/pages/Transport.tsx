@@ -232,6 +232,18 @@ export default function Transport() {
                 {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
               </strong>
             </div>
+            <div className="h-4 w-px bg-slate-300 hidden sm:block"></div>
+            <div
+              className="flex items-center gap-1.5 text-sm text-slate-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200"
+              title="Atestados são descontados na escala seguinte"
+            >
+              <Info className="w-3.5 h-3.5 text-orange-500" />
+              <span className="text-orange-700">Atestados (Mês Anterior):</span>
+              <strong className="text-orange-800">
+                {format(parseISO(prevPStart), 'dd/MM/yyyy')} a{' '}
+                {format(parseISO(prevPEnd), 'dd/MM/yyyy')}
+              </strong>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -422,7 +434,7 @@ export default function Transport() {
                                   <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Diferente ({preCalcVacation} dias)</p>
+                                  <p>Diferente ({preCalcVacation} dias na escala atual)</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}
