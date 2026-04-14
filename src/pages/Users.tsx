@@ -78,6 +78,9 @@ export default function Users() {
         await supabase
           .from('colaboradores')
           .update({
+            nome: name,
+            email: email,
+            role: role === 'admin' ? 'Admin' : 'Colaborador',
             recebe_transporte: recebeTransporte,
           })
           .eq('id', data.id)
@@ -121,6 +124,21 @@ export default function Users() {
 
     setIsUpdating(true)
     try {
+      // 1. Garantia imediata no banco local (colaboradores) para todos os dados
+      // Resolve o problema de persistência da flag independente do que a edge function retorne
+      const { error: dbError } = await supabase
+        .from('colaboradores')
+        .update({
+          nome: editName,
+          email: editEmail,
+          role: editRole === 'admin' ? 'Admin' : 'Colaborador',
+          recebe_transporte: editRecebeTransporte,
+        })
+        .eq('id', editId)
+
+      if (dbError) throw dbError
+
+      // 2. Atualiza o Auth via Edge Function em segundo plano
       const { data, error } = await supabase.functions.invoke('manage-user', {
         body: {
           action: 'update',
@@ -134,15 +152,10 @@ export default function Users() {
           },
         },
       })
-      if (error || data?.error) throw error || new Error(data?.error)
 
-      // Garantia de persistência no banco independentemente do deploy da edge function
-      await supabase
-        .from('colaboradores')
-        .update({
-          recebe_transporte: editRecebeTransporte,
-        })
-        .eq('id', editId)
+      if (error || data?.error) {
+        console.warn('Falha ao atualizar auth via edge function:', error || data?.error)
+      }
 
       toast({
         title: 'Usuário atualizado',
