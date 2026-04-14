@@ -6,6 +6,7 @@ export interface User {
   email: string
   role: Role
   basePassValue?: number
+  recebe_transporte?: boolean
 }
 
 export interface TicketRecord {

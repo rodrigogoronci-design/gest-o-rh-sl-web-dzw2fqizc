@@ -156,7 +156,10 @@ export default function Transport() {
 
       const initial: Record<string, TransportRecord> = {}
       users
-        .filter((u) => u.role === 'user' || u.role === 'Colaborador')
+        .filter(
+          (u: any) =>
+            (u.role === 'user' || u.role === 'Colaborador') && u.recebe_transporte !== false,
+        )
         .forEach((u) => {
           const t = transportsByColab[u.id]
           const isStored = !!t
@@ -324,7 +327,11 @@ export default function Transport() {
             </TableHeader>
             <TableBody>
               {users
-                .filter((u) => u.role === 'user' || u.role === 'Colaborador')
+                .filter(
+                  (u: any) =>
+                    (u.role === 'user' || u.role === 'Colaborador') &&
+                    u.recebe_transporte !== false,
+                )
                 .map((u) => {
                   const data = localData[u.id] || {
                     businessDays: 0,

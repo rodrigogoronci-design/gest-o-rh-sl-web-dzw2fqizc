@@ -28,6 +28,7 @@ Deno.serve(async (req: Request) => {
         email: payload.email,
         nome: payload.name,
         role: payload.role === 'admin' ? 'Admin' : 'Colaborador',
+        recebe_transporte: payload.recebe_transporte ?? true,
       })
       if (dbErr) throw dbErr
 
@@ -60,7 +61,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'update') {
-      const { id, email, name, role, password } = payload
+      const { id, email, name, role, password, recebe_transporte } = payload
 
       const { data: colab } = await supabase
         .from('colaboradores')
@@ -106,6 +107,7 @@ Deno.serve(async (req: Request) => {
           email,
           nome: name,
           role: role === 'admin' ? 'Admin' : 'Colaborador',
+          recebe_transporte: recebe_transporte ?? true,
         })
         .eq('id', id)
       if (dbErr) throw dbErr

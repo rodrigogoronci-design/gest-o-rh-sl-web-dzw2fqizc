@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Edit2, Trash2, UserPlus } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 
@@ -43,6 +44,7 @@ export default function Users() {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('user')
   const [password, setPassword] = useState('')
+  const [recebeTransporte, setRecebeTransporte] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
   const [isEditOpen, setIsEditOpen] = useState(false)
@@ -51,6 +53,7 @@ export default function Users() {
   const [editEmail, setEditEmail] = useState('')
   const [editRole, setEditRole] = useState<Role>('user')
   const [editPassword, setEditPassword] = useState('')
+  const [editRecebeTransporte, setEditRecebeTransporte] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
 
   if (currentUser?.role !== 'admin' && currentUser?.role !== 'Admin') {
@@ -63,7 +66,7 @@ export default function Users() {
 
     setIsSaving(true)
     try {
-      const payload: any = { name, email, role }
+      const payload: any = { name, email, role, recebe_transporte: recebeTransporte }
       if (password) payload.password = password
 
       const { data, error } = await supabase.functions.invoke('manage-user', {
@@ -76,6 +79,7 @@ export default function Users() {
       setEmail('')
       setRole('user')
       setPassword('')
+      setRecebeTransporte(true)
       toast({
         title: 'Usuário adicionado',
         description: `${name} foi adicionado com sucesso.`,
@@ -98,6 +102,7 @@ export default function Users() {
     setEditEmail(u.email)
     setEditRole(u.role === 'Admin' || u.role === 'admin' ? 'admin' : 'user')
     setEditPassword('')
+    setEditRecebeTransporte(u.recebe_transporte ?? true)
     setIsEditOpen(true)
   }
 
@@ -116,6 +121,7 @@ export default function Users() {
             email: editEmail,
             role: editRole,
             password: editPassword || undefined,
+            recebe_transporte: editRecebeTransporte,
           },
         },
       })
@@ -224,6 +230,15 @@ export default function Users() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="space-y-0.5">
+                  <Label>Recebe Vale-Transporte</Label>
+                  <div className="text-[0.8rem] text-muted-foreground">
+                    Ative para exibir este colaborador no módulo de controle.
+                  </div>
+                </div>
+                <Switch checked={recebeTransporte} onCheckedChange={setRecebeTransporte} />
+              </div>
               <Button type="submit" className="w-full" disabled={isSaving}>
                 {isSaving ? 'Salvando...' : 'Salvar Usuário'}
               </Button>
@@ -278,6 +293,15 @@ export default function Users() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>Recebe Vale-Transporte</Label>
+                <div className="text-[0.8rem] text-muted-foreground">
+                  Ative para exibir este colaborador no módulo de controle.
+                </div>
+              </div>
+              <Switch checked={editRecebeTransporte} onCheckedChange={setEditRecebeTransporte} />
+            </div>
             <Button type="submit" className="w-full" disabled={isUpdating}>
               {isUpdating ? 'Atualizando...' : 'Atualizar Usuário'}
             </Button>
@@ -293,6 +317,7 @@ export default function Users() {
                 <TableHead>Nome</TableHead>
                 <TableHead>E-mail</TableHead>
                 <TableHead>Perfil</TableHead>
+                <TableHead>Vale-Transporte</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -307,6 +332,20 @@ export default function Users() {
                     >
                       {u.role === 'admin' || u.role === 'Admin' ? 'Administrador' : 'Funcionário'}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {u.recebe_transporte !== false ? (
+                      <Badge
+                        variant="outline"
+                        className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                      >
+                        Sim
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-slate-50 text-slate-500">
+                        Não
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
