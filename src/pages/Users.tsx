@@ -33,7 +33,7 @@ import { Role } from '@/types'
 import { useToast } from '@/hooks/use-toast'
 
 export default function Users() {
-  const { currentUser, users, addUser, removeUser } = useAppStore()
+  const { currentUser, users, addUser, removeUser, isLoading } = useAppStore()
   const { toast } = useToast()
 
   const [isOpen, setIsOpen] = useState(false)
@@ -45,24 +45,34 @@ export default function Users() {
     return <Navigate to="/app/mural" replace />
   }
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name || !email) return
 
-    addUser({ name, email, role })
-    setIsOpen(false)
-    setName('')
-    setEmail('')
-    setRole('user')
-
-    toast({
-      title: 'Usuário adicionado',
-      description: `${name} foi adicionado com sucesso.`,
-    })
+    setIsSaving(true)
+    try {
+      await addUser({ name, email, role })
+      setIsOpen(false)
+      setName('')
+      setEmail('')
+      setRole('user')
+      toast({
+        title: 'Usuário adicionado',
+        description: `${name} foi adicionado com sucesso.`,
+      })
+    } catch (err) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível adicionar o usuário.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleRemove = (id: string, name: string) => {
-    if (id === currentUser.id) {
+  const handleRemove = async (id: string, name: string) => {
+    if (id === currentUser?.id) {
       toast({
         title: 'Ação negada',
         description: 'Você não pode remover a si mesmo.',
@@ -70,8 +80,14 @@ export default function Users() {
       })
       return
     }
-    removeUser(id)
-    toast({ title: 'Usuário removido', description: `${name} foi removido do sistema.` })
+    if (!confirm('Deseja realmente remover este usuário?')) return
+
+    try {
+      await removeUser(id)
+      toast({ title: 'Usuário removido', description: `${name} foi removido do sistema.` })
+    } catch (err) {
+      toast({ title: 'Erro', description: 'Não foi possível remover.', variant: 'destructive' })
+    }
   }
 
   return (
@@ -121,8 +137,8 @@ export default function Users() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" className="w-full">
-                Salvar Usuário
+              <Button type="submit" className="w-full" disabled={isSaving}>
+                {isSaving ? 'Salvando...' : 'Salvar Usuário'}
               </Button>
             </form>
           </DialogContent>

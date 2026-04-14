@@ -1,79 +1,152 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+  useCallback,
+} from 'react'
 import { AppState, User, TicketRecord, TransportRecord } from '@/types'
-
-const mockUsers: User[] = [
-  { id: '1', name: 'Administrador Silva', email: 'admin@app.com', role: 'admin' },
-  { id: '2', name: 'João Funcionário', email: 'joao@app.com', role: 'user' },
-  { id: '3', name: 'Maria Santos', email: 'maria@app.com', role: 'user' },
-]
-
-const mockShifts: Record<string, string[]> = {
-  '2026-04-18': ['2'],
-  '2026-04-19': ['3'],
-}
-
-const defaultTicket: TicketRecord = { regular: 20, shifts: 0, sick: 0, vacation: 0 }
-const defaultTransport: TransportRecord = { businessDays: 20, homeOffice: 0, vacation: 0 }
+import { useAuth } from '@/hooks/use-auth'
+import {
+  loadBeneficiosData,
+  toggleUserShift,
+  saveTicketsBatch,
+  saveTransportBatch,
+  createDbUser,
+  deleteDbUser,
+} from '@/services/beneficios'
 
 const AppContext = createContext<AppState | null>(null)
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useAuth()
+  const [isLoading, setIsLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
-  const [users, setUsers] = useState<User[]>(mockUsers)
-  const [shifts, setShifts] = useState<Record<string, string[]>>(mockShifts)
-  const [ticketData, setTicketData] = useState<Record<string, TicketRecord>>({
-    '2': { regular: 20, shifts: 1, sick: 0, vacation: 0 },
-    '3': { regular: 20, shifts: 1, sick: 2, vacation: 0 },
-  })
-  const [transportData, setTransportData] = useState<Record<string, TransportRecord>>({
-    '2': { businessDays: 20, homeOffice: 2, vacation: 0 },
-  })
+  const [users, setUsers] = useState<User[]>([])
+  const [shifts, setShifts] = useState<Record<string, string[]>>({})
+  const [ticketData, setTicketData] = useState<Record<string, TicketRecord>>({})
+  const [transportData, setTransportData] = useState<Record<string, TransportRecord>>({})
 
-  const login = (email: string) => {
-    const user = users.find((u) => u.email === email) || users[0]
-    setCurrentUser(user)
+  const [currentMonth] = useState(() => new Date().toISOString().slice(0, 7))
+
+  const loadAll = useCallback(async () => {
+    if (!user) return
+    setIsLoading(true)
+    try {
+      const { cols, plantoes, tickets, transports } = await loadBeneficiosData(currentMonth)
+
+      const mappedUsers: User[] = cols.map((c) => ({
+        id: c.id,
+        name: c.nome,
+        email: c.email || '',
+        role: c.role === 'Admin' ? 'admin' : 'user',
+      }))
+      setUsers(mappedUsers)
+      setCurrentUser(mappedUsers.find((u) => u.id === user.id) || null)
+
+      const shiftsMap: Record<string, string[]> = {}
+      plantoes.forEach((p) => {
+        if (!shiftsMap[p.data]) shiftsMap[p.data] = []
+        shiftsMap[p.data].push(p.colaborador_id)
+      })
+      setShifts(shiftsMap)
+
+      const tData: Record<string, TicketRecord> = {}
+      tickets.forEach((t) => {
+        tData[t.colaborador_id] = {
+          regular: t.dias_uteis,
+          shifts: t.plantoes,
+          sick: t.atestados,
+          vacation: t.ferias,
+        }
+      })
+      setTicketData(tData)
+
+      const trData: Record<string, TransportRecord> = {}
+      transports.forEach((t) => {
+        trData[t.colaborador_id] = {
+          businessDays: t.dias_uteis,
+          homeOffice: t.home_office,
+          vacation: t.ferias,
+        }
+      })
+      setTransportData(trData)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [user, currentMonth])
+
+  useEffect(() => {
+    if (user) {
+      loadAll()
+    } else {
+      setCurrentUser(null)
+      setUsers([])
+      setIsLoading(false)
+    }
+  }, [user, loadAll])
+
+  const addUser = async (newUser: Omit<User, 'id'>) => {
+    await createDbUser({ email: newUser.email, name: newUser.name, role: newUser.role })
+    await loadAll()
   }
 
-  const logout = () => setCurrentUser(null)
-
-  const addUser = (user: Omit<User, 'id'>) => {
-    setUsers((prev) => [...prev, { ...user, id: Math.random().toString(36).substring(7) }])
+  const removeUser = async (id: string) => {
+    await deleteDbUser(id)
+    await loadAll()
   }
 
-  const removeUser = (id: string) => setUsers((prev) => prev.filter((u) => u.id !== id))
-
-  const updateTicketData = (userId: string, data: TicketRecord) => {
-    setTicketData((prev) => ({ ...prev, [userId]: data }))
+  const saveAllTickets = async (data: Record<string, TicketRecord>) => {
+    const rows = Object.entries(data).map(([userId, d]) => ({
+      colaborador_id: userId,
+      mes_ano: currentMonth,
+      dias_uteis: d.regular,
+      plantoes: d.shifts,
+      atestados: d.sick,
+      ferias: d.vacation,
+    }))
+    await saveTicketsBatch(rows)
+    setTicketData(data)
   }
 
-  const updateTransportData = (userId: string, data: TransportRecord) => {
-    setTransportData((prev) => ({ ...prev, [userId]: data }))
+  const saveAllTransport = async (data: Record<string, TransportRecord>) => {
+    const rows = Object.entries(data).map(([userId, d]) => ({
+      colaborador_id: userId,
+      mes_ano: currentMonth,
+      dias_uteis: d.businessDays,
+      home_office: d.homeOffice,
+      ferias: d.vacation,
+    }))
+    await saveTransportBatch(rows)
+    setTransportData(data)
   }
 
-  const toggleShift = (date: string, userId: string) => {
-    setShifts((prev) => {
-      const dayShifts = prev[date] || []
-      if (dayShifts.includes(userId)) {
-        return { ...prev, [date]: dayShifts.filter((id) => id !== userId) }
-      }
-      return { ...prev, [date]: [...dayShifts, userId] }
-    })
+  const toggleShift = async (date: string, userId: string) => {
+    const dayShifts = shifts[date] || []
+    const isAdding = !dayShifts.includes(userId)
+
+    setShifts((prev) => ({
+      ...prev,
+      [date]: isAdding ? [...dayShifts, userId] : dayShifts.filter((id) => id !== userId),
+    }))
+
+    await toggleUserShift(date, userId, isAdding)
   }
 
   return (
     <AppContext.Provider
       value={{
+        isLoading,
         currentUser,
         users,
         shifts,
         ticketData,
         transportData,
-        login,
-        logout,
         addUser,
         removeUser,
-        updateTicketData,
-        updateTransportData,
+        saveAllTickets,
+        saveAllTransport,
         toggleShift,
       }}
     >

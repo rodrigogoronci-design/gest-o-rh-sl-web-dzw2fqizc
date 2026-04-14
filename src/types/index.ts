@@ -27,11 +27,10 @@ export interface AppState {
   shifts: Record<string, string[]> // YYYY-MM-DD -> userIds
   ticketData: Record<string, TicketRecord> // userId -> data
   transportData: Record<string, TransportRecord> // userId -> data
-  login: (email: string) => void
-  logout: () => void
-  addUser: (user: Omit<User, 'id'>) => void
-  removeUser: (id: string) => void
-  updateTicketData: (userId: string, data: TicketRecord) => void
-  updateTransportData: (userId: string, data: TransportRecord) => void
-  toggleShift: (date: string, userId: string) => void
+  isLoading: boolean
+  addUser: (user: Omit<User, 'id'>) => Promise<void>
+  removeUser: (id: string) => Promise<void>
+  saveAllTickets: (data: Record<string, TicketRecord>) => Promise<void>
+  saveAllTransport: (data: Record<string, TransportRecord>) => Promise<void>
+  toggleShift: (date: string, userId: string) => Promise<void>
 }

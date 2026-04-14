@@ -19,7 +19,7 @@ import { TransportRecord } from '@/types'
 const TRANSPORT_DAILY_VALUE = 10.2
 
 export default function Transport() {
-  const { currentUser, users, transportData, updateTransportData } = useAppStore()
+  const { currentUser, users, transportData, saveAllTransport, isLoading } = useAppStore()
   const { toast } = useToast()
 
   const [localData, setLocalData] = useState<Record<string, TransportRecord>>({})
@@ -53,18 +53,23 @@ export default function Transport() {
     })
   }
 
-  const handleSave = () => {
-    Object.entries(localData).forEach(([userId, data]) => {
-      updateTransportData(userId, data)
-    })
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    await saveAllTransport(localData)
+    setIsSaving(false)
     toast({
       title: 'Cálculos salvos com sucesso!',
-      description: 'Os dados de Vale Transporte foram atualizados.',
+      description: 'Os dados de Vale Transporte foram atualizados no banco de dados.',
       className: 'bg-emerald-50 text-emerald-900 border-emerald-200',
     })
   }
 
   let grandTotal = 0
+
+  if (isLoading)
+    return <div className="p-8 text-center text-muted-foreground">Carregando dados...</div>
 
   return (
     <div className="space-y-6 flex flex-col h-full">
@@ -90,8 +95,12 @@ export default function Transport() {
               Aplicar a todos
             </Button>
           </div>
-          <Button onClick={handleSave} className="gap-2 bg-[#10b981] hover:bg-[#059669] text-white">
-            <Save className="w-4 h-4" /> Salvar
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="gap-2 bg-[#10b981] hover:bg-[#059669] text-white"
+          >
+            <Save className="w-4 h-4" /> {isSaving ? 'Salvando...' : 'Salvar'}
           </Button>
         </div>
       </div>

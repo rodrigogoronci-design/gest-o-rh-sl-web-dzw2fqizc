@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import useAppStore from '@/stores/useAppStore'
+import { useAuth } from '@/hooks/use-auth'
+import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,17 +16,32 @@ import {
 
 export default function Index() {
   const [email, setEmail] = useState('admin@app.com')
-  const [password, setPassword] = useState('123456')
-  const { login } = useAppStore()
+  const [password, setPassword] = useState('Skip@Pass123!')
+  const [isLoading, setIsLoading] = useState(false)
+  const { signIn, user } = useAuth()
   const navigate = useNavigate()
+  const { toast } = useToast()
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) navigate('/app/mural')
+  }, [user, navigate])
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password) return
 
-    login(email)
-    const userRole = email.includes('admin') ? 'admin' : 'user'
-    navigate(userRole === 'admin' ? '/app/usuarios' : '/app/mural')
+    setIsLoading(true)
+    const { error } = await signIn(email, password)
+    setIsLoading(false)
+
+    if (error) {
+      toast({
+        title: 'Erro ao entrar',
+        description: 'Verifique suas credenciais e tente novamente.',
+        variant: 'destructive',
+      })
+      return
+    }
   }
 
   return (
@@ -61,19 +77,19 @@ export default function Index() {
                 </Select>
               </div>
 
-              <div className="space-y-2 hidden">
+              <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••"
+                  placeholder="••••••••"
                 />
               </div>
 
-              <Button type="submit" className="w-full h-12 text-lg">
-                Entrar no Sistema
+              <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading}>
+                {isLoading ? 'Entrando...' : 'Entrar no Sistema'}
               </Button>
             </form>
           </CardContent>

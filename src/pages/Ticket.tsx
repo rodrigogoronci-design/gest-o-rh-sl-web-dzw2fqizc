@@ -19,7 +19,7 @@ import { TicketRecord } from '@/types'
 const TICKET_VALUE = 31.59
 
 export default function Ticket() {
-  const { currentUser, users, ticketData, updateTicketData } = useAppStore()
+  const { currentUser, users, ticketData, saveAllTickets, isLoading } = useAppStore()
   const { toast } = useToast()
 
   const [localData, setLocalData] = useState<Record<string, TicketRecord>>({})
@@ -43,18 +43,23 @@ export default function Ticket() {
     }))
   }
 
-  const handleSave = () => {
-    Object.entries(localData).forEach(([userId, data]) => {
-      updateTicketData(userId, data)
-    })
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    await saveAllTickets(localData)
+    setIsSaving(false)
     toast({
       title: 'Cálculos salvos com sucesso!',
-      description: 'Os dados de Ticket Alimentação foram atualizados.',
+      description: 'Os dados de Ticket Alimentação foram atualizados no banco de dados.',
       className: 'bg-emerald-50 text-emerald-900 border-emerald-200',
     })
   }
 
   let grandTotal = 0
+
+  if (isLoading)
+    return <div className="p-8 text-center text-muted-foreground">Carregando dados...</div>
 
   return (
     <div className="space-y-6 flex flex-col h-full">
@@ -65,8 +70,12 @@ export default function Ticket() {
             Valor diário base: R$ {TICKET_VALUE.toFixed(2).replace('.', ',')}
           </p>
         </div>
-        <Button onClick={handleSave} className="gap-2 bg-[#10b981] hover:bg-[#059669] text-white">
-          <Save className="w-4 h-4" /> Salvar Mês
+        <Button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="gap-2 bg-[#10b981] hover:bg-[#059669] text-white"
+        >
+          <Save className="w-4 h-4" /> {isSaving ? 'Salvando...' : 'Salvar Mês'}
         </Button>
       </div>
 

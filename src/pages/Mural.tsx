@@ -31,7 +31,10 @@ import {
 } from '@/components/ui/select'
 
 export default function Mural() {
-  const { currentUser, users, shifts, toggleShift } = useAppStore()
+  const { currentUser, users, shifts, toggleShift, isLoading } = useAppStore()
+
+  if (isLoading)
+    return <div className="p-8 text-center text-muted-foreground">Carregando mural...</div>
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   const monthStart = startOfMonth(selectedDate)
