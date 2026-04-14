@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react'
 import {
-  startOfMonth,
-  endOfMonth,
   startOfWeek,
   endOfWeek,
   eachDayOfInterval,
   format,
-  isSameMonth,
   isToday,
   addMonths,
   subMonths,
+  setDate,
+  startOfDay,
+  endOfDay,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import useAppStore from '@/stores/useAppStore'
@@ -66,8 +66,11 @@ export default function Mural() {
       setEscalaStatus((escala?.status as any) || 'Rascunho')
 
       // Feriados
-      const start = format(startOfMonth(selectedDate), 'yyyy-MM-dd')
-      const end = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
+      const periodEnd = setDate(selectedDate, 24)
+      const periodStart = setDate(subMonths(selectedDate, 1), 25)
+      const start = format(periodStart, 'yyyy-MM-dd')
+      const end = format(periodEnd, 'yyyy-MM-dd')
+
       const { data: feriadosData } = await supabase
         .from('feriados')
         .select('data')
@@ -90,8 +93,8 @@ export default function Mural() {
   if (isLoading)
     return <div className="p-8 text-center text-muted-foreground">Carregando mural...</div>
 
-  const monthStart = startOfMonth(selectedDate)
-  const monthEnd = endOfMonth(monthStart)
+  const monthEnd = setDate(selectedDate, 24)
+  const monthStart = setDate(subMonths(selectedDate, 1), 25)
   const startDate = startOfWeek(monthStart, { weekStartsOn: 0 })
   const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 })
 
@@ -136,9 +139,14 @@ export default function Mural() {
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <div className="text-base font-semibold text-slate-700 capitalize min-w-[140px] text-center flex items-center justify-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-slate-400" />
-              {format(selectedDate, 'MMMM yyyy', { locale: ptBR })}
+            <div className="flex flex-col items-center min-w-[140px]">
+              <div className="text-base font-semibold text-slate-700 capitalize text-center flex items-center justify-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-slate-400" />
+                {format(selectedDate, 'MMMM yyyy', { locale: ptBR })}
+              </div>
+              <span className="text-xs text-muted-foreground mt-0.5 font-medium">
+                25/{format(subMonths(selectedDate, 1), 'MM')} a 24/{format(selectedDate, 'MM')}
+              </span>
             </div>
             <Button
               variant="ghost"
@@ -213,7 +221,7 @@ export default function Mural() {
             {days.map((day, idx) => {
               const dateStr = format(day, 'yyyy-MM-dd')
               const dayShifts = shifts[dateStr] || []
-              const isCurrentMonth = isSameMonth(day, monthStart)
+              const isCurrentMonth = day >= startOfDay(monthStart) && day <= endOfDay(monthEnd)
               const isWeekend = day.getDay() === 0 || day.getDay() === 6
               const isFeriado = feriados[dateStr]
 

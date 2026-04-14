@@ -28,12 +28,14 @@ export default function Transport() {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    const mesAno = format(new Date(), 'yyyy-MM')
+    const today = new Date()
+    const pEnd = format(new Date(today.getFullYear(), today.getMonth(), 24), 'yyyy-MM-dd')
+    const pStart = format(new Date(today.getFullYear(), today.getMonth() - 1, 25), 'yyyy-MM-dd')
     const currentMonthShifts: Record<string, number> = {}
 
-    Object.keys(shifts || {}).forEach((date) => {
-      if (date.startsWith(mesAno)) {
-        shifts[date].forEach((uid) => {
+    Object.keys(shifts || {}).forEach((dateStr) => {
+      if (dateStr >= pStart && dateStr <= pEnd) {
+        shifts[dateStr].forEach((uid) => {
           currentMonthShifts[uid] = (currentMonthShifts[uid] || 0) + 1
         })
       }
@@ -94,7 +96,10 @@ export default function Transport() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Controle de Vale Transporte</h1>
           <p className="text-muted-foreground mt-1">
-            Valor diário base: R$ {TRANSPORT_DAILY_VALUE.toFixed(2).replace('.', ',')}
+            Período: 25/
+            {format(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 25), 'MM')} a 24/
+            {format(new Date(), 'MM')} • Valor diário base: R${' '}
+            {TRANSPORT_DAILY_VALUE.toFixed(2).replace('.', ',')}
           </p>
         </div>
 
