@@ -35,7 +35,12 @@ export const saveTransportBatch = async (rows: any[], month: string) => {
     .upsert(rows, { onConflict: 'colaborador_id,mes_ano' })
 }
 
-export const createDbUser = async (payload: { email: string; name: string; role: string }) => {
+export const createDbUser = async (payload: {
+  email: string
+  name: string
+  role: string
+  recebe_transporte?: boolean
+}) => {
   return supabase.functions.invoke('manage-user', { body: { action: 'create', payload } })
 }
 
@@ -44,6 +49,7 @@ export const updateDbUser = async (payload: {
   email: string
   name: string
   role: string
+  recebe_transporte?: boolean
 }) => {
   return supabase.functions.invoke('manage-user', { body: { action: 'update', payload } })
 }
@@ -67,7 +73,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const prevEndStr = format(prevPeriodEnd, 'yyyy-MM-dd')
 
   const [cols, faltas, ferias, atestados, plantoes, tickets, transports] = await Promise.all([
-    supabase.from('colaboradores').select('id, role'),
+    supabase.from('colaboradores').select('id, role, recebe_transporte'),
     supabase.from('faltas').select('*').gte('data', startStr).lte('data', endStr),
     supabase.from('ferias').select('*').lte('data_inicio', endStr).gte('data_fim', startStr),
     supabase
@@ -150,10 +156,11 @@ export const syncAllUsersBeneficios = async (month: string) => {
     }
 
     if (
-      !existingTransport ||
-      existingTransport.faltas !== userFaltas ||
-      existingTransport.ferias !== userFerias ||
-      existingTransport.atestados !== userAtestados
+      user.recebe_transporte !== false &&
+      (!existingTransport ||
+        existingTransport.faltas !== userFaltas ||
+        existingTransport.ferias !== userFerias ||
+        existingTransport.atestados !== userAtestados)
     ) {
       transportUpdates.push({
         id: existingTransport?.id,

@@ -34,7 +34,8 @@ Deno.serve(async (req: Request) => {
         email: payload.email,
         nome: payload.name,
         role: payload.role === 'admin' ? 'Admin' : 'Colaborador',
-        recebe_transporte: payload.recebe_transporte ?? true,
+        recebe_transporte:
+          typeof payload.recebe_transporte === 'boolean' ? payload.recebe_transporte : true,
       })
       if (dbErr) throw dbErr
 
@@ -113,7 +114,7 @@ Deno.serve(async (req: Request) => {
           email,
           nome: name,
           role: role === 'admin' ? 'Admin' : 'Colaborador',
-          recebe_transporte: recebe_transporte ?? true,
+          recebe_transporte: typeof recebe_transporte === 'boolean' ? recebe_transporte : true,
         })
         .eq('id', id)
       if (dbErr) throw dbErr
