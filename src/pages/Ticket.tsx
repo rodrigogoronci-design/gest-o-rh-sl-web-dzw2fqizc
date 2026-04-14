@@ -187,7 +187,7 @@ export default function Ticket() {
       ferias: data.vacation,
       faltas: data.faltas,
     }))
-    const { error } = await saveTicketsBatch(rows)
+    const { error } = await saveTicketsBatch(rows, selectedMonth)
     setIsSaving(false)
     if (error) {
       toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' })

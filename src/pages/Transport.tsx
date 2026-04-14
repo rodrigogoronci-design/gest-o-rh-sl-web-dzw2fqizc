@@ -200,7 +200,7 @@ export default function Transport() {
       atestados: data.sick,
       faltas: data.faltas,
     }))
-    const { error } = await saveTransportBatch(rows)
+    const { error } = await saveTransportBatch(rows, selectedMonth)
     setIsSaving(false)
 
     if (error) {

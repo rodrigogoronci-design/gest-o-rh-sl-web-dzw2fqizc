@@ -127,6 +127,7 @@ export type Database = {
           colaborador_id: string
           created_at: string
           dias_uteis: number
+          faltas: number
           ferias: number
           id: string
           mes_ano: string
@@ -137,6 +138,7 @@ export type Database = {
           colaborador_id: string
           created_at?: string
           dias_uteis?: number
+          faltas?: number
           ferias?: number
           id?: string
           mes_ano: string
@@ -147,6 +149,7 @@ export type Database = {
           colaborador_id?: string
           created_at?: string
           dias_uteis?: number
+          faltas?: number
           ferias?: number
           id?: string
           mes_ano?: string
@@ -168,6 +171,7 @@ export type Database = {
           colaborador_id: string
           created_at: string
           dias_uteis: number
+          faltas: number
           ferias: number
           home_office: number
           id: string
@@ -178,6 +182,7 @@ export type Database = {
           colaborador_id: string
           created_at?: string
           dias_uteis?: number
+          faltas?: number
           ferias?: number
           home_office?: number
           id?: string
@@ -188,6 +193,7 @@ export type Database = {
           colaborador_id?: string
           created_at?: string
           dias_uteis?: number
+          faltas?: number
           ferias?: number
           home_office?: number
           id?: string
@@ -297,6 +303,35 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      faltas: {
+        Row: {
+          colaborador_id: string
+          created_at: string
+          data: string
+          id: string
+        }
+        Insert: {
+          colaborador_id: string
+          created_at?: string
+          data: string
+          id?: string
+        }
+        Update: {
+          colaborador_id?: string
+          created_at?: string
+          data?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'faltas_colaborador_id_fkey'
+            columns: ['colaborador_id']
+            isOneToOne: false
+            referencedRelation: 'colaboradores'
+            referencedColumns: ['id']
+          },
+        ]
       }
       feriados: {
         Row: {
@@ -740,6 +775,7 @@ export const Constants = {
 //   atestados: integer (not null, default: 0)
 //   ferias: integer (not null, default: 0)
 //   created_at: timestamp with time zone (not null, default: now())
+//   faltas: integer (not null, default: 0)
 // Table: beneficios_transporte
 //   id: uuid (not null, default: gen_random_uuid())
 //   colaborador_id: uuid (not null)
@@ -749,6 +785,7 @@ export const Constants = {
 //   ferias: integer (not null, default: 0)
 //   created_at: timestamp with time zone (not null, default: now())
 //   atestados: integer (not null, default: 0)
+//   faltas: integer (not null, default: 0)
 // Table: colaboradores
 //   id: uuid (not null, default: gen_random_uuid())
 //   created_at: timestamp with time zone (not null, default: timezone('utc'::text, now()))
@@ -773,6 +810,11 @@ export const Constants = {
 // Table: escala_mes
 //   mes_ano: text (not null)
 //   status: text (not null, default: 'Rascunho'::text)
+//   created_at: timestamp with time zone (not null, default: now())
+// Table: faltas
+//   id: uuid (not null, default: gen_random_uuid())
+//   colaborador_id: uuid (not null)
+//   data: date (not null)
 //   created_at: timestamp with time zone (not null, default: now())
 // Table: feriados
 //   id: uuid (not null, default: gen_random_uuid())
@@ -854,6 +896,10 @@ export const Constants = {
 //   CHECK valid_roles: CHECK ((role = ANY (ARRAY['Admin'::text, 'Gerente'::text, 'Colaborador'::text])))
 // Table: escala_mes
 //   PRIMARY KEY escala_mes_pkey: PRIMARY KEY (mes_ano)
+// Table: faltas
+//   UNIQUE faltas_colaborador_id_data_key: UNIQUE (colaborador_id, data)
+//   FOREIGN KEY faltas_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
+//   PRIMARY KEY faltas_pkey: PRIMARY KEY (id)
 // Table: feriados
 //   UNIQUE feriados_data_key: UNIQUE (data)
 //   PRIMARY KEY feriados_pkey: PRIMARY KEY (id)
@@ -901,6 +947,10 @@ export const Constants = {
 //     USING: true
 //     WITH CHECK: true
 // Table: escala_mes
+//   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: faltas
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
@@ -959,6 +1009,8 @@ export const Constants = {
 // Table: colaboradores
 //   CREATE INDEX idx_colaboradores_organization_id ON public.colaboradores USING btree (organization_id)
 //   CREATE INDEX idx_colaboradores_user_id ON public.colaboradores USING btree (user_id)
+// Table: faltas
+//   CREATE UNIQUE INDEX faltas_colaborador_id_data_key ON public.faltas USING btree (colaborador_id, data)
 // Table: feriados
 //   CREATE UNIQUE INDEX feriados_data_key ON public.feriados USING btree (data)
 // Table: plantoes
