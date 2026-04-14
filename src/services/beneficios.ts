@@ -38,6 +38,15 @@ export const createDbUser = async (payload: { email: string; name: string; role:
   return supabase.functions.invoke('manage-user', { body: { action: 'create', payload } })
 }
 
+export const updateDbUser = async (payload: {
+  id: string
+  email: string
+  name: string
+  role: string
+}) => {
+  return supabase.functions.invoke('manage-user', { body: { action: 'update', payload } })
+}
+
 export const deleteDbUser = async (id: string) => {
   return supabase.functions.invoke('manage-user', { body: { action: 'delete', payload: { id } } })
 }

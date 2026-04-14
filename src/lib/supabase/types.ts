@@ -226,6 +226,45 @@ export type Database = {
           },
         ]
       }
+      escala_mes: {
+        Row: {
+          created_at: string
+          mes_ano: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          mes_ano: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          mes_ano?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      feriados: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          descricao?: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          id?: string
+        }
+        Relationships: []
+      }
       ferias: {
         Row: {
           colaborador_id: string | null
@@ -666,6 +705,15 @@ export const Constants = {
 //   role: text (not null, default: 'Colaborador'::text)
 //   user_id: uuid (nullable)
 //   organization_id: uuid (nullable)
+// Table: escala_mes
+//   mes_ano: text (not null)
+//   status: text (not null, default: 'Rascunho'::text)
+//   created_at: timestamp with time zone (not null, default: now())
+// Table: feriados
+//   id: uuid (not null, default: gen_random_uuid())
+//   data: date (not null)
+//   descricao: text (not null, default: 'Feriado'::text)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: ferias
 //   id: uuid (not null, default: gen_random_uuid())
 //   created_at: timestamp with time zone (not null, default: timezone('utc'::text, now()))
@@ -735,6 +783,11 @@ export const Constants = {
 //   PRIMARY KEY colaboradores_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY colaboradores_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id)
 //   CHECK valid_roles: CHECK ((role = ANY (ARRAY['Admin'::text, 'Gerente'::text, 'Colaborador'::text])))
+// Table: escala_mes
+//   PRIMARY KEY escala_mes_pkey: PRIMARY KEY (mes_ano)
+// Table: feriados
+//   UNIQUE feriados_data_key: UNIQUE (data)
+//   PRIMARY KEY feriados_pkey: PRIMARY KEY (id)
 // Table: ferias
 //   FOREIGN KEY ferias_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
 //   FOREIGN KEY ferias_organization_id_fkey: FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
@@ -771,6 +824,14 @@ export const Constants = {
 //     USING: true
 //     WITH CHECK: true
 // Table: colaboradores
+//   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: escala_mes
+//   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: feriados
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
@@ -825,5 +886,7 @@ export const Constants = {
 // Table: colaboradores
 //   CREATE INDEX idx_colaboradores_organization_id ON public.colaboradores USING btree (organization_id)
 //   CREATE INDEX idx_colaboradores_user_id ON public.colaboradores USING btree (user_id)
+// Table: feriados
+//   CREATE UNIQUE INDEX feriados_data_key ON public.feriados USING btree (data)
 // Table: plantoes
 //   CREATE UNIQUE INDEX plantoes_colaborador_id_data_key ON public.plantoes USING btree (colaborador_id, data)

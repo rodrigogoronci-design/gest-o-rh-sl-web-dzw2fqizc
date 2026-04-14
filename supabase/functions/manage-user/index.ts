@@ -44,6 +44,31 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    if (action === 'update') {
+      const { id, email, name, role } = payload
+
+      const { error: authErr } = await supabase.auth.admin.updateUserById(id, {
+        email,
+        user_metadata: { name },
+        email_confirm: true,
+      })
+      if (authErr) throw authErr
+
+      const { error: dbErr } = await supabase
+        .from('colaboradores')
+        .update({
+          email,
+          nome: name,
+          role: role === 'admin' ? 'Admin' : 'Colaborador',
+        })
+        .eq('user_id', id)
+      if (dbErr) throw dbErr
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     return new Response(JSON.stringify({ error: 'Unknown action' }), {
       status: 400,
       headers: corsHeaders,

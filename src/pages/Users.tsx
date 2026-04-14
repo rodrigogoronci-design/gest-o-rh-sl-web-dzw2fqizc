@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,12 +28,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Trash2, UserPlus } from 'lucide-react'
+import { Edit2, Trash2, UserPlus } from 'lucide-react'
 import { Role } from '@/types'
 import { useToast } from '@/hooks/use-toast'
+import { updateDbUser } from '@/services/beneficios'
 
 export default function Users() {
-  const { currentUser, users, addUser, removeUser, isLoading } = useAppStore()
+  const { currentUser, users, addUser, removeUser } = useAppStore()
   const { toast } = useToast()
 
   const [isOpen, setIsOpen] = useState(false)
@@ -41,6 +42,13 @@ export default function Users() {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('user')
   const [isSaving, setIsSaving] = useState(false)
+
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editId, setEditId] = useState('')
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editRole, setEditRole] = useState<Role>('user')
+  const [isUpdating, setIsUpdating] = useState(false)
 
   if (currentUser?.role !== 'admin') {
     return <Navigate to="/app/mural" replace />
@@ -72,7 +80,46 @@ export default function Users() {
     }
   }
 
-  const handleRemove = async (id: string, name: string) => {
+  const handleEditClick = (u: any) => {
+    setEditId(u.id)
+    setEditName(u.name)
+    setEditEmail(u.email)
+    setEditRole(u.role)
+    setIsEditOpen(true)
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editId || !editName || !editEmail) return
+
+    setIsUpdating(true)
+    try {
+      const { error } = await updateDbUser({
+        id: editId,
+        name: editName,
+        email: editEmail,
+        role: editRole,
+      })
+      if (error) throw error
+
+      toast({
+        title: 'Usuário atualizado',
+        description: `${editName} foi atualizado com sucesso.`,
+      })
+      setIsEditOpen(false)
+      setTimeout(() => window.location.reload(), 1500)
+    } catch (err) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar o usuário.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleRemove = async (id: string, userName: string) => {
     if (id === currentUser?.id) {
       toast({
         title: 'Ação negada',
@@ -85,7 +132,7 @@ export default function Users() {
 
     try {
       await removeUser(id)
-      toast({ title: 'Usuário removido', description: `${name} foi removido do sistema.` })
+      toast({ title: 'Usuário removido', description: `${userName} foi removido do sistema.` })
     } catch (err) {
       toast({ title: 'Erro', description: 'Não foi possível remover.', variant: 'destructive' })
     }
@@ -146,6 +193,50 @@ export default function Users() {
         </Dialog>
       </div>
 
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdate} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>Nome Completo</Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Ex: João da Silva"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                placeholder="joao@app.com"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Perfil de Acesso</Label>
+              <Select value={editRole} onValueChange={(val: Role) => setEditRole(val)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Usuário Normal (Funcionário)</SelectItem>
+                  <SelectItem value="admin">Administrador (Gestor)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" className="w-full" disabled={isUpdating}>
+              {isUpdating ? 'Atualizando...' : 'Atualizar Usuário'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Card className="border-0 shadow-sm">
         <CardContent className="p-0">
           <Table>
@@ -158,7 +249,7 @@ export default function Users() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => (
+              {users.map((u: any) => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell>{u.email}</TableCell>
@@ -171,7 +262,15 @@ export default function Users() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => handleEditClick(u)}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-1"
                       onClick={() => handleRemove(u.id, u.name)}
                     >
                       <Trash2 className="w-4 h-4" />
