@@ -16,7 +16,7 @@ Deno.serve(async (req: Request) => {
     if (action === 'create') {
       const { data, error } = await supabase.auth.admin.createUser({
         email: payload.email,
-        password: 'Skip@Pass123!',
+        password: payload.password || 'Skip@Pass123!',
         email_confirm: true,
         user_metadata: { name: payload.name },
       })
@@ -45,13 +45,19 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'update') {
-      const { id, email, name, role } = payload
+      const { id, email, name, role, password } = payload
 
-      const { error: authErr } = await supabase.auth.admin.updateUserById(id, {
+      const updateData: any = {
         email,
         user_metadata: { name },
         email_confirm: true,
-      })
+      }
+
+      if (password) {
+        updateData.password = password
+      }
+
+      const { error: authErr } = await supabase.auth.admin.updateUserById(id, updateData)
       if (authErr) throw authErr
 
       const { error: dbErr } = await supabase

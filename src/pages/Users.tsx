@@ -29,18 +29,20 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Edit2, Trash2, UserPlus } from 'lucide-react'
-import { Role } from '@/types'
 import { useToast } from '@/hooks/use-toast'
-import { updateDbUser } from '@/services/beneficios'
+import { supabase } from '@/lib/supabase/client'
+
+type Role = 'admin' | 'user'
 
 export default function Users() {
-  const { currentUser, users, addUser, removeUser } = useAppStore()
+  const { currentUser, users, removeUser } = useAppStore()
   const { toast } = useToast()
 
   const [isOpen, setIsOpen] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('user')
+  const [password, setPassword] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
   const [isEditOpen, setIsEditOpen] = useState(false)
@@ -48,9 +50,10 @@ export default function Users() {
   const [editName, setEditName] = useState('')
   const [editEmail, setEditEmail] = useState('')
   const [editRole, setEditRole] = useState<Role>('user')
+  const [editPassword, setEditPassword] = useState('')
   const [isUpdating, setIsUpdating] = useState(false)
 
-  if (currentUser?.role !== 'admin') {
+  if (currentUser?.role !== 'admin' && currentUser?.role !== 'Admin') {
     return <Navigate to="/app/mural" replace />
   }
 
@@ -60,15 +63,24 @@ export default function Users() {
 
     setIsSaving(true)
     try {
-      await addUser({ name, email, role })
+      const payload: any = { name, email, role }
+      if (password) payload.password = password
+
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: { action: 'create', payload },
+      })
+      if (error || data?.error) throw error || new Error(data?.error)
+
       setIsOpen(false)
       setName('')
       setEmail('')
       setRole('user')
+      setPassword('')
       toast({
         title: 'Usuário adicionado',
         description: `${name} foi adicionado com sucesso.`,
       })
+      setTimeout(() => window.location.reload(), 1500)
     } catch (err) {
       toast({
         title: 'Erro',
@@ -82,9 +94,10 @@ export default function Users() {
 
   const handleEditClick = (u: any) => {
     setEditId(u.id)
-    setEditName(u.name)
+    setEditName(u.name || u.nome)
     setEditEmail(u.email)
-    setEditRole(u.role)
+    setEditRole(u.role === 'Admin' || u.role === 'admin' ? 'admin' : 'user')
+    setEditPassword('')
     setIsEditOpen(true)
   }
 
@@ -94,13 +107,19 @@ export default function Users() {
 
     setIsUpdating(true)
     try {
-      const { error } = await updateDbUser({
-        id: editId,
-        name: editName,
-        email: editEmail,
-        role: editRole,
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: {
+          action: 'update',
+          payload: {
+            id: editId,
+            name: editName,
+            email: editEmail,
+            role: editRole,
+            password: editPassword || undefined,
+          },
+        },
       })
-      if (error) throw error
+      if (error || data?.error) throw error || new Error(data?.error)
 
       toast({
         title: 'Usuário atualizado',
@@ -174,6 +193,15 @@ export default function Users() {
                 />
               </div>
               <div className="space-y-2">
+                <Label>Senha (Opcional)</Label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Deixe em branco para senha padrão"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>Perfil de Acesso</Label>
                 <Select value={role} onValueChange={(val: Role) => setRole(val)}>
                   <SelectTrigger>
@@ -219,6 +247,15 @@ export default function Users() {
               />
             </div>
             <div className="space-y-2">
+              <Label>Nova Senha</Label>
+              <Input
+                type="password"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                placeholder="Preencha apenas se quiser alterar"
+              />
+            </div>
+            <div className="space-y-2">
               <Label>Perfil de Acesso</Label>
               <Select value={editRole} onValueChange={(val: Role) => setEditRole(val)}>
                 <SelectTrigger>
@@ -251,11 +288,13 @@ export default function Users() {
             <TableBody>
               {users.map((u: any) => (
                 <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.name}</TableCell>
+                  <TableCell className="font-medium">{u.name || u.nome}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
-                    <Badge variant={u.role === 'admin' ? 'default' : 'secondary'}>
-                      {u.role === 'admin' ? 'Administrador' : 'Funcionário'}
+                    <Badge
+                      variant={u.role === 'admin' || u.role === 'Admin' ? 'default' : 'secondary'}
+                    >
+                      {u.role === 'admin' || u.role === 'Admin' ? 'Administrador' : 'Funcionário'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -271,7 +310,7 @@ export default function Users() {
                       variant="ghost"
                       size="icon"
                       className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-1"
-                      onClick={() => handleRemove(u.id, u.name)}
+                      onClick={() => handleRemove(u.id, u.name || u.nome)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
