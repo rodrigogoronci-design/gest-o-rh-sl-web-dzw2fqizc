@@ -66,7 +66,23 @@ Deno.serve(async (req: Request) => {
 
       if (authUserId) {
         const { error: authErr } = await supabase.auth.admin.updateUserById(authUserId, updateData)
-        if (authErr) throw authErr
+        if (authErr) {
+          if (authErr.message.toLowerCase().includes('user not found')) {
+            if (password) {
+              const { data: newAuth, error: createErr } = await supabase.auth.admin.createUser({
+                email,
+                password,
+                email_confirm: true,
+                user_metadata: { name },
+              })
+              if (createErr) throw createErr
+
+              await supabase.from('colaboradores').update({ user_id: newAuth.user.id }).eq('id', id)
+            }
+          } else {
+            throw authErr
+          }
+        }
       }
 
       const { error: dbErr } = await supabase
@@ -85,13 +101,13 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(JSON.stringify({ error: 'Unknown action' }), {
-      status: 400,
-      headers: corsHeaders,
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 400,
-      headers: corsHeaders,
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
