@@ -1,9 +1,3 @@
--- Drop existing policies if needed
-DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.plantoes;
-DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.beneficios_ticket;
-DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.beneficios_transporte;
-DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.colaboradores;
-
 CREATE TABLE IF NOT EXISTS public.colaboradores (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -46,15 +40,19 @@ CREATE TABLE IF NOT EXISTS public.beneficios_transporte (
 
 -- RLS
 ALTER TABLE public.colaboradores ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.colaboradores;
 CREATE POLICY "Allow all access to authenticated users" ON public.colaboradores FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 ALTER TABLE public.plantoes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.plantoes;
 CREATE POLICY "Allow all access to authenticated users" ON public.plantoes FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 ALTER TABLE public.beneficios_ticket ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.beneficios_ticket;
 CREATE POLICY "Allow all access to authenticated users" ON public.beneficios_ticket FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 ALTER TABLE public.beneficios_transporte ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access to authenticated users" ON public.beneficios_transporte;
 CREATE POLICY "Allow all access to authenticated users" ON public.beneficios_transporte FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Seeds
