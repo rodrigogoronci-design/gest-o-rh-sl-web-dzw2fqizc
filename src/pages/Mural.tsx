@@ -44,6 +44,7 @@ import {
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { FeriasDialog } from '@/components/FeriasDialog'
+import { syncAllUsersBeneficios } from '@/services/beneficios'
 
 export default function Mural() {
   const { currentUser, users, shifts, toggleShift, isLoading } = useAppStore()
@@ -169,6 +170,9 @@ export default function Mural() {
         [dateStr]: [...(prev[dateStr] || []), userId],
       }))
     }
+
+    // Sincronizar com benefícios após registrar/remover falta
+    await syncAllUsersBeneficios(mesAno)
   }
 
   const updateEscalaStatus = async (status: 'Rascunho' | 'Pendente' | 'Aprovada') => {
@@ -181,10 +185,22 @@ export default function Mural() {
     await supabase.from('ferias').delete().eq('id', id)
     setFeriasList((prev) => prev.filter((f) => f.id !== id))
     toast({ title: 'Férias removidas' })
+
+    const nextMesAno = format(addMonths(selectedDate, 1), 'yyyy-MM')
+    const prevMesAno = format(subMonths(selectedDate, 1), 'yyyy-MM')
+    await syncAllUsersBeneficios(prevMesAno)
+    await syncAllUsersBeneficios(mesAno)
+    await syncAllUsersBeneficios(nextMesAno)
   }
 
-  const handleFeriasAdded = () => {
+  const handleFeriasAdded = async () => {
     setReloadKey((prev) => prev + 1)
+
+    const nextMesAno = format(addMonths(selectedDate, 1), 'yyyy-MM')
+    const prevMesAno = format(subMonths(selectedDate, 1), 'yyyy-MM')
+    await syncAllUsersBeneficios(prevMesAno)
+    await syncAllUsersBeneficios(mesAno)
+    await syncAllUsersBeneficios(nextMesAno)
   }
 
   return (

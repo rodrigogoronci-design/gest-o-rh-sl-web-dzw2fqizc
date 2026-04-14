@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
+import { eachDayOfInterval, format, subMonths, setDate } from 'date-fns'
 
 export const loadBeneficiosData = async (month: string) => {
   const [cols, plantoes, tickets, transports] = await Promise.all([
@@ -107,4 +108,101 @@ export const updateDbUser = async (payload: {
 
 export const deleteDbUser = async (id: string) => {
   return supabase.functions.invoke('manage-user', { body: { action: 'delete', payload: { id } } })
+}
+
+export const syncAllUsersBeneficios = async (month: string) => {
+  const [year, m] = month.split('-').map(Number)
+  const selectedDate = new Date(year, m - 1, 1)
+
+  const periodEnd = setDate(selectedDate, 24)
+  const periodStart = setDate(subMonths(selectedDate, 1), 25)
+  const startStr = format(periodStart, 'yyyy-MM-dd')
+  const endStr = format(periodEnd, 'yyyy-MM-dd')
+
+  const [cols, faltas, ferias, tickets, transports] = await Promise.all([
+    supabase.from('colaboradores').select('id, role'),
+    supabase.from('faltas').select('*').gte('data', startStr).lte('data', endStr),
+    supabase.from('ferias').select('*').lte('data_inicio', endStr).gte('data_fim', startStr),
+    supabase.from('beneficios_ticket').select('*').eq('mes_ano', month),
+    supabase.from('beneficios_transporte').select('*').eq('mes_ano', month),
+  ])
+
+  const users = cols.data || []
+  const faltasData = faltas.data || []
+  const feriasData = ferias.data || []
+  const ticketsData = tickets.data || []
+  const transportsData = transports.data || []
+
+  const days = eachDayOfInterval({ start: periodStart, end: periodEnd })
+  const daysStrs = days.map((d) => format(d, 'yyyy-MM-dd'))
+
+  const ticketUpdates: any[] = []
+  const transportUpdates: any[] = []
+
+  users.forEach((user) => {
+    if (user.role === 'Admin' || user.role === 'admin') return
+
+    const userId = user.id
+
+    const userFaltas = faltasData.filter((f) => f.colaborador_id === userId).length
+
+    let userFerias = 0
+    const userFeriasList = feriasData.filter((f) => f.colaborador_id === userId)
+    if (userFeriasList.length > 0) {
+      daysStrs.forEach((dateStr) => {
+        const isFeria = userFeriasList.some(
+          (f) => dateStr >= f.data_inicio && dateStr <= f.data_fim,
+        )
+        if (isFeria) userFerias++
+      })
+    }
+
+    const existingTicket = ticketsData.find((t) => t.colaborador_id === userId)
+    const existingTransport = transportsData.find((t) => t.colaborador_id === userId)
+
+    if (
+      !existingTicket ||
+      existingTicket.faltas !== userFaltas ||
+      existingTicket.ferias !== userFerias
+    ) {
+      ticketUpdates.push({
+        id: existingTicket?.id,
+        colaborador_id: userId,
+        mes_ano: month,
+        faltas: userFaltas,
+        ferias: userFerias,
+        dias_uteis: existingTicket?.dias_uteis ?? 22,
+        atestados: existingTicket?.atestados ?? 0,
+        plantoes: existingTicket?.plantoes ?? 0,
+      })
+    }
+
+    if (
+      !existingTransport ||
+      existingTransport.faltas !== userFaltas ||
+      existingTransport.ferias !== userFerias
+    ) {
+      transportUpdates.push({
+        id: existingTransport?.id,
+        colaborador_id: userId,
+        mes_ano: month,
+        faltas: userFaltas,
+        ferias: userFerias,
+        dias_uteis: existingTransport?.dias_uteis ?? 22,
+        atestados: existingTransport?.atestados ?? 0,
+        home_office: existingTransport?.home_office ?? 0,
+      })
+    }
+  })
+
+  if (ticketUpdates.length > 0) {
+    await supabase
+      .from('beneficios_ticket')
+      .upsert(ticketUpdates, { onConflict: 'colaborador_id,mes_ano' })
+  }
+  if (transportUpdates.length > 0) {
+    await supabase
+      .from('beneficios_transporte')
+      .upsert(transportUpdates, { onConflict: 'colaborador_id,mes_ano' })
+  }
 }
