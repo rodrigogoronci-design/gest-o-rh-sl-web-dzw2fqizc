@@ -296,7 +296,7 @@ export default function Ticket() {
                                   <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Diferente do sistema ({preCalcSick} dias)</p>
+                                  <p>Diferente do sistema ({preCalcSick} dias no ciclo anterior)</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}

@@ -54,8 +54,14 @@ export default function Transport() {
 
   const year = parseInt(selectedMonth.split('-')[0])
   const month = parseInt(selectedMonth.split('-')[1]) - 1
+
+  // Current period (Férias, Plantões, etc)
   const pStart = format(new Date(year, month - 1, 25), 'yyyy-MM-dd')
   const pEnd = format(new Date(year, month, 24), 'yyyy-MM-dd')
+
+  // Previous period (Atestados)
+  const prevPStart = format(new Date(year, month - 2, 25), 'yyyy-MM-dd')
+  const prevPEnd = format(new Date(year, month - 1, 24), 'yyyy-MM-dd')
 
   useEffect(() => {
     if (!users || users.length === 0) return
@@ -65,15 +71,19 @@ export default function Transport() {
       const [{ data: ferias }, { data: atestados }, { data: plantoes }, { data: transports }] =
         await Promise.all([
           supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
-          supabase.from('atestados').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
+          supabase
+            .from('atestados')
+            .select('*')
+            .lte('data_inicio', prevPEnd)
+            .gte('data_fim', prevPStart),
           supabase.from('plantoes').select('*').gte('data', pStart).lte('data', pEnd),
           supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
         ])
 
-      const calcDays = (records: any[]) => {
+      const calcDays = (records: any[], startStr: string, endStr: string) => {
         const counts: Record<string, number> = {}
-        const start = parseISO(pStart)
-        const end = parseISO(pEnd)
+        const start = parseISO(startStr)
+        const end = parseISO(endStr)
         records?.forEach((r) => {
           if (!r.colaborador_id) return
           const rStart = parseISO(r.data_inicio)
@@ -89,8 +99,8 @@ export default function Transport() {
         return counts
       }
 
-      const vacationDaysCount = calcDays(ferias || [])
-      const atestadoDaysCount = calcDays(atestados || [])
+      const vacationDaysCount = calcDays(ferias || [], pStart, pEnd)
+      const atestadoDaysCount = calcDays(atestados || [], prevPStart, prevPEnd)
 
       setPreCalculatedVacations(vacationDaysCount)
       setPreCalculatedAtestados(atestadoDaysCount)
@@ -361,7 +371,7 @@ export default function Transport() {
                                   <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Diferente ({preCalcSick} dias)</p>
+                                  <p>Diferente ({preCalcSick} dias no ciclo anterior)</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}
