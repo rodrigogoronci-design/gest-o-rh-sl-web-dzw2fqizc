@@ -17,28 +17,71 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { Save, Info, Calendar as CalendarIcon, RefreshCw } from 'lucide-react'
+import { Save, Info, Calendar as CalendarIcon, RefreshCw, Minus, Plus } from 'lucide-react'
 import { syncAllUsersBeneficios } from '@/services/beneficios'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TicketRecord } from '@/types'
 
 const TICKET_VALUE = 31.59
 
-const UnitInput = ({ value, onChange, className, unit = 'dias', readOnly, title }: any) => (
-  <div className="relative w-full" title={title}>
-    <Input
-      type="number"
-      min="0"
-      value={value}
-      onChange={onChange}
-      readOnly={readOnly}
-      className={cn('h-8 pr-12 text-left font-medium', className)}
-    />
-    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold pointer-events-none uppercase tracking-wider">
-      {unit}
-    </span>
-  </div>
-)
+const UnitInput = ({ value, onChange, className, unit = 'dias', readOnly, title }: any) => {
+  const handleDecrement = () => {
+    if (readOnly) return
+    const current = parseInt(value) || 0
+    if (current > 0) {
+      onChange({ target: { value: String(current - 1) } })
+    }
+  }
+
+  const handleIncrement = () => {
+    if (readOnly) return
+    const current = parseInt(value) || 0
+    onChange({ target: { value: String(current + 1) } })
+  }
+
+  return (
+    <div className="relative flex items-center w-full" title={title}>
+      <button
+        type="button"
+        onClick={handleDecrement}
+        disabled={readOnly || value <= 0}
+        className={cn(
+          'absolute left-1 z-10 p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-sm transition-colors',
+          (readOnly || value <= 0) && 'opacity-50 cursor-not-allowed',
+        )}
+      >
+        <Minus className="w-3.5 h-3.5" />
+      </button>
+      <Input
+        type="number"
+        min="0"
+        value={value}
+        onChange={onChange}
+        readOnly={readOnly}
+        className={cn(
+          'h-8 px-7 text-center font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
+          className,
+        )}
+      />
+      <div className="absolute right-1 z-10 flex items-center bg-transparent">
+        <span className="text-[10px] text-slate-400 font-bold pointer-events-none uppercase tracking-wider mr-1">
+          {unit}
+        </span>
+        <button
+          type="button"
+          onClick={handleIncrement}
+          disabled={readOnly}
+          className={cn(
+            'p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-sm transition-colors',
+            readOnly && 'opacity-50 cursor-not-allowed',
+          )}
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export default function Ticket() {
   const { currentUser, users } = useAppStore()
