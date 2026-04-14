@@ -24,7 +24,7 @@ import { TransportRecord } from '@/types'
 
 const TRANSPORT_DAILY_VALUE = 10.2
 
-const UnitInput = ({ value, onChange, className, unit = 'dias', readOnly, title }: any) => {
+const UnitInput = ({ value, onChange, className, readOnly, title }: any) => {
   const handleDecrement = () => {
     if (readOnly) return
     const current = parseInt(value) || 0
@@ -40,45 +40,37 @@ const UnitInput = ({ value, onChange, className, unit = 'dias', readOnly, title 
   }
 
   return (
-    <div className="relative flex items-center w-full" title={title}>
+    <div
+      className={cn(
+        'flex w-[84px] items-center h-8 rounded border border-slate-200 bg-white overflow-hidden transition-all focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary/50',
+        className,
+      )}
+      title={title}
+    >
       <button
         type="button"
         onClick={handleDecrement}
         disabled={readOnly || value <= 0}
-        className={cn(
-          'absolute left-1 z-10 p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-sm transition-colors',
-          (readOnly || value <= 0) && 'opacity-50 cursor-not-allowed',
-        )}
+        className="flex h-full w-7 shrink-0 items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 disabled:pointer-events-none transition-colors"
       >
-        <Minus className="w-3.5 h-3.5" />
+        <Minus className="h-3 w-3" />
       </button>
-      <Input
+      <input
         type="number"
         min="0"
         value={value}
         onChange={onChange}
         readOnly={readOnly}
-        className={cn(
-          'h-8 px-7 text-center font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
-          className,
-        )}
+        className="flex-1 w-full h-full bg-transparent text-center text-xs font-medium text-slate-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
-      <div className="absolute right-1 z-10 flex items-center bg-transparent">
-        <span className="text-[10px] text-slate-400 font-bold pointer-events-none uppercase tracking-wider mr-1">
-          {unit}
-        </span>
-        <button
-          type="button"
-          onClick={handleIncrement}
-          disabled={readOnly}
-          className={cn(
-            'p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-sm transition-colors',
-            readOnly && 'opacity-50 cursor-not-allowed',
-          )}
-        >
-          <Plus className="w-3.5 h-3.5" />
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={handleIncrement}
+        disabled={readOnly}
+        className="flex h-full w-7 shrink-0 items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+      >
+        <Plus className="h-3 w-3" />
+      </button>
     </div>
   )
 }
@@ -114,23 +106,17 @@ export default function Transport() {
 
     const loadData = async () => {
       setIsLoading(true)
-      const [
-        { data: ferias },
-        { data: atestados },
-        { data: plantoes },
-        { data: transports },
-        { data: faltas },
-      ] = await Promise.all([
-        supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
-        supabase
-          .from('atestados')
-          .select('*')
-          .lte('data_inicio', prevPEnd)
-          .gte('data_fim', prevPStart),
-        supabase.from('plantoes').select('*').gte('data', pStart).lte('data', pEnd),
-        supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
-        supabase.from('faltas').select('*').gte('data', pStart).lte('data', pEnd),
-      ])
+      const [{ data: ferias }, { data: atestados }, { data: transports }, { data: faltas }] =
+        await Promise.all([
+          supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
+          supabase
+            .from('atestados')
+            .select('*')
+            .lte('data_inicio', prevPEnd)
+            .gte('data_fim', prevPStart),
+          supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
+          supabase.from('faltas').select('*').gte('data', pStart).lte('data', pEnd),
+        ])
 
       const calcDays = (records: any[], startStr: string, endStr: string) => {
         const counts: Record<string, number> = {}
@@ -222,7 +208,7 @@ export default function Transport() {
       colaborador_id,
       mes_ano: selectedMonth,
       dias_uteis: data.businessDays,
-      home_office: 0,
+      home_office: 0, // Ignored in logic, set to 0 to keep clean
       ferias: data.vacation,
       atestados: data.sick,
       faltas: data.faltas,
@@ -260,46 +246,36 @@ export default function Transport() {
   let grandTotal = 0
 
   return (
-    <div className="space-y-6 flex flex-col h-full">
+    <div className="space-y-4 flex flex-col h-full">
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Controle de Vale Transporte</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">
+            Controle de Vale Transporte
+          </h1>
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            <span className="text-sm text-muted-foreground font-medium">
+            <span className="text-xs text-muted-foreground font-medium">
               Valor diário base: R$ {TRANSPORT_DAILY_VALUE.toFixed(2).replace('.', ',')}
             </span>
-            <div className="h-4 w-px bg-slate-300 hidden sm:block"></div>
-            <div className="flex items-center gap-1.5 text-sm text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+            <div className="h-3 w-px bg-slate-300 hidden sm:block"></div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
               <CalendarIcon className="w-3.5 h-3.5 text-slate-500" />
               <span>Ciclo de Apuração:</span>
               <strong className="text-slate-700">
                 {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
               </strong>
             </div>
-            <div className="h-4 w-px bg-slate-300 hidden sm:block"></div>
-            <div
-              className="flex items-center gap-1.5 text-sm text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200"
-              title="Atestados são descontados na escala seguinte"
-            >
-              <Info className="w-3.5 h-3.5 text-slate-500" />
-              <span>Período Atestados:</span>
-              <strong className="text-slate-700">
-                {format(parseISO(prevPStart), 'dd/MM/yyyy')} a{' '}
-                {format(parseISO(prevPEnd), 'dd/MM/yyyy')}
-              </strong>
-            </div>
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             onClick={handleSync}
             disabled={isSaving || isLoading || isSyncing}
-            className="gap-2 bg-white text-slate-700 shadow-sm h-9"
+            className="gap-1.5 bg-white text-slate-700 shadow-sm h-8 text-xs"
           >
-            <RefreshCw className={cn('w-4 h-4', isSyncing && 'animate-spin')} />
+            <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
             <span className="hidden sm:inline">
-              {isSyncing ? 'Sincronizando...' : 'Sincronizar do Mural'}
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar Lançamentos'}
             </span>
             <span className="sm:hidden">{isSyncing ? '...' : 'Sincronizar'}</span>
           </Button>
@@ -307,35 +283,43 @@ export default function Transport() {
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="w-[160px] h-9 font-medium bg-white shadow-sm"
+            className="w-[140px] h-8 text-xs font-medium bg-white shadow-sm"
           />
           <Button
             onClick={handleSave}
             disabled={isSaving || isLoading || isSyncing}
-            className="gap-2 bg-[#10b981] hover:bg-[#059669] text-white shadow-sm h-9"
+            className="gap-1.5 bg-[#10b981] hover:bg-[#059669] text-white shadow-sm h-8 text-xs"
           >
-            <Save className="w-4 h-4" /> {isSaving ? 'Salvando...' : 'Salvar'}
+            <Save className="w-3.5 h-3.5" /> {isSaving ? 'Salvando...' : 'Salvar'}
           </Button>
         </div>
       </div>
 
-      <Card className="border-0 shadow-sm flex-1 overflow-hidden flex flex-col">
-        <CardContent className="p-0 overflow-auto flex-1 relative">
+      <Card className="border border-slate-200 shadow-sm flex-1 overflow-hidden flex flex-col rounded-lg">
+        <CardContent className="p-0 overflow-auto flex-1 relative bg-white">
           {isLoading && (
             <div className="absolute inset-0 z-50 bg-white/50 backdrop-blur-sm flex items-center justify-center">
               <div className="text-sm font-medium text-slate-500">Carregando dados...</div>
             </div>
           )}
-          <Table>
-            <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
-              <TableRow>
+          <Table className="text-sm">
+            <TableHeader className="bg-slate-50/90 sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200">
+              <TableRow className="[&>th]:py-2 [&>th]:px-3 text-xs uppercase tracking-wider text-slate-500 font-semibold border-0">
                 <TableHead className="min-w-[160px]">Colaborador</TableHead>
-                <TableHead className="w-[100px]">Dias Úteis</TableHead>
-                <TableHead className="w-[100px]">Atestados</TableHead>
-                <TableHead className="w-[100px]">Férias</TableHead>
-                <TableHead className="w-[100px]">Faltas</TableHead>
-                <TableHead className="text-center w-[90px]">Dias Devidos</TableHead>
-                <TableHead className="text-right min-w-[120px]">Valor Total</TableHead>
+                <TableHead className="w-[100px] text-center">Dias Úteis</TableHead>
+                <TableHead className="w-[110px] text-center">
+                  <div
+                    className="flex items-center justify-center gap-1 cursor-help"
+                    title={`Descontos baseados no ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                  >
+                    Atestados
+                    <Info className="w-3 h-3 text-slate-400" />
+                  </div>
+                </TableHead>
+                <TableHead className="w-[100px] text-center">Férias</TableHead>
+                <TableHead className="w-[100px] text-center">Faltas</TableHead>
+                <TableHead className="text-center w-[90px]">Total</TableHead>
+                <TableHead className="text-right min-w-[120px]">Valor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -359,19 +343,21 @@ export default function Transport() {
                   grandTotal += totalValue
 
                   return (
-                    <TableRow key={u.id}>
-                      <TableCell className="font-medium text-slate-700">{u.name}</TableCell>
+                    <TableRow
+                      key={u.id}
+                      className="[&>td]:py-2 [&>td]:px-3 hover:bg-slate-50/50 transition-colors border-b border-slate-100"
+                    >
+                      <TableCell className="font-medium text-slate-700 text-xs">{u.name}</TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 items-center">
                           <UnitInput
                             value={data.businessDays}
                             onChange={(e: any) =>
                               handleInputChange(u.id, 'businessDays', e.target.value)
                             }
-                            unit="dias"
                           />
                           <span className="text-[10px] text-emerald-600 font-medium">
-                            + R${' '}
+                            +R${' '}
                             {(data.businessDays * TRANSPORT_DAILY_VALUE)
                               .toFixed(2)
                               .replace('.', ',')}
@@ -379,19 +365,17 @@ export default function Transport() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 items-center">
                           <UnitInput
                             value={data.sick || 0}
                             onChange={(e: any) => handleInputChange(u.id, 'sick', e.target.value)}
-                            unit="dias"
                             className={cn(
-                              'text-red-600 transition-colors',
                               data.sick !== preCalcSick && 'border-orange-300 bg-orange-50',
                             )}
                           />
-                          <div className="flex justify-between items-center">
+                          <div className="flex w-[84px] justify-between items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
-                              - R${' '}
+                              -R${' '}
                               {((data.sick || 0) * TRANSPORT_DAILY_VALUE)
                                 .toFixed(2)
                                 .replace('.', ',')}
@@ -399,7 +383,7 @@ export default function Transport() {
                             {data.sick !== preCalcSick && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
+                                  <Info className="w-3 h-3 text-orange-500 cursor-help shrink-0" />
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>Diferente ({preCalcSick} dias no ciclo anterior)</p>
@@ -410,27 +394,25 @@ export default function Transport() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 items-center">
                           <UnitInput
                             value={data.vacation}
                             onChange={(e: any) =>
                               handleInputChange(u.id, 'vacation', e.target.value)
                             }
-                            unit="dias"
                             className={cn(
-                              'text-red-600 transition-colors',
                               data.vacation !== preCalcVacation && 'border-orange-300 bg-orange-50',
                             )}
                           />
-                          <div className="flex justify-between items-center">
+                          <div className="flex w-[84px] justify-between items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
-                              - R${' '}
+                              -R${' '}
                               {(data.vacation * TRANSPORT_DAILY_VALUE).toFixed(2).replace('.', ',')}
                             </span>
                             {data.vacation !== preCalcVacation && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
+                                  <Info className="w-3 h-3 text-orange-500 cursor-help shrink-0" />
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>Diferente ({preCalcVacation} dias na escala atual)</p>
@@ -441,19 +423,17 @@ export default function Transport() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 items-center">
                           <UnitInput
                             value={data.faltas || 0}
                             onChange={(e: any) => handleInputChange(u.id, 'faltas', e.target.value)}
-                            unit="faltas"
                             className={cn(
-                              'text-red-600 transition-colors',
                               data.faltas !== preCalcFaltas && 'border-orange-300 bg-orange-50',
                             )}
                           />
-                          <div className="flex justify-between items-center">
+                          <div className="flex w-[84px] justify-between items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
-                              - R${' '}
+                              -R${' '}
                               {((data.faltas || 0) * TRANSPORT_DAILY_VALUE)
                                 .toFixed(2)
                                 .replace('.', ',')}
@@ -461,7 +441,7 @@ export default function Transport() {
                             {data.faltas !== preCalcFaltas && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
+                                  <Info className="w-3 h-3 text-orange-500 cursor-help shrink-0" />
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>Diferente ({preCalcFaltas} faltas na escala)</p>
@@ -471,10 +451,10 @@ export default function Transport() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-center font-bold text-slate-700 text-lg">
+                      <TableCell className="text-center font-bold text-slate-700 text-sm">
                         {eligibleDays}
                       </TableCell>
-                      <TableCell className="text-right font-bold text-primary text-lg">
+                      <TableCell className="text-right font-bold text-primary text-sm">
                         R$ {totalValue.toFixed(2).replace('.', ',')}
                       </TableCell>
                     </TableRow>
@@ -483,11 +463,11 @@ export default function Transport() {
             </TableBody>
           </Table>
         </CardContent>
-        <div className="bg-slate-100 p-4 border-t flex justify-between items-center shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-          <span className="font-semibold text-slate-600 uppercase text-sm">
+        <div className="bg-slate-50 p-3 border-t flex justify-between items-center shrink-0 z-20">
+          <span className="font-semibold text-slate-500 uppercase text-xs tracking-wider">
             Total Pago pela Empresa
           </span>
-          <span className="text-2xl font-bold text-[#10b981]">
+          <span className="text-lg font-bold text-[#10b981]">
             R$ {grandTotal.toFixed(2).replace('.', ',')}
           </span>
         </div>
