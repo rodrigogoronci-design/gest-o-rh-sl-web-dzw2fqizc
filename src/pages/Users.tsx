@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import useAppStore from '@/stores/useAppStore'
 import {
@@ -36,8 +36,22 @@ import { supabase } from '@/lib/supabase/client'
 type Role = 'admin' | 'user'
 
 export default function Users() {
-  const { currentUser, users, removeUser } = useAppStore()
+  const { currentUser, removeUser } = useAppStore()
   const { toast } = useToast()
+
+  const [colaboradores, setColaboradores] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const fetchUsers = async () => {
+    setIsLoading(true)
+    const { data } = await supabase.from('colaboradores').select('*').order('nome')
+    if (data) setColaboradores(data)
+    setIsLoading(false)
+  }
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
 
   const [isOpen, setIsOpen] = useState(false)
   const [name, setName] = useState('')
@@ -74,18 +88,6 @@ export default function Users() {
       })
       if (error || data?.error) throw error || new Error(data?.error)
 
-      if (data?.id) {
-        await supabase
-          .from('colaboradores')
-          .update({
-            nome: name,
-            email: email,
-            role: role === 'admin' ? 'Admin' : 'Colaborador',
-            recebe_transporte: recebeTransporte,
-          })
-          .eq('id', data.id)
-      }
-
       setIsOpen(false)
       setName('')
       setEmail('')
@@ -96,7 +98,7 @@ export default function Users() {
         title: 'Usuário adicionado',
         description: `${name} foi adicionado com sucesso.`,
       })
-      setTimeout(() => window.location.reload(), 1500)
+      fetchUsers()
     } catch (err: any) {
       toast({
         title: 'Erro',
@@ -124,37 +126,24 @@ export default function Users() {
 
     setIsUpdating(true)
     try {
-      // 1. Garantia imediata no banco local (colaboradores) para todos os dados
-      // Resolve o problema de persistência da flag independente do que a edge function retorne
-      const { error: dbError } = await supabase
-        .from('colaboradores')
-        .update({
-          nome: editName,
-          email: editEmail,
-          role: editRole === 'admin' ? 'Admin' : 'Colaborador',
-          recebe_transporte: editRecebeTransporte,
-        })
-        .eq('id', editId)
+      const payload = {
+        id: editId,
+        name: editName,
+        email: editEmail,
+        role: editRole,
+        password: editPassword || undefined,
+        recebe_transporte: editRecebeTransporte === true,
+      }
 
-      if (dbError) throw dbError
-
-      // 2. Atualiza o Auth via Edge Function em segundo plano
       const { data, error } = await supabase.functions.invoke('manage-user', {
         body: {
           action: 'update',
-          payload: {
-            id: editId,
-            name: editName,
-            email: editEmail,
-            role: editRole,
-            password: editPassword || undefined,
-            recebe_transporte: editRecebeTransporte,
-          },
+          payload,
         },
       })
 
       if (error || data?.error) {
-        console.warn('Falha ao atualizar auth via edge function:', error || data?.error)
+        throw new Error(error?.message || data?.error || 'Erro ao atualizar usuário')
       }
 
       toast({
@@ -162,7 +151,7 @@ export default function Users() {
         description: `${editName} foi atualizado com sucesso.`,
       })
       setIsEditOpen(false)
-      setTimeout(() => window.location.reload(), 1500)
+      fetchUsers()
     } catch (err: any) {
       toast({
         title: 'Erro',
@@ -194,7 +183,7 @@ export default function Users() {
 
       await removeUser(id)
       toast({ title: 'Usuário removido', description: `${userName} foi removido do sistema.` })
-      setTimeout(() => window.location.reload(), 1500)
+      fetchUsers()
     } catch (err: any) {
       toast({
         title: 'Erro',
@@ -352,57 +341,64 @@ export default function Users() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u: any) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.name || u.nome}</TableCell>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={u.role === 'admin' || u.role === 'Admin' ? 'default' : 'secondary'}
-                    >
-                      {u.role === 'admin' || u.role === 'Admin' ? 'Administrador' : 'Funcionário'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {u.recebe_transporte !== false ? (
-                      <Badge
-                        variant="outline"
-                        className="bg-emerald-50 text-emerald-700 border-emerald-200"
-                      >
-                        Sim
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-slate-50 text-slate-500">
-                        Não
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => handleEditClick(u)}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-1"
-                      onClick={() => handleRemove(u.id, u.name || u.nome)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    Carregando usuários...
                   </TableCell>
                 </TableRow>
-              ))}
-              {users.length === 0 && (
+              ) : colaboradores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     Nenhum usuário encontrado.
                   </TableCell>
                 </TableRow>
+              ) : (
+                colaboradores.map((u: any) => (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">{u.name || u.nome}</TableCell>
+                    <TableCell>{u.email}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={u.role === 'admin' || u.role === 'Admin' ? 'default' : 'secondary'}
+                      >
+                        {u.role === 'admin' || u.role === 'Admin' ? 'Administrador' : 'Funcionário'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {u.recebe_transporte !== false ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                        >
+                          Sim
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-slate-50 text-slate-500">
+                          Não
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => handleEditClick(u)}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-1"
+                        onClick={() => handleRemove(u.id, u.name || u.nome)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>

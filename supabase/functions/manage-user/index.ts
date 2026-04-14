@@ -74,10 +74,12 @@ Deno.serve(async (req: Request) => {
 
       const { data: colab } = await supabase
         .from('colaboradores')
-        .select('user_id')
-        .eq('id', id)
+        .select('id, user_id')
+        .or(`id.eq.${id},user_id.eq.${id}`)
         .single()
+
       const authUserId = colab?.user_id || id
+      const colabId = colab?.id || id
 
       const updateData: any = {
         email,
@@ -102,7 +104,10 @@ Deno.serve(async (req: Request) => {
               })
               if (createErr) throw createErr
 
-              await supabase.from('colaboradores').update({ user_id: newAuth.user.id }).eq('id', id)
+              await supabase
+                .from('colaboradores')
+                .update({ user_id: newAuth.user.id })
+                .eq('id', colabId)
             }
           } else {
             throw authErr
@@ -119,7 +124,8 @@ Deno.serve(async (req: Request) => {
           recebe_transporte:
             recebe_transporte === false || recebe_transporte === 'false' ? false : true,
         })
-        .eq('id', id)
+        .eq('id', colabId)
+
       if (dbErr) throw dbErr
 
       return new Response(JSON.stringify({ success: true }), {
