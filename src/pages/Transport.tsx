@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
-import { format, parseISO, eachDayOfInterval } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { supabase } from '@/lib/supabase/client'
 import useAppStore from '@/stores/useAppStore'
 import { saveTransportBatch } from '@/services/beneficios'
@@ -17,8 +17,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { Save, Info, Calendar as CalendarIcon, Minus, Plus } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Save, Calendar as CalendarIcon, Minus, Plus } from 'lucide-react'
 import { TransportRecord } from '@/types'
 
 const TRANSPORT_DAILY_VALUE = 10.2
@@ -80,12 +79,8 @@ export default function Transport() {
 
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [localData, setLocalData] = useState<Record<string, TransportRecord>>({})
-  const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
-  const [preCalculatedAtestados, setPreCalculatedAtestados] = useState<Record<string, number>>({})
-  const [preCalculatedFaltas, setPreCalculatedFaltas] = useState<Record<string, number>>({})
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const toastShownRef = useRef<Record<string, boolean>>({})
 
   const year = parseInt(selectedMonth.split('-')[0])
   const month = parseInt(selectedMonth.split('-')[1]) - 1
@@ -94,66 +89,18 @@ export default function Transport() {
   const pStart = format(new Date(year, month - 1, 25), 'yyyy-MM-dd')
   const pEnd = format(new Date(year, month, 24), 'yyyy-MM-dd')
 
-  // Previous period (Atestados)
-  const prevPStart = format(new Date(year, month - 2, 25), 'yyyy-MM-dd')
-  const prevPEnd = format(new Date(year, month - 1, 24), 'yyyy-MM-dd')
-
   const [activeUsers, setActiveUsers] = useState<any[]>([])
 
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
-      const [
-        { data: ferias },
-        { data: atestados },
-        { data: transports },
-        { data: faltas },
-        { data: cols },
-      ] = await Promise.all([
-        supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
-        supabase
-          .from('atestados')
-          .select('*')
-          .lte('data_inicio', prevPEnd)
-          .gte('data_fim', prevPStart),
+      const [{ data: transports }, { data: cols }] = await Promise.all([
         supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
-        supabase.from('faltas').select('*').gte('data', pStart).lte('data', pEnd),
         supabase.from('colaboradores').select('*').order('nome'),
       ])
 
       const freshUsers = cols || []
       setActiveUsers(freshUsers)
-
-      const calcDays = (records: any[], startStr: string, endStr: string) => {
-        const counts: Record<string, number> = {}
-        const start = parseISO(startStr)
-        const end = parseISO(endStr)
-        records?.forEach((r) => {
-          if (!r.colaborador_id) return
-          const rStart = parseISO(r.data_inicio)
-          const rEnd = parseISO(r.data_fim)
-          if (rStart <= end && rEnd >= start) {
-            const overlapStart = rStart < start ? start : rStart
-            const overlapEnd = rEnd > end ? end : rEnd
-            counts[r.colaborador_id] =
-              (counts[r.colaborador_id] || 0) +
-              eachDayOfInterval({ start: overlapStart, end: overlapEnd }).length
-          }
-        })
-        return counts
-      }
-
-      const vacationDaysCount = calcDays(ferias || [], pStart, pEnd)
-      const atestadoDaysCount = calcDays(atestados || [], prevPStart, prevPEnd)
-
-      setPreCalculatedVacations(vacationDaysCount)
-      setPreCalculatedAtestados(atestadoDaysCount)
-
-      const currentMonthFaltas: Record<string, number> = {}
-      faltas?.forEach((f) => {
-        currentMonthFaltas[f.colaborador_id] = (currentMonthFaltas[f.colaborador_id] || 0) + 1
-      })
-      setPreCalculatedFaltas(currentMonthFaltas)
 
       const transportsByColab = (transports || []).reduce((acc: any, t: any) => {
         acc[t.colaborador_id] = t
@@ -173,9 +120,9 @@ export default function Transport() {
 
           initial[u.id] = {
             businessDays: isStored ? data.dias_uteis : 20,
-            vacation: isStored ? data.ferias : vacationDaysCount[u.id] || 0,
-            sick: isStored ? data.atestados : atestadoDaysCount[u.id] || 0,
-            faltas: isStored ? data.faltas : currentMonthFaltas[u.id] || 0,
+            vacation: isStored ? data.ferias : 0,
+            sick: isStored ? data.atestados : 0,
+            faltas: isStored ? data.faltas : 0,
           }
         })
       setLocalData(initial)
@@ -183,7 +130,7 @@ export default function Transport() {
     }
 
     loadData()
-  }, [selectedMonth, pStart, pEnd])
+  }, [selectedMonth])
 
   if (currentUser?.role !== 'admin' && currentUser?.role !== 'Admin') {
     return <Navigate to="/app/mural" replace />
@@ -191,23 +138,6 @@ export default function Transport() {
 
   const handleInputChange = (userId: string, field: keyof TransportRecord, value: string) => {
     const num = parseInt(value) || 0
-
-    const checkWarning = (f: string, preCalc: number, label: string) => {
-      if (num !== preCalc && !toastShownRef.current[`${userId}-${f}`]) {
-        toast({
-          title: 'Atenção: Edição Manual',
-          description: `Você está alterando os dias de ${label} importados automaticamente.`,
-          variant: 'destructive',
-        })
-        toastShownRef.current[`${userId}-${f}`] = true
-      }
-    }
-
-    if (field === 'vacation')
-      checkWarning('vacation', preCalculatedVacations[userId] || 0, 'férias')
-    if (field === 'sick') checkWarning('sick', preCalculatedAtestados[userId] || 0, 'atestados')
-    if (field === 'faltas') checkWarning('faltas', preCalculatedFaltas[userId] || 0, 'faltas')
-
     setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: num } }))
   }
 
@@ -287,15 +217,7 @@ export default function Transport() {
               <TableRow className="[&>th]:py-2 [&>th]:px-3 text-xs uppercase tracking-wider text-slate-500 font-semibold border-0">
                 <TableHead className="min-w-[160px]">Colaborador</TableHead>
                 <TableHead className="w-[100px] text-center">Dias Úteis</TableHead>
-                <TableHead className="w-[110px] text-center">
-                  <div
-                    className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Descontos baseados no ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
-                  >
-                    Atestados
-                    <Info className="w-3 h-3 text-slate-400" />
-                  </div>
-                </TableHead>
+                <TableHead className="w-[100px] text-center">Atestados</TableHead>
                 <TableHead className="w-[100px] text-center">Férias</TableHead>
                 <TableHead className="w-[100px] text-center">Faltas</TableHead>
                 <TableHead className="text-center w-[90px]">Total</TableHead>
@@ -315,9 +237,6 @@ export default function Transport() {
                     sick: 0,
                     faltas: 0,
                   }
-                  const preCalcVacation = preCalculatedVacations[u.id] || 0
-                  const preCalcSick = preCalculatedAtestados[u.id] || 0
-                  const preCalcFaltas = preCalculatedFaltas[u.id] || 0
                   const eligibleDays = Math.max(
                     0,
                     data.businessDays - data.vacation - (data.sick || 0) - (data.faltas || 0),
@@ -354,27 +273,14 @@ export default function Transport() {
                           <UnitInput
                             value={data.sick || 0}
                             onChange={(e: any) => handleInputChange(u.id, 'sick', e.target.value)}
-                            className={cn(
-                              data.sick !== preCalcSick && 'border-orange-300 bg-orange-50',
-                            )}
                           />
-                          <div className="flex w-[84px] justify-between items-center px-1">
+                          <div className="flex w-[84px] justify-center items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
                               -R${' '}
                               {((data.sick || 0) * TRANSPORT_DAILY_VALUE)
                                 .toFixed(2)
                                 .replace('.', ',')}
                             </span>
-                            {data.sick !== preCalcSick && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="w-3 h-3 text-orange-500 cursor-help shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Diferente ({preCalcSick} dias no ciclo anterior)</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
                           </div>
                         </div>
                       </TableCell>
@@ -385,25 +291,12 @@ export default function Transport() {
                             onChange={(e: any) =>
                               handleInputChange(u.id, 'vacation', e.target.value)
                             }
-                            className={cn(
-                              data.vacation !== preCalcVacation && 'border-orange-300 bg-orange-50',
-                            )}
                           />
-                          <div className="flex w-[84px] justify-between items-center px-1">
+                          <div className="flex w-[84px] justify-center items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
                               -R${' '}
                               {(data.vacation * TRANSPORT_DAILY_VALUE).toFixed(2).replace('.', ',')}
                             </span>
-                            {data.vacation !== preCalcVacation && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="w-3 h-3 text-orange-500 cursor-help shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Diferente ({preCalcVacation} dias na escala atual)</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
                           </div>
                         </div>
                       </TableCell>
@@ -412,27 +305,14 @@ export default function Transport() {
                           <UnitInput
                             value={data.faltas || 0}
                             onChange={(e: any) => handleInputChange(u.id, 'faltas', e.target.value)}
-                            className={cn(
-                              data.faltas !== preCalcFaltas && 'border-orange-300 bg-orange-50',
-                            )}
                           />
-                          <div className="flex w-[84px] justify-between items-center px-1">
+                          <div className="flex w-[84px] justify-center items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
                               -R${' '}
                               {((data.faltas || 0) * TRANSPORT_DAILY_VALUE)
                                 .toFixed(2)
                                 .replace('.', ',')}
                             </span>
-                            {data.faltas !== preCalcFaltas && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="w-3 h-3 text-orange-500 cursor-help shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Diferente ({preCalcFaltas} faltas na escala)</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
                           </div>
                         </div>
                       </TableCell>

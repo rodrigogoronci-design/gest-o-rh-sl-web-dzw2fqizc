@@ -101,7 +101,6 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const prevDaysStrs = prevDays.map((d) => format(d, 'yyyy-MM-dd'))
 
   const ticketUpdates: any[] = []
-  const transportUpdates: any[] = []
   const transportDeletes: string[] = []
 
   users.forEach((user) => {
@@ -137,46 +136,21 @@ export const syncAllUsersBeneficios = async (month: string) => {
     const existingTicket = ticketsData.find((t) => t.colaborador_id === userId)
     const existingTransport = transportsData.find((t) => t.colaborador_id === userId)
 
-    if (
-      !existingTicket ||
-      existingTicket.faltas !== userFaltas ||
-      existingTicket.ferias !== userFerias ||
-      existingTicket.atestados !== userAtestados ||
-      existingTicket.plantoes !== userPlantoes
-    ) {
+    if (!existingTicket) {
       ticketUpdates.push({
-        id: existingTicket?.id,
         colaborador_id: userId,
         mes_ano: month,
         faltas: userFaltas,
         ferias: userFerias,
         atestados: userAtestados,
         plantoes: userPlantoes,
-        dias_uteis: existingTicket?.dias_uteis ?? 20,
+        dias_uteis: 20,
       })
     }
 
     const receivesTransport = user.recebe_transporte === true
 
-    if (receivesTransport) {
-      if (
-        !existingTransport ||
-        existingTransport.faltas !== userFaltas ||
-        existingTransport.ferias !== userFerias ||
-        existingTransport.atestados !== userAtestados
-      ) {
-        transportUpdates.push({
-          id: existingTransport?.id,
-          colaborador_id: userId,
-          mes_ano: month,
-          faltas: userFaltas,
-          ferias: userFerias,
-          atestados: userAtestados,
-          dias_uteis: existingTransport?.dias_uteis ?? 20,
-          home_office: 0,
-        })
-      }
-    } else if (existingTransport) {
+    if (!receivesTransport && existingTransport) {
       transportDeletes.push(existingTransport.id)
     }
   })
@@ -185,11 +159,6 @@ export const syncAllUsersBeneficios = async (month: string) => {
     await supabase
       .from('beneficios_ticket')
       .upsert(ticketUpdates, { onConflict: 'colaborador_id,mes_ano' })
-  }
-  if (transportUpdates.length > 0) {
-    await supabase
-      .from('beneficios_transporte')
-      .upsert(transportUpdates, { onConflict: 'colaborador_id,mes_ano' })
   }
   if (transportDeletes.length > 0) {
     await supabase.from('beneficios_transporte').delete().in('id', transportDeletes)
