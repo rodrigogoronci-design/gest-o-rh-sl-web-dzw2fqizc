@@ -70,11 +70,11 @@ const App = () => (
                   <Route path="relatorios" element={<Reports />} />
                   <Route path="atestados" element={<Atestados />} />
                   <Route path="historico" element={<Historico />} />
+                  <Route path="usuarios" element={<Users />} />
+                  <Route path="ticket" element={<Ticket />} />
+                  <Route path="transporte" element={<Transport />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />
-                <Route path="usuarios" element={<Users />} />
-                <Route path="ticket" element={<Ticket />} />
-                <Route path="transporte" element={<Transport />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
