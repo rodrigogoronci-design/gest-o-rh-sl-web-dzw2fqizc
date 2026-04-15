@@ -10,7 +10,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getDashboardStats, getDashboardChartData } from '@/services/dashboard'
-import { Utensils, Bus, Wallet, Users, TrendingUp } from 'lucide-react'
+import {
+  Utensils,
+  Bus,
+  Wallet,
+  Users,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Calculator,
+} from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area } from 'recharts'
 import {
   ChartContainer,
@@ -108,13 +117,13 @@ export default function Dashboard() {
       </div>
 
       {isLoading || !stats ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {[1, 2, 3, 4, 5].map((i) => (
             <Skeleton key={i} className="h-[140px] w-full rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Card className="border-0 shadow-elevation overflow-hidden relative">
             <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -127,10 +136,47 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900">{formatCurrency(totalCost)}</div>
-              <p className="text-sm text-slate-500 mt-2 flex items-center gap-1">
-                <TrendingUp className="w-4 h-4 text-emerald-500" />
-                <span className="text-emerald-600 font-medium">Valores calculados</span>
+              <p className="text-sm mt-2 flex items-center gap-1">
+                {stats.totalCostVariation > 0 ? (
+                  <>
+                    <TrendingUp className="w-4 h-4 text-rose-500" />
+                    <span className="text-rose-600 font-medium">
+                      +{stats.totalCostVariation.toFixed(1)}%
+                    </span>
+                  </>
+                ) : stats.totalCostVariation < 0 ? (
+                  <>
+                    <TrendingDown className="w-4 h-4 text-emerald-500" />
+                    <span className="text-emerald-600 font-medium">
+                      {stats.totalCostVariation.toFixed(1)}%
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Minus className="w-4 h-4 text-slate-400" />
+                    <span className="text-slate-500 font-medium">0%</span>
+                  </>
+                )}
+                <span className="text-slate-500 ml-1">vs mês anterior</span>
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-elevation overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">
+                Custo Médio / Colab.
+              </CardTitle>
+              <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
+                <Calculator className="w-6 h-6" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-900">
+                {formatCurrency(stats.averageCost)}
+              </div>
+              <p className="text-sm text-slate-500 mt-2">Média por funcionário ativo</p>
             </CardContent>
           </Card>
 
