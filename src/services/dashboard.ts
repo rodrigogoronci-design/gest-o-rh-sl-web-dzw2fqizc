@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase/client'
 import { format, subMonths, parseISO } from 'date-fns'
 
-export const TICKET_RATE = 35.0
-export const TRANSPORT_RATE = 12.0
+export const TICKET_RATE = 31.59
+export const TRANSPORT_RATE = 10.2
 
 export const getDashboardStats = async (month: string) => {
   const prevMonthDate = subMonths(parseISO(`${month}-01T12:00:00`), 1)
