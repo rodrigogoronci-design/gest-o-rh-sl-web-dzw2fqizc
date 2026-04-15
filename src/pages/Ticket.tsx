@@ -21,8 +21,6 @@ import { Save, Info, Calendar as CalendarIcon, Minus, Plus } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TicketRecord } from '@/types'
 
-const TICKET_VALUE = 31.59
-
 const UnitInput = ({ value, onChange, className, readOnly, title }: any) => {
   const handleDecrement = () => {
     if (readOnly) return
@@ -77,6 +75,11 @@ const UnitInput = ({ value, onChange, className, readOnly, title }: any) => {
 export default function Ticket() {
   const { currentUser, users } = useAppStore()
   const { toast } = useToast()
+
+  const [ticketValue, setTicketValue] = useState(() => {
+    const saved = localStorage.getItem('ticketValue')
+    return saved ? parseFloat(saved) : 31.59
+  })
 
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [localData, setLocalData] = useState<Record<string, TicketRecord>>({})
@@ -240,9 +243,20 @@ export default function Ticket() {
             Controle de Ticket Alimentação
           </h1>
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            <span className="text-xs text-muted-foreground font-medium">
-              Valor base: R$ {TICKET_VALUE.toFixed(2).replace('.', ',')}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-medium">Valor base: R$</span>
+              <Input
+                type="number"
+                step="0.01"
+                value={ticketValue || ''}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value)
+                  setTicketValue(isNaN(val) ? 0 : val)
+                  localStorage.setItem('ticketValue', isNaN(val) ? '0' : val.toString())
+                }}
+                className="w-20 h-6 text-xs px-2 py-0 border-slate-200 focus-visible:ring-1 focus-visible:ring-offset-0 bg-white"
+              />
+            </div>
             <div className="h-3 w-px bg-slate-300 hidden sm:block"></div>
             <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
               <CalendarIcon className="w-3.5 h-3.5 text-slate-500" />
@@ -316,7 +330,7 @@ export default function Ticket() {
                     0,
                     data.regular + data.shifts - (data.sick + data.vacation + (data.faltas || 0)),
                   )
-                  const totalValue = eligibleDays * TICKET_VALUE
+                  const totalValue = eligibleDays * ticketValue
                   grandTotal += totalValue
 
                   return (
@@ -334,7 +348,7 @@ export default function Ticket() {
                             }
                           />
                           <span className="text-[10px] text-emerald-600 font-medium">
-                            +R$ {(data.regular * TICKET_VALUE).toFixed(2).replace('.', ',')}
+                            +R$ {(data.regular * ticketValue).toFixed(2).replace('.', ',')}
                           </span>
                         </div>
                       </TableCell>
@@ -347,7 +361,7 @@ export default function Ticket() {
                             title="Calculado automaticamente"
                           />
                           <span className="text-[10px] text-emerald-600 font-medium">
-                            +R$ {(data.shifts * TICKET_VALUE).toFixed(2).replace('.', ',')}
+                            +R$ {(data.shifts * ticketValue).toFixed(2).replace('.', ',')}
                           </span>
                         </div>
                       </TableCell>
@@ -362,7 +376,7 @@ export default function Ticket() {
                           />
                           <div className="flex w-[84px] justify-between items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
-                              -R$ {(data.sick * TICKET_VALUE).toFixed(2).replace('.', ',')}
+                              -R$ {(data.sick * ticketValue).toFixed(2).replace('.', ',')}
                             </span>
                             {data.sick !== preCalcSick && (
                               <Tooltip>
@@ -390,7 +404,7 @@ export default function Ticket() {
                           />
                           <div className="flex w-[84px] justify-between items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
-                              -R$ {(data.vacation * TICKET_VALUE).toFixed(2).replace('.', ',')}
+                              -R$ {(data.vacation * ticketValue).toFixed(2).replace('.', ',')}
                             </span>
                             {data.vacation !== preCalcVacation && (
                               <Tooltip>
@@ -416,7 +430,7 @@ export default function Ticket() {
                           />
                           <div className="flex w-[84px] justify-between items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
-                              -R$ {((data.faltas || 0) * TICKET_VALUE).toFixed(2).replace('.', ',')}
+                              -R$ {((data.faltas || 0) * ticketValue).toFixed(2).replace('.', ',')}
                             </span>
                             {data.faltas !== preCalcFaltas && (
                               <Tooltip>

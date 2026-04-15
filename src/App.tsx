@@ -16,6 +16,7 @@ import Users from './pages/Users'
 import Ticket from './pages/Ticket'
 import Transport from './pages/Transport'
 import Atestados from './pages/Atestados'
+import Reports from './pages/Reports'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -65,6 +66,7 @@ const App = () => (
                 <Route index element={<Navigate to="mural" replace />} />
                 <Route element={<AdminRoute />}>
                   <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="relatorios" element={<Reports />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />
                 <Route path="usuarios" element={<Users />} />

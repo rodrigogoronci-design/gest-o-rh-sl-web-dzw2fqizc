@@ -1,5 +1,14 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, CalendarDays, Users, Utensils, Bus, Star, FileText } from 'lucide-react'
+import {
+  LayoutDashboard,
+  CalendarDays,
+  Users,
+  Utensils,
+  Bus,
+  Star,
+  FileText,
+  BarChart,
+} from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
 import {
@@ -44,6 +53,12 @@ export default function AppSidebar() {
       icon: Star,
       roles: ['admin', 'user'],
       disabled: true,
+    },
+    {
+      title: 'Relatórios',
+      path: '/app/relatorios',
+      icon: BarChart,
+      roles: ['admin'],
     },
   ]
 

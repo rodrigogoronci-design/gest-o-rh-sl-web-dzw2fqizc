@@ -1029,14 +1029,7 @@ export const Constants = {
 //       ) VALUES (
 //         NEW.colaborador_id, NEW.mes_ano, NEW.ferias, NEW.atestados, NEW.faltas, 20, 0
 //       )
-//       ON CONFLICT (colaborador_id, mes_ano) DO UPDATE SET
-//         ferias = EXCLUDED.ferias,
-//         atestados = EXCLUDED.atestados,
-//         faltas = EXCLUDED.faltas
-//       WHERE
-//         public.beneficios_transporte.ferias IS DISTINCT FROM EXCLUDED.ferias OR
-//         public.beneficios_transporte.atestados IS DISTINCT FROM EXCLUDED.atestados OR
-//         public.beneficios_transporte.faltas IS DISTINCT FROM EXCLUDED.faltas;
+//       ON CONFLICT (colaborador_id, mes_ano) DO NOTHING;
 //     END IF;
 //
 //     RETURN NEW;

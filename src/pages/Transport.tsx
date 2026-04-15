@@ -20,8 +20,6 @@ import { useToast } from '@/hooks/use-toast'
 import { Save, Calendar as CalendarIcon, Minus, Plus } from 'lucide-react'
 import { TransportRecord } from '@/types'
 
-const TRANSPORT_DAILY_VALUE = 10.2
-
 const UnitInput = ({ value, onChange, className, readOnly, title }: any) => {
   const handleDecrement = () => {
     if (readOnly) return
@@ -76,6 +74,11 @@ const UnitInput = ({ value, onChange, className, readOnly, title }: any) => {
 export default function Transport() {
   const { currentUser } = useAppStore()
   const { toast } = useToast()
+
+  const [transportValue, setTransportValue] = useState(() => {
+    const saved = localStorage.getItem('transportValue')
+    return saved ? parseFloat(saved) : 10.2
+  })
 
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [localData, setLocalData] = useState<Record<string, TransportRecord>>({})
@@ -175,9 +178,22 @@ export default function Transport() {
             Controle de Vale Transporte
           </h1>
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            <span className="text-xs text-muted-foreground font-medium">
-              Valor diário base: R$ {TRANSPORT_DAILY_VALUE.toFixed(2).replace('.', ',')}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-medium">
+                Valor diário base: R$
+              </span>
+              <Input
+                type="number"
+                step="0.01"
+                value={transportValue || ''}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value)
+                  setTransportValue(isNaN(val) ? 0 : val)
+                  localStorage.setItem('transportValue', isNaN(val) ? '0' : val.toString())
+                }}
+                className="w-20 h-6 text-xs px-2 py-0 border-slate-200 focus-visible:ring-1 focus-visible:ring-offset-0 bg-white"
+              />
+            </div>
             <div className="h-3 w-px bg-slate-300 hidden sm:block"></div>
             <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
               <CalendarIcon className="w-3.5 h-3.5 text-slate-500" />
@@ -241,7 +257,7 @@ export default function Transport() {
                     0,
                     data.businessDays - data.vacation - (data.sick || 0) - (data.faltas || 0),
                   )
-                  const totalValue = eligibleDays * TRANSPORT_DAILY_VALUE
+                  const totalValue = eligibleDays * transportValue
                   grandTotal += totalValue
 
                   return (
@@ -261,10 +277,7 @@ export default function Transport() {
                             }
                           />
                           <span className="text-[10px] text-emerald-600 font-medium">
-                            +R${' '}
-                            {(data.businessDays * TRANSPORT_DAILY_VALUE)
-                              .toFixed(2)
-                              .replace('.', ',')}
+                            +R$ {(data.businessDays * transportValue).toFixed(2).replace('.', ',')}
                           </span>
                         </div>
                       </TableCell>
@@ -276,10 +289,7 @@ export default function Transport() {
                           />
                           <div className="flex w-[84px] justify-center items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
-                              -R${' '}
-                              {((data.sick || 0) * TRANSPORT_DAILY_VALUE)
-                                .toFixed(2)
-                                .replace('.', ',')}
+                              -R$ {((data.sick || 0) * transportValue).toFixed(2).replace('.', ',')}
                             </span>
                           </div>
                         </div>
@@ -294,8 +304,7 @@ export default function Transport() {
                           />
                           <div className="flex w-[84px] justify-center items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
-                              -R${' '}
-                              {(data.vacation * TRANSPORT_DAILY_VALUE).toFixed(2).replace('.', ',')}
+                              -R$ {(data.vacation * transportValue).toFixed(2).replace('.', ',')}
                             </span>
                           </div>
                         </div>
@@ -309,9 +318,7 @@ export default function Transport() {
                           <div className="flex w-[84px] justify-center items-center px-1">
                             <span className="text-[10px] text-red-600 font-medium">
                               -R${' '}
-                              {((data.faltas || 0) * TRANSPORT_DAILY_VALUE)
-                                .toFixed(2)
-                                .replace('.', ',')}
+                              {((data.faltas || 0) * transportValue).toFixed(2).replace('.', ',')}
                             </span>
                           </div>
                         </div>
