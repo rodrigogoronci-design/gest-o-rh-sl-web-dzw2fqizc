@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
-import { format, subMonths } from 'date-fns'
+import { format, subMonths, parseISO } from 'date-fns'
 
 export const TICKET_RATE = 35.0
 export const TRANSPORT_RATE = 12.0
