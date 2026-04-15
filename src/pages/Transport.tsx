@@ -168,13 +168,11 @@ export default function Transport() {
   }
 
   const handleSaveGlobalValue = async () => {
-    await supabase
-      .from('configuracoes')
-      .upsert({
-        chave: 'transport_value',
-        valor: transportValue,
-        updated_at: new Date().toISOString(),
-      })
+    await supabase.from('configuracoes').upsert({
+      chave: 'transport_value',
+      valor: transportValue,
+      updated_at: new Date().toISOString(),
+    })
     await supabase.from('historico_ajustes').insert({
       user_id: currentUser?.id,
       acao: 'Alteração Base: Vale Transporte',

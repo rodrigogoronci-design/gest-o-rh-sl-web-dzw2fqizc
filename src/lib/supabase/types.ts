@@ -289,6 +289,24 @@ export type Database = {
           },
         ]
       }
+      configuracoes: {
+        Row: {
+          chave: string
+          updated_at: string
+          valor: Json
+        }
+        Insert: {
+          chave: string
+          updated_at?: string
+          valor: Json
+        }
+        Update: {
+          chave?: string
+          updated_at?: string
+          valor?: Json
+        }
+        Relationships: []
+      }
       escala_mes: {
         Row: {
           created_at: string
@@ -401,6 +419,38 @@ export type Database = {
             columns: ['organization_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      historico_ajustes: {
+        Row: {
+          acao: string
+          created_at: string
+          detalhes: Json
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          detalhes: Json
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          detalhes?: Json
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'historico_ajustes_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'colaboradores'
             referencedColumns: ['id']
           },
         ]
@@ -811,6 +861,10 @@ export const Constants = {
 //   user_id: uuid (nullable)
 //   organization_id: uuid (nullable)
 //   recebe_transporte: boolean (not null, default: true)
+// Table: configuracoes
+//   chave: text (not null)
+//   valor: jsonb (not null)
+//   updated_at: timestamp with time zone (not null, default: now())
 // Table: escala_mes
 //   mes_ano: text (not null)
 //   status: text (not null, default: 'Rascunho'::text)
@@ -834,6 +888,12 @@ export const Constants = {
 //   status: text (nullable, default: 'Pendente'::text)
 //   observacoes: text (nullable)
 //   organization_id: uuid (nullable)
+// Table: historico_ajustes
+//   id: uuid (not null, default: gen_random_uuid())
+//   user_id: uuid (nullable)
+//   acao: text (not null)
+//   detalhes: jsonb (not null)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: organizations
 //   id: uuid (not null, default: gen_random_uuid())
 //   created_at: timestamp with time zone (not null, default: now())
@@ -898,6 +958,8 @@ export const Constants = {
 //   PRIMARY KEY colaboradores_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY colaboradores_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id)
 //   CHECK valid_roles: CHECK ((role = ANY (ARRAY['Admin'::text, 'Gerente'::text, 'Colaborador'::text])))
+// Table: configuracoes
+//   PRIMARY KEY configuracoes_pkey: PRIMARY KEY (chave)
 // Table: escala_mes
 //   PRIMARY KEY escala_mes_pkey: PRIMARY KEY (mes_ano)
 // Table: faltas
@@ -911,6 +973,9 @@ export const Constants = {
 //   FOREIGN KEY ferias_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
 //   FOREIGN KEY ferias_organization_id_fkey: FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 //   PRIMARY KEY ferias_pkey: PRIMARY KEY (id)
+// Table: historico_ajustes
+//   PRIMARY KEY historico_ajustes_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY historico_ajustes_user_id_fkey: FOREIGN KEY (user_id) REFERENCES colaboradores(id) ON DELETE SET NULL
 // Table: organizations
 //   PRIMARY KEY organizations_pkey: PRIMARY KEY (id)
 // Table: plantoes
@@ -950,6 +1015,10 @@ export const Constants = {
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+// Table: configuracoes
+//   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: escala_mes
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
@@ -963,6 +1032,10 @@ export const Constants = {
 //     USING: true
 //     WITH CHECK: true
 // Table: ferias
+//   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: historico_ajustes
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true

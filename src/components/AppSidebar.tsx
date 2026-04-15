@@ -67,11 +67,11 @@ export default function AppSidebar() {
   return (
     <Sidebar className="border-r border-sidebar-border bg-sidebar">
       <SidebarContent>
-        <div className="p-4 py-6 text-xl font-bold text-primary flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
-            CB
+        <div className="p-4 py-6 text-lg font-bold text-primary flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary flex shrink-0 items-center justify-center text-white text-sm">
+            SL
           </div>
-          <span>ControleBenef</span>
+          <span className="truncate">Gestão RH SL Web</span>
         </div>
         <SidebarGroup>
           <SidebarGroupContent>
