@@ -102,6 +102,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
 
   const ticketUpdates: any[] = []
   const transportUpdates: any[] = []
+  const transportDeletes: string[] = []
 
   users.forEach((user) => {
     if (user.role === 'Admin' || user.role === 'admin') return
@@ -155,23 +156,29 @@ export const syncAllUsersBeneficios = async (month: string) => {
       })
     }
 
-    if (
-      user.recebe_transporte !== false &&
-      (!existingTransport ||
+    const receivesTransport =
+      user.recebe_transporte !== false && String(user.recebe_transporte) !== 'false'
+
+    if (receivesTransport) {
+      if (
+        !existingTransport ||
         existingTransport.faltas !== userFaltas ||
         existingTransport.ferias !== userFerias ||
-        existingTransport.atestados !== userAtestados)
-    ) {
-      transportUpdates.push({
-        id: existingTransport?.id,
-        colaborador_id: userId,
-        mes_ano: month,
-        faltas: userFaltas,
-        ferias: userFerias,
-        atestados: userAtestados,
-        dias_uteis: existingTransport?.dias_uteis ?? 20,
-        home_office: 0,
-      })
+        existingTransport.atestados !== userAtestados
+      ) {
+        transportUpdates.push({
+          id: existingTransport?.id,
+          colaborador_id: userId,
+          mes_ano: month,
+          faltas: userFaltas,
+          ferias: userFerias,
+          atestados: userAtestados,
+          dias_uteis: existingTransport?.dias_uteis ?? 20,
+          home_office: 0,
+        })
+      }
+    } else if (existingTransport) {
+      transportDeletes.push(existingTransport.id)
     }
   })
 
@@ -184,5 +191,8 @@ export const syncAllUsersBeneficios = async (month: string) => {
     await supabase
       .from('beneficios_transporte')
       .upsert(transportUpdates, { onConflict: 'colaborador_id,mes_ano' })
+  }
+  if (transportDeletes.length > 0) {
+    await supabase.from('beneficios_transporte').delete().in('id', transportDeletes)
   }
 }

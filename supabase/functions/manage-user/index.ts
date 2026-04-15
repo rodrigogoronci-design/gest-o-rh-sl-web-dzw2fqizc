@@ -115,18 +115,24 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      const receivesTransport =
+        recebe_transporte === false || recebe_transporte === 'false' ? false : true
+
       const { error: dbErr } = await supabase
         .from('colaboradores')
         .update({
           email,
           nome: name,
           role: role === 'admin' ? 'Admin' : 'Colaborador',
-          recebe_transporte:
-            recebe_transporte === false || recebe_transporte === 'false' ? false : true,
+          recebe_transporte: receivesTransport,
         })
         .eq('id', colabId)
 
       if (dbErr) throw dbErr
+
+      if (!receivesTransport) {
+        await supabase.from('beneficios_transporte').delete().eq('colaborador_id', colabId)
+      }
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
