@@ -8,6 +8,8 @@ import {
   Star,
   FileText,
   BarChart,
+  Clock,
+  Wallet,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
@@ -36,6 +38,18 @@ export default function AppSidebar() {
       title: 'Mural de Plantões',
       path: '/app/mural',
       icon: CalendarDays,
+      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador'],
+    },
+    {
+      title: 'Controle de Ponto',
+      path: '/app/ponto',
+      icon: Clock,
+      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador'],
+    },
+    {
+      title: 'Contra Cheque',
+      path: '/app/contracheque',
+      icon: Wallet,
       roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador'],
     },
     {
