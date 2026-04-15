@@ -17,6 +17,7 @@ import Ticket from './pages/Ticket'
 import Transport from './pages/Transport'
 import Atestados from './pages/Atestados'
 import Reports from './pages/Reports'
+import Historico from './pages/Historico'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -67,12 +68,13 @@ const App = () => (
                 <Route element={<AdminRoute />}>
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="relatorios" element={<Reports />} />
+                  <Route path="atestados" element={<Atestados />} />
+                  <Route path="historico" element={<Historico />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />
                 <Route path="usuarios" element={<Users />} />
                 <Route path="ticket" element={<Ticket />} />
                 <Route path="transporte" element={<Transport />} />
-                <Route path="atestados" element={<Atestados />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

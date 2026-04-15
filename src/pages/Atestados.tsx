@@ -44,14 +44,10 @@ export default function Atestados() {
   }, [currentUser])
 
   const fetchAtestados = async () => {
-    let query = supabase
+    const { data } = await supabase
       .from('atestados')
       .select('*, colaboradores(nome)')
       .order('created_at', { ascending: false })
-    if (currentUser?.role !== 'admin') {
-      query = query.eq('colaborador_id', currentUser?.id)
-    }
-    const { data } = await query
     setAtestados(data || [])
     setLoading(false)
   }
@@ -126,23 +122,21 @@ export default function Atestados() {
               <DialogTitle>Enviar Atestado</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-              {currentUser?.role === 'admin' && (
-                <div className="space-y-2">
-                  <Label>Colaborador</Label>
-                  <Select value={colaboradorId} onValueChange={setColaboradorId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {validUsers.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label>Colaborador</Label>
+                <Select value={colaboradorId} onValueChange={setColaboradorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {validUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Data Início</Label>

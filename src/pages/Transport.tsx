@@ -75,10 +75,8 @@ export default function Transport() {
   const { currentUser } = useAppStore()
   const { toast } = useToast()
 
-  const [transportValue, setTransportValue] = useState(() => {
-    const saved = localStorage.getItem('transportValue')
-    return saved ? parseFloat(saved) : 10.2
-  })
+  const [transportValue, setTransportValue] = useState(10.2)
+  const [dbTransportValue, setDbTransportValue] = useState(10.2)
 
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [localData, setLocalData] = useState<Record<string, TransportRecord>>({})
@@ -95,17 +93,41 @@ export default function Transport() {
   const [activeUsers, setActiveUsers] = useState<any[]>([])
 
   useEffect(() => {
+    supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'transport_value')
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          const val = Number(data.valor)
+          setTransportValue(val)
+          setDbTransportValue(val)
+        }
+      })
+  }, [])
+
+  useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
-      const [{ data: transports }, { data: cols }] = await Promise.all([
+      const [{ data: transports }, { data: cols }, { data: tickets }] = await Promise.all([
         supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
         supabase.from('colaboradores').select('*').order('nome'),
+        supabase
+          .from('beneficios_ticket')
+          .select('colaborador_id, ferias, atestados, faltas')
+          .eq('mes_ano', selectedMonth),
       ])
 
       const freshUsers = cols || []
       setActiveUsers(freshUsers)
 
       const transportsByColab = (transports || []).reduce((acc: any, t: any) => {
+        acc[t.colaborador_id] = t
+        return acc
+      }, {})
+
+      const ticketsByColab = (tickets || []).reduce((acc: any, t: any) => {
         acc[t.colaborador_id] = t
         return acc
       }, {})
@@ -120,12 +142,13 @@ export default function Transport() {
           const t = transportsByColab[u.id]
           const isStored = !!t
           const data = t || { dias_uteis: 20, atestados: 0, ferias: 0, faltas: 0 }
+          const tk = ticketsByColab[u.id] || { ferias: 0, atestados: 0, faltas: 0 }
 
           initial[u.id] = {
             businessDays: isStored ? data.dias_uteis : 20,
-            vacation: isStored ? data.ferias : 0,
-            sick: isStored ? data.atestados : 0,
-            faltas: isStored ? data.faltas : 0,
+            vacation: isStored ? data.ferias : tk.ferias,
+            sick: isStored ? data.atestados : tk.atestados,
+            faltas: isStored ? data.faltas : tk.faltas,
           }
         })
       setLocalData(initial)
@@ -142,6 +165,23 @@ export default function Transport() {
   const handleInputChange = (userId: string, field: keyof TransportRecord, value: string) => {
     const num = parseInt(value) || 0
     setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: num } }))
+  }
+
+  const handleSaveGlobalValue = async () => {
+    await supabase
+      .from('configuracoes')
+      .upsert({
+        chave: 'transport_value',
+        valor: transportValue,
+        updated_at: new Date().toISOString(),
+      })
+    await supabase.from('historico_ajustes').insert({
+      user_id: currentUser?.id,
+      acao: 'Alteração Base: Vale Transporte',
+      detalhes: { antigo: dbTransportValue, novo: transportValue },
+    })
+    setDbTransportValue(transportValue)
+    toast({ title: 'Valor base atualizado', description: 'O novo valor foi salvo globalmente.' })
   }
 
   const handleSave = async () => {
@@ -185,14 +225,20 @@ export default function Transport() {
               <Input
                 type="number"
                 step="0.01"
-                value={transportValue || ''}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value)
-                  setTransportValue(isNaN(val) ? 0 : val)
-                  localStorage.setItem('transportValue', isNaN(val) ? '0' : val.toString())
-                }}
+                value={transportValue === 0 ? '' : transportValue}
+                onChange={(e) => setTransportValue(parseFloat(e.target.value) || 0)}
                 className="w-20 h-6 text-xs px-2 py-0 border-slate-200 focus-visible:ring-1 focus-visible:ring-offset-0 bg-white"
               />
+              {transportValue !== dbTransportValue && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="h-6 text-[10px] px-2 bg-blue-600 hover:bg-blue-700 text-white transition-all animate-in fade-in"
+                  onClick={handleSaveGlobalValue}
+                >
+                  Salvar Base
+                </Button>
+              )}
             </div>
             <div className="h-3 w-px bg-slate-300 hidden sm:block"></div>
             <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">

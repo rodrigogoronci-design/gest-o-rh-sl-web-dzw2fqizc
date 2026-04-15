@@ -76,10 +76,8 @@ export default function Ticket() {
   const { currentUser, users } = useAppStore()
   const { toast } = useToast()
 
-  const [ticketValue, setTicketValue] = useState(() => {
-    const saved = localStorage.getItem('ticketValue')
-    return saved ? parseFloat(saved) : 31.59
-  })
+  const [ticketValue, setTicketValue] = useState(31.59)
+  const [dbTicketValue, setDbTicketValue] = useState(31.59)
 
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [localData, setLocalData] = useState<Record<string, TicketRecord>>({})
@@ -97,6 +95,21 @@ export default function Ticket() {
 
   const prevPStart = format(new Date(year, month - 2, 25), 'yyyy-MM-dd')
   const prevPEnd = format(new Date(year, month - 1, 24), 'yyyy-MM-dd')
+
+  useEffect(() => {
+    supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'ticket_value')
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          const val = Number(data.valor)
+          setTicketValue(val)
+          setDbTicketValue(val)
+        }
+      })
+  }, [])
 
   useEffect(() => {
     if (!users || users.length === 0) return
@@ -210,6 +223,19 @@ export default function Ticket() {
     setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: num } }))
   }
 
+  const handleSaveGlobalValue = async () => {
+    await supabase
+      .from('configuracoes')
+      .upsert({ chave: 'ticket_value', valor: ticketValue, updated_at: new Date().toISOString() })
+    await supabase.from('historico_ajustes').insert({
+      user_id: currentUser?.id,
+      acao: 'Alteração Base: Ticket Alimentação',
+      detalhes: { antigo: dbTicketValue, novo: ticketValue },
+    })
+    setDbTicketValue(ticketValue)
+    toast({ title: 'Valor base atualizado', description: 'O novo valor foi salvo globalmente.' })
+  }
+
   const handleSave = async () => {
     setIsSaving(true)
     const rows = Object.entries(localData).map(([colaborador_id, data]) => ({
@@ -248,14 +274,20 @@ export default function Ticket() {
               <Input
                 type="number"
                 step="0.01"
-                value={ticketValue || ''}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value)
-                  setTicketValue(isNaN(val) ? 0 : val)
-                  localStorage.setItem('ticketValue', isNaN(val) ? '0' : val.toString())
-                }}
+                value={ticketValue === 0 ? '' : ticketValue}
+                onChange={(e) => setTicketValue(parseFloat(e.target.value) || 0)}
                 className="w-20 h-6 text-xs px-2 py-0 border-slate-200 focus-visible:ring-1 focus-visible:ring-offset-0 bg-white"
               />
+              {ticketValue !== dbTicketValue && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="h-6 text-[10px] px-2 bg-blue-600 hover:bg-blue-700 text-white transition-all animate-in fade-in"
+                  onClick={handleSaveGlobalValue}
+                >
+                  Salvar Base
+                </Button>
+              )}
             </div>
             <div className="h-3 w-px bg-slate-300 hidden sm:block"></div>
             <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
