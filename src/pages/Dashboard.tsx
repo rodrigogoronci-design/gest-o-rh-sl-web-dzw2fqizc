@@ -1,0 +1,300 @@
+import { useState, useEffect } from 'react'
+import { format, subMonths, parseISO } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { getDashboardStats, getDashboardChartData } from '@/services/dashboard'
+import { Utensils, Bus, Wallet, Users, TrendingUp } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area } from 'recharts'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart'
+import { Skeleton } from '@/components/ui/skeleton'
+
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+}
+
+const generateMonths = () => {
+  return Array.from({ length: 12 }).map((_, i) => {
+    const d = subMonths(new Date(), i)
+    return {
+      value: format(d, 'yyyy-MM'),
+      label: format(d, 'MMMM yyyy', { locale: ptBR }),
+    }
+  })
+}
+
+const chartConfig = {
+  Ticket: {
+    label: 'Ticket Aliment.',
+    color: '#f97316',
+  },
+  Transporte: {
+    label: 'Vale Transporte',
+    color: '#3b82f6',
+  },
+  Total: {
+    label: 'Total Gasto',
+    color: '#10b981',
+  },
+}
+
+export default function Dashboard() {
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
+  const [stats, setStats] = useState<any>(null)
+  const [chartData, setChartData] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const months = generateMonths()
+
+  useEffect(() => {
+    loadData()
+  }, [selectedMonth])
+
+  const loadData = async () => {
+    setIsLoading(true)
+    try {
+      const [newStats, newChartData] = await Promise.all([
+        getDashboardStats(selectedMonth),
+        getDashboardChartData(),
+      ])
+      setStats(newStats)
+      const formattedChartData = newChartData.map((d) => ({
+        ...d,
+        displayName: format(parseISO(`${d.name}-01`), 'MMM/yy', { locale: ptBR }),
+      }))
+      setChartData(formattedChartData)
+    } catch (error) {
+      console.error('Failed to load dashboard data', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const totalCost = stats ? stats.ticketCost + stats.transportCost : 0
+
+  return (
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6 animate-fade-in-up">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+          <p className="text-slate-500">Visão consolidada dos custos com benefícios.</p>
+        </div>
+        <div className="w-full sm:w-64">
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-full bg-white h-12 shadow-sm border-slate-200">
+              <SelectValue placeholder="Selecione o mês" />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((m) => (
+                <SelectItem key={m.value} value={m.value} className="capitalize">
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {isLoading || !stats ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-[140px] w-full rounded-2xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-0 shadow-elevation overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">
+                Total Investido (Mês)
+              </CardTitle>
+              <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                <Wallet className="w-6 h-6" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-900">{formatCurrency(totalCost)}</div>
+              <p className="text-sm text-slate-500 mt-2 flex items-center gap-1">
+                <TrendingUp className="w-4 h-4 text-emerald-500" />
+                <span className="text-emerald-600 font-medium">Valores calculados</span>
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-elevation overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">
+                Ticket Alimentação
+              </CardTitle>
+              <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
+                <Utensils className="w-6 h-6" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-900">
+                {formatCurrency(stats.ticketCost)}
+              </div>
+              <p className="text-sm text-slate-500 mt-2">
+                Referente a <span className="font-medium text-slate-700">{stats.ticketCount}</span>{' '}
+                colaboradores
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-elevation overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Vale Transporte</CardTitle>
+              <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                <Bus className="w-6 h-6" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-900">
+                {formatCurrency(stats.transportCost)}
+              </div>
+              <p className="text-sm text-slate-500 mt-2">
+                Referente a{' '}
+                <span className="font-medium text-slate-700">{stats.transportCount}</span>{' '}
+                colaboradores
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-elevation overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">
+                Colaboradores Ativos
+              </CardTitle>
+              <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                <Users className="w-6 h-6" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-900">{stats.activeEmployees}</div>
+              <p className="text-sm text-slate-500 mt-2">Registrados na base de dados</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <div className="grid gap-6 md:grid-cols-7">
+        <Card className="border-0 shadow-elevation md:col-span-4 rounded-2xl">
+          <CardHeader>
+            <CardTitle>Evolução de Custos (Últimos 6 meses)</CardTitle>
+            <CardDescription>Comparativo entre os benefícios oferecidos</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[350px]">
+            {isLoading ? (
+              <Skeleton className="w-full h-full" />
+            ) : (
+              <ChartContainer config={chartConfig} className="w-full h-full">
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="fillTicket" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-Ticket)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--color-Ticket)" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="fillTransporte" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-Transporte)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--color-Transporte)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis
+                    dataKey="displayName"
+                    axisLine={false}
+                    tickLine={false}
+                    tickMargin={10}
+                    className="text-sm font-medium text-slate-600 capitalize"
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) => `R$ ${value / 1000}k`}
+                    className="text-xs text-slate-500"
+                    width={60}
+                  />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                  <Area
+                    type="monotone"
+                    dataKey="Ticket"
+                    stroke="var(--color-Ticket)"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#fillTicket)"
+                    stackId="1"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="Transporte"
+                    stroke="var(--color-Transporte)"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#fillTransporte)"
+                    stackId="1"
+                  />
+                  <ChartLegend content={<ChartLegendContent />} />
+                </AreaChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-elevation md:col-span-3 rounded-2xl">
+          <CardHeader>
+            <CardTitle>Custo Total Consolidado</CardTitle>
+            <CardDescription>Soma de todos os benefícios nos últimos meses</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[350px]">
+            {isLoading ? (
+              <Skeleton className="w-full h-full" />
+            ) : (
+              <ChartContainer config={chartConfig} className="w-full h-full">
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis
+                    dataKey="displayName"
+                    axisLine={false}
+                    tickLine={false}
+                    tickMargin={10}
+                    className="text-sm font-medium text-slate-600 capitalize"
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) => `R$ ${value / 1000}k`}
+                    className="text-xs text-slate-500"
+                    width={60}
+                  />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                  <Bar
+                    dataKey="Total"
+                    fill="var(--color-Total)"
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={40}
+                  />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}

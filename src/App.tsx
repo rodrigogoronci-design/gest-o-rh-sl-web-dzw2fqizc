@@ -9,6 +9,7 @@ import Index from './pages/Index'
 import NotFound from './pages/NotFound'
 import Layout from './components/Layout'
 import Mural from './pages/Mural'
+import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import Ticket from './pages/Ticket'
 import Transport from './pages/Transport'
@@ -33,7 +34,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/app" element={<ProtectedRoute />}>
               <Route element={<Layout />}>
-                <Route index element={<Navigate to="mural" replace />} />
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
                 <Route path="mural" element={<Mural />} />
                 <Route path="usuarios" element={<Users />} />
                 <Route path="ticket" element={<Ticket />} />

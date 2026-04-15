@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { CalendarDays, Users, Utensils, Bus, Star, FileText } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, Users, Utensils, Bus, Star, FileText } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
 import {
@@ -17,6 +17,12 @@ export default function AppSidebar() {
   const location = useLocation()
 
   const menuItems = [
+    {
+      title: 'Dashboard',
+      path: '/app/dashboard',
+      icon: LayoutDashboard,
+      roles: ['admin', 'user'],
+    },
     {
       title: 'Mural de Plantões',
       path: '/app/mural',
