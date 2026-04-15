@@ -75,7 +75,7 @@ const UnitInput = ({ value, onChange, className, readOnly, title }: any) => {
 }
 
 export default function Transport() {
-  const { currentUser, users } = useAppStore()
+  const { currentUser } = useAppStore()
   const { toast } = useToast()
 
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
@@ -98,22 +98,31 @@ export default function Transport() {
   const prevPStart = format(new Date(year, month - 2, 25), 'yyyy-MM-dd')
   const prevPEnd = format(new Date(year, month - 1, 24), 'yyyy-MM-dd')
 
-  useEffect(() => {
-    if (!users || users.length === 0) return
+  const [activeUsers, setActiveUsers] = useState<any[]>([])
 
+  useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
-      const [{ data: ferias }, { data: atestados }, { data: transports }, { data: faltas }] =
-        await Promise.all([
-          supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
-          supabase
-            .from('atestados')
-            .select('*')
-            .lte('data_inicio', prevPEnd)
-            .gte('data_fim', prevPStart),
-          supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
-          supabase.from('faltas').select('*').gte('data', pStart).lte('data', pEnd),
-        ])
+      const [
+        { data: ferias },
+        { data: atestados },
+        { data: transports },
+        { data: faltas },
+        { data: cols },
+      ] = await Promise.all([
+        supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
+        supabase
+          .from('atestados')
+          .select('*')
+          .lte('data_inicio', prevPEnd)
+          .gte('data_fim', prevPStart),
+        supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
+        supabase.from('faltas').select('*').gte('data', pStart).lte('data', pEnd),
+        supabase.from('colaboradores').select('*').order('nome'),
+      ])
+
+      const freshUsers = cols || []
+      setActiveUsers(freshUsers)
 
       const calcDays = (records: any[], startStr: string, endStr: string) => {
         const counts: Record<string, number> = {}
@@ -152,12 +161,10 @@ export default function Transport() {
       }, {})
 
       const initial: Record<string, TransportRecord> = {}
-      users
+      freshUsers
         .filter(
           (u: any) =>
-            (u.role === 'user' || u.role === 'Colaborador') &&
-            u.recebe_transporte !== false &&
-            String(u.recebe_transporte) !== 'false',
+            (u.role === 'user' || u.role === 'Colaborador') && u.recebe_transporte === true,
         )
         .forEach((u) => {
           const t = transportsByColab[u.id]
@@ -176,7 +183,7 @@ export default function Transport() {
     }
 
     loadData()
-  }, [users, selectedMonth, pStart, pEnd])
+  }, [selectedMonth, pStart, pEnd])
 
   if (currentUser?.role !== 'admin' && currentUser?.role !== 'Admin') {
     return <Navigate to="/app/mural" replace />
@@ -296,12 +303,10 @@ export default function Transport() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users
+              {activeUsers
                 .filter(
                   (u: any) =>
-                    (u.role === 'user' || u.role === 'Colaborador') &&
-                    u.recebe_transporte !== false &&
-                    String(u.recebe_transporte) !== 'false',
+                    (u.role === 'user' || u.role === 'Colaborador') && u.recebe_transporte === true,
                 )
                 .map((u) => {
                   const data = localData[u.id] || {
@@ -325,7 +330,9 @@ export default function Transport() {
                       key={u.id}
                       className="[&>td]:py-2 [&>td]:px-3 hover:bg-slate-50/50 transition-colors border-b border-slate-100"
                     >
-                      <TableCell className="font-medium text-slate-700 text-xs">{u.name}</TableCell>
+                      <TableCell className="font-medium text-slate-700 text-xs">
+                        {u.nome || u.name}
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1 items-center">
                           <UnitInput

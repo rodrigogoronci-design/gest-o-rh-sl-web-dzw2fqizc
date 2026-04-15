@@ -156,8 +156,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
       })
     }
 
-    const receivesTransport =
-      user.recebe_transporte !== false && String(user.recebe_transporte) !== 'false'
+    const receivesTransport = user.recebe_transporte === true
 
     if (receivesTransport) {
       if (
