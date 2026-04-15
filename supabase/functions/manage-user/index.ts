@@ -20,17 +20,30 @@ Deno.serve(async (req: Request) => {
     const { action, payload } = await req.json()
 
     if (action === 'create') {
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: payload.email,
-        password: payload.password || 'Skip@Pass123!',
-        email_confirm: true,
-        user_metadata: { name: payload.name },
-      })
-      if (error) throw error
+      let authUser
+
+      if (payload.sendInvite) {
+        const { data, error } = await supabase.auth.admin.inviteUserByEmail(payload.email, {
+          data: { name: payload.name },
+        })
+        if (error) throw error
+        authUser = data.user
+      } else {
+        const { data, error } = await supabase.auth.admin.createUser({
+          email: payload.email,
+          password: payload.password || 'Skip@Pass123!',
+          email_confirm: true,
+          user_metadata: { name: payload.name },
+        })
+        if (error) throw error
+        authUser = data.user
+      }
+
+      if (!authUser) throw new Error('Falha ao criar usuário')
 
       const { error: dbErr } = await supabase.from('colaboradores').insert({
-        id: data.user.id,
-        user_id: data.user.id,
+        id: authUser.id,
+        user_id: authUser.id,
         email: payload.email,
         nome: payload.name,
         role: payload.role === 'admin' ? 'Admin' : 'Colaborador',
@@ -41,7 +54,15 @@ Deno.serve(async (req: Request) => {
       })
       if (dbErr) throw dbErr
 
-      return new Response(JSON.stringify({ success: true, id: data.user.id }), {
+      return new Response(JSON.stringify({ success: true, id: authUser.id }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (action === 'resend_invite') {
+      const { data, error } = await supabase.auth.admin.inviteUserByEmail(payload.email)
+      if (error) throw error
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }

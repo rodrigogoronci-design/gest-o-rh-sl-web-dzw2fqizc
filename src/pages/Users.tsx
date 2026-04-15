@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Edit2, Trash2, UserPlus } from 'lucide-react'
+import { Edit2, Trash2, UserPlus, Mail } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
@@ -59,6 +59,7 @@ export default function Users() {
   const [role, setRole] = useState<Role>('user')
   const [password, setPassword] = useState('')
   const [recebeTransporte, setRecebeTransporte] = useState(true)
+  const [sendInvite, setSendInvite] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const [isEditOpen, setIsEditOpen] = useState(false)
@@ -80,8 +81,8 @@ export default function Users() {
 
     setIsSaving(true)
     try {
-      const payload: any = { name, email, role, recebe_transporte: recebeTransporte }
-      if (password) payload.password = password
+      const payload: any = { name, email, role, recebe_transporte: recebeTransporte, sendInvite }
+      if (password && !sendInvite) payload.password = password
 
       const { data, error } = await supabase.functions.invoke('manage-user', {
         body: { action: 'create', payload },
@@ -94,9 +95,10 @@ export default function Users() {
       setRole('user')
       setPassword('')
       setRecebeTransporte(true)
+      setSendInvite(false)
       toast({
         title: 'Usuário adicionado',
-        description: `${name} foi adicionado com sucesso.`,
+        description: `${name} foi adicionado com sucesso.${sendInvite ? ' Um convite foi enviado para o e-mail.' : ''}`,
       })
       fetchUsers()
     } catch (err: any) {
@@ -160,6 +162,25 @@ export default function Users() {
       })
     } finally {
       setIsUpdating(false)
+    }
+  }
+
+  const handleResendInvite = async (userEmail: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: { action: 'resend_invite', payload: { email: userEmail } },
+      })
+      if (error || data?.error) throw error || new Error(data?.error)
+      toast({
+        title: 'Convite reenviado',
+        description: `O convite foi reenviado para ${userEmail}.`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro',
+        description: err.message || 'Não foi possível reenviar o convite.',
+        variant: 'destructive',
+      })
     }
   }
 
@@ -235,7 +256,17 @@ export default function Users() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Deixe em branco para senha padrão"
+                  disabled={sendInvite}
                 />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-slate-50">
+                <div className="space-y-0.5">
+                  <Label>Enviar convite por e-mail</Label>
+                  <div className="text-[0.8rem] text-muted-foreground">
+                    O usuário receberá um link para definir a senha e acessar.
+                  </div>
+                </div>
+                <Switch checked={sendInvite} onCheckedChange={setSendInvite} />
               </div>
               <div className="space-y-2">
                 <Label>Perfil de Acesso</Label>
@@ -380,6 +411,15 @@ export default function Users() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Reenviar Convite"
+                        className="text-muted-foreground hover:text-primary"
+                        onClick={() => handleResendInvite(u.email)}
+                      >
+                        <Mail className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"

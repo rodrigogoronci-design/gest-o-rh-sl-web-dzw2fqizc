@@ -43,6 +43,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { FeriasDialog } from '@/components/FeriasDialog'
 import { syncAllUsersBeneficios } from '@/services/beneficios'
 
@@ -205,6 +206,17 @@ export default function Mural() {
 
   return (
     <div className="space-y-6">
+      {!isAdmin && escalaStatus === 'Aprovada' && (
+        <Alert className="bg-emerald-50 border-emerald-200 text-emerald-800">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          <AlertTitle>Nova Escala Publicada!</AlertTitle>
+          <AlertDescription>
+            A escala para o período de {format(subMonths(selectedDate, 1), 'dd/MM')} a{' '}
+            {format(selectedDate, 'dd/MM')} foi aprovada e já está disponível.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Mural de Plantões</h1>
