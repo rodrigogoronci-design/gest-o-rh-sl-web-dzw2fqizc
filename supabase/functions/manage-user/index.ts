@@ -24,7 +24,8 @@ Deno.serve(async (req: Request) => {
       const lower = r.toLowerCase()
       if (lower === 'admin') return 'Admin'
       if (lower === 'gerente') return 'Gerente'
-      return 'Colaborador'
+      if (lower === 'colaborador') return 'Colaborador'
+      return r.charAt(0).toUpperCase() + r.slice(1).toLowerCase()
     }
 
     if (action === 'create') {
