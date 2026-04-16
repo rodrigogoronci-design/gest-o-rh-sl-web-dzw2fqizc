@@ -453,41 +453,52 @@ function PdfPreviewModal({
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    toast.success('Download forçado iniciado.')
+    toast.success('Download original iniciado.')
   }
+
+  const isPdf = url?.includes('.pdf') || url?.includes('application/pdf')
+  const previewImage = isPdf ? 'https://img.usecurling.com/p/600/800?q=document&color=white' : url
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md w-full flex flex-col p-6">
+      <DialogContent className="max-w-2xl w-full flex flex-col p-6">
         <DialogHeader>
-          <DialogTitle>Documento Disponível</DialogTitle>
+          <DialogTitle>Pré-visualização do Documento</DialogTitle>
           <DialogDescription>
-            Devido a políticas de segurança do seu navegador (bloqueio de iframe/blob), a
-            visualização direta foi desativada.
+            Exibindo versão em imagem (JPEG) para contornar bloqueios de segurança do navegador.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col items-center justify-center p-8 bg-muted/10 rounded-lg border border-dashed mt-4 text-center">
-          <FileText className="w-16 h-16 text-blue-500 mb-4" />
-          <h3 className="text-lg font-medium mb-2">Contracheque Preparado</h3>
-          <p className="text-sm text-muted-foreground mb-6">
-            Por favor, utilize o botão abaixo para baixar o PDF diretamente para o seu dispositivo.
-            Esta ação contorna bloqueios do Chrome (ERR_BLOCKED_BY_CLIENT).
-          </p>
-          <Button
-            onClick={handleDownload}
-            size="lg"
-            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
-          >
-            <Download className="w-5 h-5 mr-2" />
-            Baixar Arquivo Agora
-          </Button>
+        <div className="flex-1 overflow-auto p-4 flex flex-col items-center justify-center bg-slate-100 rounded-md mt-2 min-h-[400px]">
+          {previewImage ? (
+            <img
+              src={previewImage}
+              alt="Prévia do documento"
+              className="max-w-full max-h-[50vh] object-contain shadow-sm border bg-white rounded-md"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-muted-foreground">
+              <FileText className="w-12 h-12 mb-2 opacity-20" />
+              <p>Visualização indisponível</p>
+            </div>
+          )}
         </div>
 
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={onClose}>
-            Fechar
-          </Button>
+        <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
+          <p className="text-sm text-muted-foreground text-center sm:text-left max-w-[60%]">
+            Para impressão ou envio oficial, baixe o arquivo original em PDF.
+          </p>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-none">
+              Fechar
+            </Button>
+            <Button
+              onClick={handleDownload}
+              className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Download className="w-4 h-4 mr-2" /> PDF Original
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
