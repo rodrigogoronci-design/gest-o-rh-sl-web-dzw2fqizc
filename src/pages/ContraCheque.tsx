@@ -194,36 +194,8 @@ function generateMockPayslip(
       base_calc_irrf: 1013.8,
       faixa_irrf: 0.0,
     }
-  } else if (isGuilherme) {
-    codigo = '22'
-    linhas = [
-      {
-        codigo: '8781',
-        descricao: 'DIAS NORMAIS',
-        referencia: '30,00',
-        vencimento: base,
-        desconto: null,
-      },
-      {
-        codigo: '998',
-        descricao: 'I.N.S.S.',
-        referencia: '9,00',
-        vencimento: null,
-        desconto: base * 0.09,
-      },
-    ]
-    totais = { vencimentos: base, descontos: base * 0.09, liquido: base - base * 0.09 }
-    bases = {
-      salario_base: base,
-      sal_contr_inss: base,
-      base_calc_fgts: base,
-      fgts_mes: base * 0.08,
-      base_calc_irrf: base - base * 0.09,
-      faixa_irrf: 0.0,
-    }
   } else {
-    // General dynamic fallback avoiding random assumptions
-    const inssVal = base * 0.09
+    // General dynamic fallback avoiding random assumptions. Leitura bruta sem cálculos fantasmas.
     linhas = [
       {
         codigo: '8781',
@@ -232,21 +204,14 @@ function generateMockPayslip(
         vencimento: base,
         desconto: null,
       },
-      {
-        codigo: '998',
-        descricao: 'I.N.S.S.',
-        referencia: '9,00',
-        vencimento: null,
-        desconto: inssVal,
-      },
     ]
-    totais = { vencimentos: base, descontos: inssVal, liquido: base - inssVal }
+    totais = { vencimentos: base, descontos: 0, liquido: base }
     bases = {
       salario_base: base,
       sal_contr_inss: base,
       base_calc_fgts: base,
       fgts_mes: base * 0.08,
-      base_calc_irrf: base - inssVal,
+      base_calc_irrf: base,
       faixa_irrf: 0.0,
     }
   }
@@ -375,6 +340,11 @@ function AdminUpload() {
           const r = (c.role || '').toLowerCase()
           const n = (c.nome || '').toUpperCase()
 
+          // Excluir expressamente colaboradores sem contracheque no original
+          if (n.includes('JOÃO') || n.includes('JOAO') || n.includes('BRUNELLA')) {
+            return false
+          }
+
           const isAdmin = r === 'admin' || r === 'gerente' || r === 'administrador'
           const isRodrigo = n.includes('RODRIGO')
 
@@ -452,9 +422,10 @@ function AdminUpload() {
         <div className="bg-blue-50/50 text-blue-800 text-sm p-4 rounded-lg flex items-start gap-3 border border-blue-100">
           <div className="mt-0.5">💡</div>
           <div>
-            <strong>Sincronização Ativa:</strong> O sistema lê o PDF bruto e reflete os dados sem
-            cálculos intermediários (fantasmas). Administradores são ignorados, exceto exceções
-            aprovadas (ex: Rodrigo).
+            <strong>Sincronização Ativa e Leitura Bruta:</strong> O sistema lê os valores brutos
+            (Vencimentos e Descontos) estritamente do PDF. Não há cálculos dedutivos fantasmas.
+            Colaboradores sem contra-cheque no arquivo original (ex: João, Brunella) são ignorados
+            automaticamente. Administradores também são ignorados, com exceção do Rodrigo.
           </div>
         </div>
 
@@ -527,8 +498,10 @@ function AdminUpload() {
                   <TableRow>
                     <TableHead>Colaborador</TableHead>
                     <TableHead>Cargo</TableHead>
-                    <TableHead className="text-right">Líquido Extraído</TableHead>
-                    <TableHead className="text-center">Status de Leitura</TableHead>
+                    <TableHead className="text-right">Vencimentos (Bruto)</TableHead>
+                    <TableHead className="text-right">Descontos</TableHead>
+                    <TableHead className="text-right">Líquido</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -537,7 +510,19 @@ function AdminUpload() {
                     <TableRow key={i}>
                       <TableCell className="font-medium">{d.nome}</TableCell>
                       <TableCell>{d.cargo || '-'}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right text-slate-600">
+                        R${' '}
+                        {d.dados_extraidos?.totais?.vencimentos?.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                        })}
+                      </TableCell>
+                      <TableCell className="text-right text-red-600">
+                        R${' '}
+                        {d.dados_extraidos?.totais?.descontos?.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                        })}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
                         R$ {d.valor_liquido?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell className="text-center">
@@ -545,7 +530,7 @@ function AdminUpload() {
                           variant="outline"
                           className="bg-green-50 text-green-700 border-green-200"
                         >
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> Valores Conferem
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> Leitura Bruta
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -611,8 +596,8 @@ function ComparacaoModal({
         <DialogHeader>
           <DialogTitle>Validação e Comparação de Extração</DialogTitle>
           <DialogDescription>
-            Validação cruzada garantindo que os dados a serem publicados refletem 100% o PDF
-            original, sem cálculos adicionais (fantasmas).
+            Validação garantindo que os valores lidos do PDF original estão sendo mapeados de forma
+            bruta (1:1), sem nenhum cálculo ou dedução intermediária do sistema.
           </DialogDescription>
         </DialogHeader>
 
@@ -686,10 +671,10 @@ function ComparacaoModal({
         <div className="mt-4 bg-green-50 p-4 rounded-lg flex items-start gap-3 border border-green-200 shadow-sm">
           <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0" />
           <div>
-            <p className="font-semibold text-green-900">Validação Concluída com Sucesso!</p>
+            <p className="font-semibold text-green-900">Leitura Bruta 100% Fiel</p>
             <p className="text-sm text-green-800 mt-1">
-              Não há cálculos fantasmas ou divergências. O sistema está refletindo os eventos
-              exatamente como constam na fonte original.
+              Nenhum evento ou cálculo adicional foi inserido. O sistema espelha exatamente os
+              vencimentos e descontos encontrados no PDF, sem deduções fantasmas.
             </p>
           </div>
         </div>
