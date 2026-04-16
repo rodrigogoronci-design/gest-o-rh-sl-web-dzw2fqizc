@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { FileText, Plus, Trash2, Eye, Download } from 'lucide-react'
+import { FileText, Plus, Trash2, Eye, Download, ExternalLink } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 export default function Atestados() {
@@ -261,19 +261,36 @@ export default function Atestados() {
                 <div className="flex-1 w-full overflow-hidden bg-slate-100 flex items-center justify-center p-2 sm:p-4">
                   {selectedFile.arquivo_url.toLowerCase().includes('.pdf') ||
                   selectedFile.arquivo_url.includes('application/pdf') ? (
-                    selectedFile.arquivo_url.startsWith('data:') ? (
-                      <iframe
-                        src={selectedFile.arquivo_url}
-                        className="w-full h-full border rounded bg-white shadow-sm"
-                        title="Prévia do Atestado PDF"
-                      />
-                    ) : (
-                      <iframe
-                        src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedFile.arquivo_url)}&embedded=true`}
-                        className="w-full h-full border rounded bg-white shadow-sm"
-                        title="Prévia do Atestado PDF"
-                      />
-                    )
+                    <div className="flex flex-col items-center text-center space-y-4 max-w-sm">
+                      <FileText className="w-16 h-16 text-muted-foreground opacity-50" />
+                      <div>
+                        <p className="font-medium">Documento em PDF</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          A visualização direta foi desativada por segurança.
+                        </p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-3 mt-4 w-full">
+                        <Button variant="secondary" className="w-full" asChild>
+                          <a
+                            href={selectedFile.arquivo_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" /> Nova Aba
+                          </a>
+                        </Button>
+                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" asChild>
+                          <a
+                            href={selectedFile.arquivo_url}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Download className="w-4 h-4 mr-2" /> Baixar
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
                   ) : (
                     <img
                       src={selectedFile.arquivo_url}

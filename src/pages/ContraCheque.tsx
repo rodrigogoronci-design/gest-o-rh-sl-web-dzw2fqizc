@@ -127,28 +127,50 @@ function AdminUpload() {
     }
   }
 
-  const processFile = () => {
+  const processFile = async () => {
     if (!file) return
     setProcessing(true)
-    setTimeout(async () => {
+
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('contracheques')
+        .upload(fileName, file)
+
+      let publicUrl = DUMMY_PDF
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from('contracheques').getPublicUrl(fileName)
+        publicUrl = urlData.publicUrl
+      } else {
+        console.error('Erro no upload', uploadError)
+      }
+
       const { data } = await supabase
         .from('colaboradores')
         .select('id, nome, cargo')
         .eq('status', 'Ativo')
         .eq('role', 'Colaborador')
+
       if (data) {
         setExtractedData(
           data.map((c) => ({
             colaborador_id: c.id,
             nome: c.nome,
             cargo: c.cargo,
-            arquivo_url: DUMMY_PDF,
+            arquivo_url: publicUrl,
           })),
         )
       }
-      setProcessing(false)
       toast.success('Arquivo processado com sucesso! Contracheques identificados.')
-    }, 2500)
+    } catch (error) {
+      console.error(error)
+      toast.error('Erro ao processar o arquivo.')
+    } finally {
+      setProcessing(false)
+    }
   }
 
   const publish = async () => {
@@ -449,82 +471,51 @@ function PdfPreviewModal({
     if (!url) return
     const link = document.createElement('a')
     link.href = url
-    link.download = `contracheque-${Date.now()}.pdf`
+    link.download = `documento-${Date.now()}.pdf`
+    link.target = '_blank'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     toast.success('Download original iniciado.')
   }
 
-  const isPdf = url?.toLowerCase().includes('.pdf') || url?.includes('application/pdf')
-  const isDataUrl = url?.startsWith('data:')
-
-  let renderContent = null
-
-  if (!url) {
-    renderContent = (
-      <div className="flex flex-col items-center justify-center text-muted-foreground min-h-[400px]">
-        <FileText className="w-12 h-12 mb-2 opacity-20" />
-        <p>Visualização indisponível</p>
-      </div>
-    )
-  } else if (isPdf && !isDataUrl) {
-    renderContent = (
-      <iframe
-        src={`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`}
-        className="w-full h-full min-h-[500px] border-0 rounded-md bg-white"
-        title="Prévia do PDF"
-      />
-    )
-  } else if (isPdf && isDataUrl) {
-    renderContent = (
-      <iframe
-        src={url}
-        className="w-full h-full min-h-[500px] border-0 rounded-md bg-white"
-        title="Prévia do PDF Base64"
-      />
-    )
-  } else {
-    renderContent = (
-      <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
-        <img
-          src={url}
-          alt="Prévia do documento"
-          className="max-w-full max-h-[60vh] object-contain shadow-sm border bg-white rounded-md"
-        />
-      </div>
-    )
+  const handleOpenNewTab = () => {
+    if (!url) return
+    window.open(url, '_blank')
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl w-full flex flex-col p-6 h-[85vh]">
+      <DialogContent className="max-w-md w-full flex flex-col p-6">
         <DialogHeader>
-          <DialogTitle>Pré-visualização do Documento</DialogTitle>
+          <DialogTitle>Acessar Documento</DialogTitle>
           <DialogDescription>
-            Confira o documento original. Se a visualização falhar, utilize o botão de download.
+            Devido a políticas de segurança do navegador, a visualização embutida foi desativada.
+            Escolha uma das opções abaixo para acessar seu documento.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col bg-slate-100 rounded-md mt-2 relative">
-          {renderContent}
+        <div className="flex flex-col gap-4 py-8 items-center justify-center bg-slate-50 rounded-lg mt-2 mb-4 border">
+          <FileText className="w-16 h-16 text-muted-foreground opacity-50" />
+          <p className="text-center text-sm text-muted-foreground px-4">
+            O documento está pronto para ser visualizado ou baixado de forma segura em uma nova
+            janela.
+          </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
-          <p className="text-sm text-muted-foreground text-center sm:text-left max-w-[60%]">
-            Para impressão ou envio oficial, baixe o arquivo original em PDF.
-          </p>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-none">
-              Fechar
-            </Button>
-            <Button
-              onClick={handleDownload}
-              className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Download className="w-4 h-4 mr-2" /> PDF Original
-            </Button>
-          </div>
+        <div className="flex flex-col sm:flex-row justify-end items-center gap-3">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
+            Fechar
+          </Button>
+          <Button variant="secondary" onClick={handleOpenNewTab} className="w-full sm:w-auto">
+            <ExternalLink className="w-4 h-4 mr-2" /> Nova Aba
+          </Button>
+          <Button
+            onClick={handleDownload}
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Download className="w-4 h-4 mr-2" /> Baixar Arquivo
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
