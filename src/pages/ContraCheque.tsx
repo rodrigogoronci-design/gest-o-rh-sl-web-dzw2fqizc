@@ -123,8 +123,16 @@ function AdminUpload() {
         .from('colaboradores')
         .select('id, nome, cargo')
         .eq('status', 'Ativo')
+        .eq('role', 'Colaborador')
       if (data) {
-        setExtractedData(data.map((c) => ({ colaborador_id: c.id, nome: c.nome, cargo: c.cargo })))
+        setExtractedData(
+          data.map((c) => ({
+            colaborador_id: c.id,
+            nome: c.nome,
+            cargo: c.cargo,
+            arquivo_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+          })),
+        )
       }
       setProcessing(false)
       toast.success('Arquivo processado com sucesso! Contracheques identificados.')
@@ -138,7 +146,7 @@ function AdminUpload() {
       const inserts = extractedData.map((e) => ({
         colaborador_id: e.colaborador_id,
         mes_ano: selectedMonth,
-        arquivo_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        arquivo_url: e.arquivo_url,
       }))
       const { error } = await supabase
         .from('contracheques')
@@ -240,9 +248,19 @@ function AdminUpload() {
                     <TableCell className="font-medium">{d.nome}</TableCell>
                     <TableCell>{d.cargo || '-'}</TableCell>
                     <TableCell className="text-right">
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                        Pronto para envio
-                      </Badge>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={d.arquivo_url} target="_blank" rel="noreferrer">
+                            <Eye className="w-4 h-4 mr-2" /> Prévia
+                          </a>
+                        </Button>
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200"
+                        >
+                          Pronto
+                        </Badge>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -263,8 +281,9 @@ function AdminHistorico() {
   useEffect(() => {
     supabase
       .from('contracheques')
-      .select('*, colaboradores(nome, cargo)')
+      .select('*, colaboradores!inner(nome, cargo, role)')
       .eq('mes_ano', selectedMonth)
+      .eq('colaboradores.role', 'Colaborador')
       .then(({ data }) => {
         if (data) setRegistros(data)
       })

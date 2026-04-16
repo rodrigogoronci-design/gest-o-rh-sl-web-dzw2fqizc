@@ -73,6 +73,7 @@ function AdminPonto() {
       .from('colaboradores')
       .select('id, nome, cargo')
       .eq('status', 'Ativo')
+      .eq('role', 'Colaborador')
     const { data: pts } = await supabase.from('ponto').select('*').eq('data', date)
 
     if (colabs) {
