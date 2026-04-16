@@ -56,19 +56,91 @@ function generateMockPayslip(
   data_admissao?: string | null,
 ) {
   const base = salarioBase || 1838.96
-  const isFelipe = nome.toUpperCase().includes('FELIPE')
+  const upperNome = nome.toUpperCase()
+  const isGiselly = upperNome.includes('GISELLY')
+  const isFelipe = upperNome.includes('FELIPE')
 
-  const premio = isFelipe ? 560.0 : base * 0.1
-  const heRef = isFelipe ? '5:00' : '10:00'
-  const heVal = isFelipe ? 73.14 : (base / 220) * 1.75 * 10
-  const dsrVal = isFelipe ? 12.19 : heVal / 6
+  let premio = 0
+  let heRef = ''
+  let heVal = 0
+  let dsrVal = 0
 
-  const inssRef = isFelipe ? '7,74' : '9,00'
-  const inssVal = isFelipe ? 148.86 : base * 0.09
+  let inssRef = '7,68'
+  let inssVal = 141.18
+
+  if (isFelipe) {
+    premio = 560.0
+    heRef = '5:00'
+    heVal = 73.14
+    dsrVal = 12.19
+    inssRef = '7,74'
+    inssVal = 148.86
+  } else if (!isGiselly && !isFelipe) {
+    // Normal fallback so it is not completely empty for other employees
+    inssRef = '9,00'
+    inssVal = base * 0.09
+  }
+
+  const sal_contr_inss = base + heVal + dsrVal
+  const base_calc_fgts = base + heVal + dsrVal
+  const fgts_mes = base_calc_fgts * 0.08
+
+  let base_calc_irrf = sal_contr_inss - inssVal
+  if (isGiselly) {
+    base_calc_irrf = 1231.76
+  }
 
   const vencimentos = base + premio + heVal + dsrVal
   const descontos = inssVal
   const liquido = vencimentos - descontos
+
+  const linhas = [
+    {
+      codigo: '8781',
+      descricao: 'DIAS NORMAIS',
+      referencia: '30,00',
+      vencimento: base,
+      desconto: null,
+    },
+  ]
+
+  if (premio > 0) {
+    linhas.push({
+      codigo: '202',
+      descricao: 'PREMIO',
+      referencia: isFelipe ? '560,00' : premio.toFixed(2).replace('.', ','),
+      vencimento: premio,
+      desconto: null,
+    })
+  }
+
+  if (dsrVal > 0) {
+    linhas.push({
+      codigo: '8125',
+      descricao: 'REFLEXO HORAS EXTRAS DSR',
+      referencia: '0,00',
+      vencimento: dsrVal,
+      desconto: null,
+    })
+  }
+
+  if (heVal > 0) {
+    linhas.push({
+      codigo: '201',
+      descricao: 'HORAS EXTRAS 75%',
+      referencia: heRef,
+      vencimento: heVal,
+      desconto: null,
+    })
+  }
+
+  linhas.push({
+    codigo: '998',
+    descricao: 'I.N.S.S.',
+    referencia: inssRef,
+    vencimento: null,
+    desconto: inssVal,
+  })
 
   return {
     empresa: {
@@ -76,51 +148,17 @@ function generateMockPayslip(
       cnpj: '10.929.600/0001-92',
     },
     cabecalho: {
-      codigo: isFelipe ? '18' : Math.floor(Math.random() * 100).toString(),
+      codigo: isFelipe ? '18' : isGiselly ? '21' : Math.floor(Math.random() * 100).toString(),
       cbo: '212420',
       departamento: departamento || '1',
       filial: '1',
       admissao: data_admissao
         ? new Date(data_admissao + 'T12:00:00').toLocaleDateString('pt-BR')
-        : '15/09/2025',
+        : isGiselly
+          ? '08/01/2026'
+          : '15/09/2025',
     },
-    linhas: [
-      {
-        codigo: '8781',
-        descricao: 'DIAS NORMAIS',
-        referencia: '30,00',
-        vencimento: base,
-        desconto: null,
-      },
-      {
-        codigo: '202',
-        descricao: 'PREMIO',
-        referencia: isFelipe ? '560,00' : premio.toFixed(2).replace('.', ','),
-        vencimento: premio,
-        desconto: null,
-      },
-      {
-        codigo: '8125',
-        descricao: 'REFLEXO HORAS EXTRAS DSR',
-        referencia: '0,00',
-        vencimento: dsrVal,
-        desconto: null,
-      },
-      {
-        codigo: '201',
-        descricao: 'HORAS EXTRAS 75%',
-        referencia: heRef,
-        vencimento: heVal,
-        desconto: null,
-      },
-      {
-        codigo: '998',
-        descricao: 'I.N.S.S.',
-        referencia: inssRef,
-        vencimento: null,
-        desconto: inssVal,
-      },
-    ],
+    linhas,
     totais: {
       vencimentos: vencimentos,
       descontos: descontos,
@@ -128,10 +166,10 @@ function generateMockPayslip(
     },
     bases: {
       salario_base: base,
-      sal_contr_inss: base + heVal + dsrVal,
-      base_calc_fgts: base + heVal + dsrVal,
-      fgts_mes: (base + heVal + dsrVal) * 0.08,
-      base_calc_irrf: base + heVal + dsrVal - inssVal,
+      sal_contr_inss: sal_contr_inss,
+      base_calc_fgts: base_calc_fgts,
+      fgts_mes: fgts_mes,
+      base_calc_irrf: base_calc_irrf,
       faixa_irrf: 0.0,
     },
   }
@@ -676,7 +714,20 @@ function ContraChequeDataModal({
               </div>
               <div className="text-right">
                 <div>Folha Mensal</div>
-                <div className="capitalize">{data.mes_ano}</div>
+                <div className="capitalize">
+                  {(() => {
+                    if (!data.mes_ano) return ''
+                    const [m, y] = data.mes_ano.split('/')
+                    if (m && y) {
+                      const date = new Date(parseInt(y), parseInt(m) - 1, 1)
+                      return new Intl.DateTimeFormat('pt-BR', {
+                        month: 'long',
+                        year: 'numeric',
+                      }).format(date)
+                    }
+                    return data.mes_ano
+                  })()}
+                </div>
               </div>
             </div>
 

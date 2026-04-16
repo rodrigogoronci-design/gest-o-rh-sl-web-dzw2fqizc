@@ -20,11 +20,11 @@ Deno.serve(async (req: Request) => {
     const { action, payload } = await req.json()
 
     const mapRole = (r: string) => {
-      if (!r) return 'colaborador'
+      if (!r) return 'Colaborador'
       const lower = r.toLowerCase()
-      if (lower === 'admin') return 'admin'
-      if (lower === 'gerente') return 'gerente'
-      return 'colaborador'
+      if (lower === 'admin') return 'Admin'
+      if (lower === 'gerente') return 'Gerente'
+      return 'Colaborador'
     }
 
     if (action === 'create') {
