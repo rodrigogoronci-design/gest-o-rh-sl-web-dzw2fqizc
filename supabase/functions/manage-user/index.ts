@@ -19,6 +19,14 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
     const { action, payload } = await req.json()
 
+    const mapRole = (r: string) => {
+      if (!r) return 'Colaborador'
+      const lower = r.toLowerCase()
+      if (lower === 'admin') return 'Admin'
+      if (lower === 'gerente') return 'Gerente'
+      return 'Colaborador'
+    }
+
     if (action === 'create') {
       let authUser
 
@@ -46,14 +54,13 @@ Deno.serve(async (req: Request) => {
         user_id: authUser.id,
         email: payload.email,
         nome: payload.name,
-        role: payload.role || 'Colaborador',
+        role: mapRole(payload.role),
         departamento: payload.departamento || null,
         recebe_transporte:
           payload.recebe_transporte === false || payload.recebe_transporte === 'false'
             ? false
             : true,
-      })
-      if (dbErr) throw dbErr
+      })      if (dbErr) throw dbErr
 
       return new Response(JSON.stringify({ success: true, id: authUser.id }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -145,7 +152,7 @@ Deno.serve(async (req: Request) => {
         .update({
           email,
           nome: name,
-          role: role || 'Colaborador',
+          role: mapRole(role),
           departamento: payload.departamento || null,
           recebe_transporte: receivesTransport,
         })

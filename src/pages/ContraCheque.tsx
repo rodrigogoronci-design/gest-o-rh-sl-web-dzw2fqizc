@@ -48,7 +48,13 @@ const generateMonths = () => {
   return months
 }
 
-function generateMockPayslip(nome: string, cargo: string, salarioBase: number) {
+function generateMockPayslip(
+  nome: string,
+  cargo: string,
+  salarioBase: number,
+  departamento?: string | null,
+  data_admissao?: string | null,
+) {
   const base = salarioBase || 1838.96
   const isFelipe = nome.toUpperCase().includes('FELIPE')
 
@@ -72,9 +78,11 @@ function generateMockPayslip(nome: string, cargo: string, salarioBase: number) {
     cabecalho: {
       codigo: isFelipe ? '18' : Math.floor(Math.random() * 100).toString(),
       cbo: '212420',
-      departamento: '1',
+      departamento: departamento || '1',
       filial: '1',
-      admissao: '15/09/2025',
+      admissao: data_admissao
+        ? new Date(data_admissao + 'T12:00:00').toLocaleDateString('pt-BR')
+        : '15/09/2025',
     },
     linhas: [
       {
@@ -223,9 +231,8 @@ function AdminUpload() {
 
       const { data } = await supabase
         .from('colaboradores')
-        .select('id, nome, cargo, salario')
-        .eq('status', 'Ativo')
-        .eq('role', 'Colaborador')
+        .select('id, nome, cargo, salario, departamento, data_admissao')
+        .or('status.eq.Ativo,status.is.null')
 
       if (data) {
         setExtractedData(
@@ -234,6 +241,8 @@ function AdminUpload() {
             nome: c.nome,
             cargo: c.cargo,
             salario: c.salario,
+            departamento: c.departamento,
+            data_admissao: c.data_admissao,
             arquivo_url: publicUrl,
           })),
         )
@@ -252,7 +261,13 @@ function AdminUpload() {
     setPublishing(true)
     try {
       const inserts = extractedData.map((e) => {
-        const mockData = generateMockPayslip(e.nome || '', e.cargo || '', e.salario || 1838.96)
+        const mockData = generateMockPayslip(
+          e.nome || '',
+          e.cargo || '',
+          e.salario || 1838.96,
+          e.departamento,
+          e.data_admissao,
+        )
         return {
           colaborador_id: e.colaborador_id,
           mes_ano: selectedMonth,
@@ -385,10 +400,14 @@ function AdminUpload() {
                               cargo: d.cargo,
                               mes_ano: selectedMonth,
                               salario: d.salario,
+                              departamento: d.departamento,
+                              data_admissao: d.data_admissao,
                               dados_extraidos: generateMockPayslip(
                                 d.nome || '',
                                 d.cargo || '',
                                 d.salario || 1838.96,
+                                d.departamento,
+                                d.data_admissao,
                               ),
                             })
                           }
@@ -428,9 +447,8 @@ function AdminHistorico() {
   useEffect(() => {
     supabase
       .from('contracheques')
-      .select('*, colaboradores!inner(nome, cargo, salario, role)')
+      .select('*, colaboradores!inner(nome, cargo, salario, role, departamento, data_admissao)')
       .eq('mes_ano', selectedMonth)
-      .eq('colaboradores.role', 'Colaborador')
       .then(({ data }) => {
         if (data) setRegistros(data)
       })
@@ -482,6 +500,8 @@ function AdminHistorico() {
                         cargo: r.colaboradores?.cargo,
                         mes_ano: r.mes_ano,
                         salario: r.colaboradores?.salario,
+                        departamento: r.colaboradores?.departamento,
+                        data_admissao: r.colaboradores?.data_admissao,
                         arquivo_url: r.arquivo_url,
                         dados_extraidos: r.dados_extraidos,
                       })
@@ -568,6 +588,8 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
                     nome: colaborador?.nome,
                     cargo: colaborador?.cargo,
                     salario: colaborador?.salario,
+                    departamento: colaborador?.departamento,
+                    data_admissao: colaborador?.data_admissao,
                     mes_ano: selectedMonth,
                     arquivo_url: contracheque.arquivo_url,
                     dados_extraidos: contracheque.dados_extraidos,
@@ -621,7 +643,13 @@ function ContraChequeDataModal({
 
   const mockData =
     data.dados_extraidos ||
-    generateMockPayslip(data.nome || '', data.cargo || '', data.salario || 1838.96)
+    generateMockPayslip(
+      data.nome || '',
+      data.cargo || '',
+      data.salario || 1838.96,
+      data.departamento,
+      data.data_admissao,
+    )
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>

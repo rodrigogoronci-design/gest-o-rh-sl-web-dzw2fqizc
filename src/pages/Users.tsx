@@ -33,7 +33,7 @@ import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 
-type Role = 'admin' | 'user'
+type Role = 'Admin' | 'Colaborador'
 
 export default function Users() {
   const { currentUser, removeUser } = useAppStore()
@@ -56,7 +56,7 @@ export default function Users() {
   const [isOpen, setIsOpen] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<Role>('user')
+  const [role, setRole] = useState<Role>('Colaborador')
   const [password, setPassword] = useState('')
   const [recebeTransporte, setRecebeTransporte] = useState(true)
   const [sendInvite, setSendInvite] = useState(false)
@@ -66,7 +66,7 @@ export default function Users() {
   const [editId, setEditId] = useState('')
   const [editName, setEditName] = useState('')
   const [editEmail, setEditEmail] = useState('')
-  const [editRole, setEditRole] = useState<Role>('user')
+  const [editRole, setEditRole] = useState<Role>('Colaborador')
   const [editPassword, setEditPassword] = useState('')
   const [editRecebeTransporte, setEditRecebeTransporte] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -92,7 +92,7 @@ export default function Users() {
       setIsOpen(false)
       setName('')
       setEmail('')
-      setRole('user')
+      setRole('Colaborador')
       setPassword('')
       setRecebeTransporte(true)
       setSendInvite(false)
@@ -275,8 +275,8 @@ export default function Users() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">Usuário Normal (Funcionário)</SelectItem>
-                    <SelectItem value="admin">Administrador (Gestor)</SelectItem>
+                    <SelectItem value="Colaborador">Usuário Normal (Funcionário)</SelectItem>
+                    <SelectItem value="Admin">Administrador (Gestor)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -338,8 +338,8 @@ export default function Users() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">Usuário Normal (Funcionário)</SelectItem>
-                  <SelectItem value="admin">Administrador (Gestor)</SelectItem>
+                  <SelectItem value="Colaborador">Usuário Normal (Funcionário)</SelectItem>
+                  <SelectItem value="Admin">Administrador (Gestor)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
