@@ -112,6 +112,7 @@ function generateMockPayslip(
     }
   } else {
     // General dynamic fallback avoiding random assumptions. Leitura bruta sem cálculos fantasmas.
+    const inss = 141.18
     linhas = [
       {
         codigo: '8781',
@@ -120,18 +121,24 @@ function generateMockPayslip(
         vencimento: base,
         desconto: null,
       },
+      {
+        codigo: '998',
+        descricao: 'I.N.S.S.',
+        referencia: '7,68',
+        vencimento: null,
+        desconto: inss,
+      },
     ]
-    totais = { vencimentos: base, descontos: 0, liquido: base }
+    totais = { vencimentos: base, descontos: inss, liquido: base - inss }
     bases = {
       salario_base: base,
       sal_contr_inss: base,
       base_calc_fgts: base,
       fgts_mes: base * 0.08,
-      base_calc_irrf: base,
+      base_calc_irrf: base - inss,
       faixa_irrf: 0.0,
     }
   }
-
   return {
     empresa: { nome: 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA', cnpj: '10.929.600/0001-92' },
     cabecalho: {
@@ -415,7 +422,6 @@ function AdminUpload() {
                     <TableHead>Colaborador</TableHead>
                     <TableHead>Cargo</TableHead>
                     <TableHead className="text-right">Valor Bruto</TableHead>
-                    <TableHead className="text-right">Valor Líquido</TableHead>
                     <TableHead className="text-center">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -425,14 +431,11 @@ function AdminUpload() {
                     <TableRow key={i}>
                       <TableCell className="font-medium">{d.nome}</TableCell>
                       <TableCell>{d.cargo || '-'}</TableCell>
-                      <TableCell className="text-right text-slate-600 font-medium">
+                      <TableCell className="text-right font-bold text-slate-900">
                         R${' '}
                         {d.dados_extraidos?.totais?.vencimentos?.toLocaleString('pt-BR', {
                           minimumFractionDigits: 2,
                         })}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-slate-900">
-                        R$ {d.valor_liquido?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge
@@ -479,7 +482,7 @@ function AdminUpload() {
                           )
                           .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell colSpan={3}></TableCell>
+                      <TableCell colSpan={2}></TableCell>
                     </TableRow>
                   </TableFooter>
                 )}
@@ -540,16 +543,10 @@ function ComparacaoModal({
                 <span className="text-muted-foreground">Colaborador Localizado:</span>
                 <span className="font-medium text-right">{data.nome}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Vencimentos:</span>
-                <span className="font-medium">
-                  R$ {formatNumber(data.dados_extraidos.totais.vencimentos)}
-                </span>
-              </div>
               <div className="border-t border-slate-300 pt-3 mt-3 flex justify-between items-center">
-                <span className="font-semibold text-slate-600">Valor Líquido Extraído:</span>
+                <span className="font-semibold text-slate-600">Total Vencimentos (Bruto):</span>
                 <span className="font-bold text-xl text-slate-900">
-                  R$ {formatNumber(data.dados_extraidos.totais.liquido)}
+                  R$ {formatNumber(data.dados_extraidos.totais.vencimentos)}
                 </span>
               </div>
             </div>
@@ -568,16 +565,10 @@ function ComparacaoModal({
                 <span className="text-muted-foreground">Vínculo na Base:</span>
                 <span className="font-medium text-right text-blue-900">{data.nome}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Vencimentos:</span>
-                <span className="font-medium text-blue-900">
-                  R$ {formatNumber(data.dados_extraidos.totais.vencimentos)}
-                </span>
-              </div>
               <div className="border-t border-blue-200 pt-3 mt-3 flex justify-between items-center">
-                <span className="font-semibold text-blue-800">Líquido a Processar:</span>
+                <span className="font-semibold text-blue-800">Total Vencimentos (Bruto):</span>
                 <span className="font-bold text-xl text-blue-950">
-                  R$ {formatNumber(data.dados_extraidos.totais.liquido)}
+                  R$ {formatNumber(data.dados_extraidos.totais.vencimentos)}
                 </span>
               </div>
             </div>
