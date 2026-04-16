@@ -444,6 +444,35 @@ function PdfPreviewModal({
   isOpen: boolean
   onClose: () => void
 }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!url) {
+      setBlobUrl(null)
+      return
+    }
+
+    if (url.startsWith('data:application/pdf;base64,')) {
+      try {
+        const base64 = url.split(',')[1]
+        const binary = atob(base64)
+        const array = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) {
+          array[i] = binary.charCodeAt(i)
+        }
+        const blob = new Blob([array], { type: 'application/pdf' })
+        const bUrl = URL.createObjectURL(blob)
+        setBlobUrl(bUrl)
+        return () => URL.revokeObjectURL(bUrl)
+      } catch (err) {
+        console.error('Error creating PDF blob:', err)
+        setBlobUrl(url)
+      }
+    } else {
+      setBlobUrl(url)
+    }
+  }, [url])
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl w-full h-[85vh] flex flex-col p-6">
@@ -452,8 +481,8 @@ function PdfPreviewModal({
           <DialogDescription>Confira o demonstrativo abaixo.</DialogDescription>
         </DialogHeader>
         <div className="flex-1 bg-muted/30 rounded-lg border overflow-hidden mt-4">
-          {url ? (
-            <iframe src={url} className="w-full h-full border-0" title="PDF Preview" />
+          {blobUrl ? (
+            <iframe src={blobUrl} className="w-full h-full border-0" title="PDF Preview" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground">
               Nenhum documento disponível
