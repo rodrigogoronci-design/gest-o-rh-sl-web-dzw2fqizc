@@ -33,7 +33,7 @@ import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 
-type Role = 'Admin' | 'Colaborador'
+type Role = 'admin' | 'colaborador'
 
 export default function Users() {
   const { currentUser, removeUser } = useAppStore()
@@ -56,7 +56,7 @@ export default function Users() {
   const [isOpen, setIsOpen] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<Role>('Colaborador')
+  const [role, setRole] = useState<Role>('colaborador')
   const [password, setPassword] = useState('')
   const [recebeTransporte, setRecebeTransporte] = useState(true)
   const [sendInvite, setSendInvite] = useState(false)
@@ -66,7 +66,7 @@ export default function Users() {
   const [editId, setEditId] = useState('')
   const [editName, setEditName] = useState('')
   const [editEmail, setEditEmail] = useState('')
-  const [editRole, setEditRole] = useState<Role>('Colaborador')
+  const [editRole, setEditRole] = useState<Role>('colaborador')
   const [editPassword, setEditPassword] = useState('')
   const [editRecebeTransporte, setEditRecebeTransporte] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -92,7 +92,7 @@ export default function Users() {
       setIsOpen(false)
       setName('')
       setEmail('')
-      setRole('Colaborador')
+      setRole('colaborador')
       setPassword('')
       setRecebeTransporte(true)
       setSendInvite(false)
@@ -116,7 +116,7 @@ export default function Users() {
     setEditId(u.id)
     setEditName(u.name || u.nome)
     setEditEmail(u.email)
-    setEditRole(u.role === 'Admin' || u.role === 'admin' ? 'admin' : 'user')
+    setEditRole(u.role?.toLowerCase() === 'admin' ? 'admin' : 'colaborador')
     setEditPassword('')
     setEditRecebeTransporte(u.recebe_transporte ?? true)
     setIsEditOpen(true)
@@ -275,8 +275,8 @@ export default function Users() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Colaborador">Usuário Normal (Funcionário)</SelectItem>
-                    <SelectItem value="Admin">Administrador (Gestor)</SelectItem>
+                    <SelectItem value="colaborador">Usuário Normal (Funcionário)</SelectItem>
+                    <SelectItem value="admin">Administrador (Gestor)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -338,8 +338,8 @@ export default function Users() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Colaborador">Usuário Normal (Funcionário)</SelectItem>
-                  <SelectItem value="Admin">Administrador (Gestor)</SelectItem>
+                  <SelectItem value="colaborador">Usuário Normal (Funcionário)</SelectItem>
+                  <SelectItem value="admin">Administrador (Gestor)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -390,10 +390,8 @@ export default function Users() {
                     <TableCell className="font-medium">{u.name || u.nome}</TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={u.role === 'admin' || u.role === 'Admin' ? 'default' : 'secondary'}
-                      >
-                        {u.role === 'admin' || u.role === 'Admin' ? 'Administrador' : 'Funcionário'}
+                      <Badge variant={u.role?.toLowerCase() === 'admin' ? 'default' : 'secondary'}>
+                        {u.role?.toLowerCase() === 'admin' ? 'Administrador' : 'Funcionário'}
                       </Badge>
                     </TableCell>
                     <TableCell>

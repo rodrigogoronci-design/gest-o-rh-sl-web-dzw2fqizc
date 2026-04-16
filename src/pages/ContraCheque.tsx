@@ -152,7 +152,9 @@ export default function ContraCheque() {
         .single()
         .then(({ data }) => {
           setColaborador(data)
-          setIsAdmin(data?.role === 'Admin' || data?.role === 'Gerente')
+          setIsAdmin(
+            data?.role?.toLowerCase() === 'admin' || data?.role?.toLowerCase() === 'gerente',
+          )
           setLoading(false)
         })
     }

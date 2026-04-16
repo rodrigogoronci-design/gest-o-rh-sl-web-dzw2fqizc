@@ -20,11 +20,11 @@ Deno.serve(async (req: Request) => {
     const { action, payload } = await req.json()
 
     const mapRole = (r: string) => {
-      if (!r) return 'Colaborador'
+      if (!r) return 'colaborador'
       const lower = r.toLowerCase()
-      if (lower === 'admin') return 'Admin'
-      if (lower === 'gerente') return 'Gerente'
-      return 'Colaborador'
+      if (lower === 'admin') return 'admin'
+      if (lower === 'gerente') return 'gerente'
+      return 'colaborador'
     }
 
     if (action === 'create') {
@@ -60,7 +60,8 @@ Deno.serve(async (req: Request) => {
           payload.recebe_transporte === false || payload.recebe_transporte === 'false'
             ? false
             : true,
-      })      if (dbErr) throw dbErr
+      })
+      if (dbErr) throw dbErr
 
       return new Response(JSON.stringify({ success: true, id: authUser.id }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
