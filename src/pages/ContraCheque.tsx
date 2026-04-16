@@ -456,32 +456,58 @@ function PdfPreviewModal({
     toast.success('Download original iniciado.')
   }
 
-  const isPdf = url?.includes('.pdf') || url?.includes('application/pdf')
-  const previewImage = isPdf ? 'https://img.usecurling.com/p/600/800?q=document&color=white' : url
+  const isPdf = url?.toLowerCase().includes('.pdf') || url?.includes('application/pdf')
+  const isDataUrl = url?.startsWith('data:')
+
+  let renderContent = null
+
+  if (!url) {
+    renderContent = (
+      <div className="flex flex-col items-center justify-center text-muted-foreground min-h-[400px]">
+        <FileText className="w-12 h-12 mb-2 opacity-20" />
+        <p>Visualização indisponível</p>
+      </div>
+    )
+  } else if (isPdf && !isDataUrl) {
+    renderContent = (
+      <iframe
+        src={`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`}
+        className="w-full h-full min-h-[500px] border-0 rounded-md bg-white"
+        title="Prévia do PDF"
+      />
+    )
+  } else if (isPdf && isDataUrl) {
+    renderContent = (
+      <iframe
+        src={url}
+        className="w-full h-full min-h-[500px] border-0 rounded-md bg-white"
+        title="Prévia do PDF Base64"
+      />
+    )
+  } else {
+    renderContent = (
+      <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+        <img
+          src={url}
+          alt="Prévia do documento"
+          className="max-w-full max-h-[60vh] object-contain shadow-sm border bg-white rounded-md"
+        />
+      </div>
+    )
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl w-full flex flex-col p-6">
+      <DialogContent className="max-w-4xl w-full flex flex-col p-6 h-[85vh]">
         <DialogHeader>
           <DialogTitle>Pré-visualização do Documento</DialogTitle>
           <DialogDescription>
-            Exibindo versão em imagem (JPEG) para contornar bloqueios de segurança do navegador.
+            Confira o documento original. Se a visualização falhar, utilize o botão de download.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto p-4 flex flex-col items-center justify-center bg-slate-100 rounded-md mt-2 min-h-[400px]">
-          {previewImage ? (
-            <img
-              src={previewImage}
-              alt="Prévia do documento"
-              className="max-w-full max-h-[50vh] object-contain shadow-sm border bg-white rounded-md"
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center text-muted-foreground">
-              <FileText className="w-12 h-12 mb-2 opacity-20" />
-              <p>Visualização indisponível</p>
-            </div>
-          )}
+        <div className="flex-1 overflow-hidden flex flex-col bg-slate-100 rounded-md mt-2 relative">
+          {renderContent}
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">

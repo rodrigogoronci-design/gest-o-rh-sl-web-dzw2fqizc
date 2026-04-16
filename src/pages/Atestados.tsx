@@ -258,27 +258,30 @@ export default function Atestados() {
                     </a>
                   </Button>
                 </div>
-                {selectedFile.arquivo_url.toLowerCase().includes('.pdf') ? (
-                  <div className="flex-1 overflow-auto p-4 flex flex-col items-center justify-center bg-slate-100 relative">
-                    <div className="absolute top-4 left-4 right-4 bg-yellow-50 text-yellow-800 p-2 rounded text-xs text-center border border-yellow-200 shadow-sm z-10">
-                      Exibindo versão em imagem (JPEG) para evitar bloqueios do navegador. Baixe o
-                      arquivo para acessar o PDF original.
-                    </div>
-                    <img
-                      src="https://img.usecurling.com/p/600/800?q=medical%20document&color=white"
-                      alt="Atestado (Prévia)"
-                      className="max-w-full max-h-[80%] object-contain shadow-sm rounded-md border mt-10 bg-white"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-slate-100">
+                <div className="flex-1 w-full overflow-hidden bg-slate-100 flex items-center justify-center p-2 sm:p-4">
+                  {selectedFile.arquivo_url.toLowerCase().includes('.pdf') ||
+                  selectedFile.arquivo_url.includes('application/pdf') ? (
+                    selectedFile.arquivo_url.startsWith('data:') ? (
+                      <iframe
+                        src={selectedFile.arquivo_url}
+                        className="w-full h-full border rounded bg-white shadow-sm"
+                        title="Prévia do Atestado PDF"
+                      />
+                    ) : (
+                      <iframe
+                        src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedFile.arquivo_url)}&embedded=true`}
+                        className="w-full h-full border rounded bg-white shadow-sm"
+                        title="Prévia do Atestado PDF"
+                      />
+                    )
+                  ) : (
                     <img
                       src={selectedFile.arquivo_url}
                       alt="Atestado"
                       className="max-w-full max-h-full object-contain shadow-sm rounded-md bg-white border"
                     />
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
