@@ -3,6 +3,13 @@ import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -33,6 +40,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
+
+const DUMMY_PDF =
+  'data:application/pdf;base64,JVBERi0xLjQKJcOkwxgKMSAwIG9iago8PAovQ3JlYXRvciAoTW96aWxsYS81LjApCi9Qcm9kdWNlciAoU2tpZGRhdGEpCi9DcmVhdGlvbkRhdGUgKEQ6MjAyMzA4MjgxNjM0MThaKQo+PgplbmRvYmoKMiAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMyAwIFIKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFs0IDAgUl0KL0NvdW50IDEKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAzIDAgUgovTWVkaWFCb3ggWzAgMCA1OTUgODQyXQovQ29udGVudHMgNSAwIFIKL1Jlc291cmNlcyA8PAovUHJvY0NldCBbL1BERiAvVGV4dCAvSW1hZ2VCIC9JbWFnZUMgL0ltYWdlSV0KL0ZvbnQgPDwKL0YxIDYgMCBSCj4+Cj4+Cj4+CmVuZG9iago1IDAgb2JqCjw8Ci9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCi9GMSAyNCBUZgoxMDAgNzAwIFRkCihQREYgZGUgVGVzdGUpIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKNiAwIG9iago8PAovVHlwZSAvRm9udAovU3VidHlwZSAvVHlwZTUKL0Jhc2VGb250IC9IZWx2ZXRpY2EKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKPj4KZW5kb2JqCnhyZWYKMCA3CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAxNjQgMDAwMDAgbiAKMDAwMDAwMDIyMSAwMDAwMCBuIAowMDAwMDAwMzM5IDAwMDAwIG4gCjAwMDAwMDA0MzQgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA3Ci9Sb290IDIgMCBSCjovSW5mbyAxIDAgUgo+PgpzdGFydHhyZWYKNTIzCiUlRU9GCg=='
 
 const generateMonths = () => {
   const months = []
@@ -107,6 +117,7 @@ function AdminUpload() {
   const [processing, setProcessing] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [extractedData, setExtractedData] = useState<any[]>([])
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -130,7 +141,7 @@ function AdminUpload() {
             colaborador_id: c.id,
             nome: c.nome,
             cargo: c.cargo,
-            arquivo_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+            arquivo_url: DUMMY_PDF,
           })),
         )
       }
@@ -249,10 +260,12 @@ function AdminUpload() {
                     <TableCell>{d.cargo || '-'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm" asChild>
-                          <a href={d.arquivo_url} target="_blank" rel="noreferrer">
-                            <Eye className="w-4 h-4 mr-2" /> Prévia
-                          </a>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPreviewUrl(d.arquivo_url)}
+                        >
+                          <Eye className="w-4 h-4 mr-2" /> Prévia
                         </Button>
                         <Badge
                           variant="outline"
@@ -269,6 +282,7 @@ function AdminUpload() {
           </div>
         )}
       </CardContent>
+      <PdfPreviewModal url={previewUrl} isOpen={!!previewUrl} onClose={() => setPreviewUrl(null)} />
     </Card>
   )
 }
@@ -277,6 +291,7 @@ function AdminHistorico() {
   const months = generateMonths()
   const [selectedMonth, setSelectedMonth] = useState(months[0])
   const [registros, setRegistros] = useState<any[]>([])
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
     supabase
@@ -326,10 +341,8 @@ function AdminHistorico() {
                 <TableCell>{r.colaboradores?.cargo}</TableCell>
                 <TableCell>{r.mes_ano}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" asChild>
-                    <a href={r.arquivo_url} target="_blank" rel="noreferrer">
-                      <Eye className="w-4 h-4 mr-2" /> Visualizar
-                    </a>
+                  <Button variant="ghost" size="sm" onClick={() => setPreviewUrl(r.arquivo_url)}>
+                    <Eye className="w-4 h-4 mr-2" /> Visualizar
                   </Button>
                 </TableCell>
               </TableRow>
@@ -344,6 +357,7 @@ function AdminHistorico() {
           </TableBody>
         </Table>
       </CardContent>
+      <PdfPreviewModal url={previewUrl} isOpen={!!previewUrl} onClose={() => setPreviewUrl(null)} />
     </Card>
   )
 }
@@ -352,6 +366,7 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
   const months = generateMonths()
   const [selectedMonth, setSelectedMonth] = useState(months[0])
   const [contracheque, setContracheque] = useState<any>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (colaborador) {
@@ -398,13 +413,11 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
               Seu demonstrativo está disponível para visualização e download.
             </p>
             <div className="flex gap-4">
-              <Button asChild>
-                <a href={contracheque.arquivo_url} target="_blank" rel="noreferrer">
-                  <Eye className="w-4 h-4 mr-2" /> Visualizar PDF
-                </a>
+              <Button onClick={() => setPreviewUrl(contracheque.arquivo_url)}>
+                <Eye className="w-4 h-4 mr-2" /> Visualizar PDF
               </Button>
               <Button variant="outline" asChild>
-                <a href={contracheque.arquivo_url} download>
+                <a href={contracheque.arquivo_url} download="contracheque.pdf">
                   <Download className="w-4 h-4 mr-2" /> Baixar
                 </a>
               </Button>
@@ -417,6 +430,49 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
           </div>
         )}
       </CardContent>
+      <PdfPreviewModal url={previewUrl} isOpen={!!previewUrl} onClose={() => setPreviewUrl(null)} />
     </Card>
+  )
+}
+
+function PdfPreviewModal({
+  url,
+  isOpen,
+  onClose,
+}: {
+  url: string | null
+  isOpen: boolean
+  onClose: () => void
+}) {
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-4xl w-full h-[85vh] flex flex-col p-6">
+        <DialogHeader>
+          <DialogTitle>Visualização de Contracheque</DialogTitle>
+          <DialogDescription>Confira o demonstrativo abaixo.</DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 bg-muted/30 rounded-lg border overflow-hidden mt-4">
+          {url ? (
+            <iframe src={url} className="w-full h-full border-0" title="PDF Preview" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+              Nenhum documento disponível
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" onClick={onClose}>
+            Fechar
+          </Button>
+          {url && (
+            <Button asChild>
+              <a href={url} download="contracheque.pdf">
+                <Download className="w-4 h-4 mr-2" /> Baixar PDF
+              </a>
+            </Button>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
