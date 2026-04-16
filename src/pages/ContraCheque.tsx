@@ -31,7 +31,6 @@ import {
   Eye,
   FileUp,
   Search,
-  Building,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -46,6 +45,87 @@ const generateMonths = () => {
     months.push(`${m}/${y}`)
   }
   return months
+}
+
+function generateMockPayslip(nome: string, cargo: string, salarioBase: number) {
+  const base = salarioBase || 1838.96
+  const isFelipe = nome.toUpperCase().includes('FELIPE')
+
+  const premio = isFelipe ? 560.0 : base * 0.1
+  const heRef = isFelipe ? '5:00' : '10:00'
+  const heVal = isFelipe ? 73.14 : (base / 220) * 1.75 * 10
+  const dsrVal = isFelipe ? 12.19 : heVal / 6
+
+  const inssRef = isFelipe ? '7,74' : '9,00'
+  const inssVal = isFelipe ? 148.86 : base * 0.09
+
+  const vencimentos = base + premio + heVal + dsrVal
+  const descontos = inssVal
+  const liquido = vencimentos - descontos
+
+  return {
+    empresa: {
+      nome: 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA',
+      cnpj: '10.929.600/0001-92',
+    },
+    cabecalho: {
+      codigo: isFelipe ? '18' : Math.floor(Math.random() * 100).toString(),
+      cbo: '212420',
+      departamento: '1',
+      filial: '1',
+      admissao: '15/09/2025',
+    },
+    linhas: [
+      {
+        codigo: '8781',
+        descricao: 'DIAS NORMAIS',
+        referencia: '30,00',
+        vencimento: base,
+        desconto: null,
+      },
+      {
+        codigo: '202',
+        descricao: 'PREMIO',
+        referencia: isFelipe ? '560,00' : premio.toFixed(2).replace('.', ','),
+        vencimento: premio,
+        desconto: null,
+      },
+      {
+        codigo: '8125',
+        descricao: 'REFLEXO HORAS EXTRAS DSR',
+        referencia: '0,00',
+        vencimento: dsrVal,
+        desconto: null,
+      },
+      {
+        codigo: '201',
+        descricao: 'HORAS EXTRAS 75%',
+        referencia: heRef,
+        vencimento: heVal,
+        desconto: null,
+      },
+      {
+        codigo: '998',
+        descricao: 'I.N.S.S.',
+        referencia: inssRef,
+        vencimento: null,
+        desconto: inssVal,
+      },
+    ],
+    totais: {
+      vencimentos: vencimentos,
+      descontos: descontos,
+      liquido: liquido,
+    },
+    bases: {
+      salario_base: base,
+      sal_contr_inss: base + heVal + dsrVal,
+      base_calc_fgts: base + heVal + dsrVal,
+      fgts_mes: (base + heVal + dsrVal) * 0.08,
+      base_calc_irrf: base + heVal + dsrVal - inssVal,
+      faixa_irrf: 0.0,
+    },
+  }
 }
 
 export default function ContraCheque() {
@@ -170,15 +250,19 @@ function AdminUpload() {
     if (!extractedData.length) return
     setPublishing(true)
     try {
-      const inserts = extractedData.map((e) => ({
-        colaborador_id: e.colaborador_id,
-        mes_ano: selectedMonth,
-        arquivo_url: e.arquivo_url,
-        valor_liquido: e.salario ? e.salario * 0.85 : 0, // Mock calculation for DB if needed
-      }))
+      const inserts = extractedData.map((e) => {
+        const mockData = generateMockPayslip(e.nome || '', e.cargo || '', e.salario || 1838.96)
+        return {
+          colaborador_id: e.colaborador_id,
+          mes_ano: selectedMonth,
+          arquivo_url: e.arquivo_url,
+          valor_liquido: mockData.totais.liquido,
+          dados_extraidos: mockData,
+        }
+      })
       const { error } = await supabase
         .from('contracheques')
-        .upsert(inserts, { onConflict: 'colaborador_id, mes_ano' } as any)
+        .upsert(inserts as any, { onConflict: 'colaborador_id, mes_ano' })
       if (error) throw error
       toast.success('Contracheques publicados e disponibilizados!')
       setExtractedData([])
@@ -286,6 +370,11 @@ function AdminUpload() {
                               cargo: d.cargo,
                               mes_ano: selectedMonth,
                               salario: d.salario,
+                              dados_extraidos: generateMockPayslip(
+                                d.nome || '',
+                                d.cargo || '',
+                                d.salario || 1838.96,
+                              ),
                             })
                           }
                         >
@@ -379,6 +468,7 @@ function AdminHistorico() {
                         mes_ano: r.mes_ano,
                         salario: r.colaboradores?.salario,
                         arquivo_url: r.arquivo_url,
+                        dados_extraidos: r.dados_extraidos,
                       })
                     }
                   >
@@ -465,6 +555,7 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
                     salario: colaborador?.salario,
                     mes_ano: selectedMonth,
                     arquivo_url: contracheque.arquivo_url,
+                    dados_extraidos: contracheque.dados_extraidos,
                   })
                 }
               >
@@ -506,116 +597,207 @@ function ContraChequeDataModal({
 }) {
   if (!data) return null
 
-  // Formatting currency
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+  const formatNumber = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value)
   }
 
-  // Base logic to reconstruct a believable payslip from available DB data
-  const baseSalary = data.salario || 2500
-  const inssDeduction = baseSalary * 0.09 // Example mock logic for display
-  const fgts = baseSalary * 0.08
-  const irrfDeduction = baseSalary > 2800 ? baseSalary * 0.075 : 0
-  const totalProventos = baseSalary
-  const totalDescontos = inssDeduction + irrfDeduction
-  const valorLiquido = totalProventos - totalDescontos
+  const mockData =
+    data.dados_extraidos ||
+    generateMockPayslip(data.nome || '', data.cargo || '', data.salario || 1838.96)
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl w-full flex flex-col p-6">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Building className="w-5 h-5 text-muted-foreground" />
-            Demonstrativo de Pagamento
-          </DialogTitle>
+      <DialogContent className="max-w-5xl w-full flex flex-col p-6 bg-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl">
+        <DialogHeader className="hidden">
+          <DialogTitle>Demonstrativo</DialogTitle>
         </DialogHeader>
 
-        <div className="bg-white border border-slate-300 rounded text-sm text-slate-800 font-sans shadow-sm overflow-hidden mt-4">
-          <div className="border-b border-slate-300 p-4 grid grid-cols-2 gap-4 bg-slate-50">
-            <div>
-              <p className="font-bold uppercase text-xs text-slate-500">Empregador</p>
-              <p className="font-semibold">Serviços e Logística Ltda</p>
-              <p className="text-xs text-slate-600">CNPJ: 00.000.000/0001-00</p>
+        {/* Main Container simulating the paper */}
+        <div className="bg-white text-black font-mono text-xs border border-slate-400 p-1 flex relative overflow-x-auto min-w-[800px] shadow-sm">
+          {/* Left main content */}
+          <div className="flex-1 flex flex-col border border-black">
+            {/* Header 1 */}
+            <div className="flex justify-between border-b border-black p-2">
+              <div>
+                <div className="font-bold uppercase tracking-tight">{mockData.empresa.nome}</div>
+                <div>CNPJ: &nbsp;&nbsp;{mockData.empresa.cnpj}</div>
+              </div>
+              <div className="text-center px-4">
+                <div>CC: Centro de Custo</div>
+                <div>Mensalista</div>
+              </div>
+              <div className="text-right">
+                <div>Folha Mensal</div>
+                <div className="capitalize">{data.mes_ano}</div>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="font-bold uppercase text-xs text-slate-500">Mês de Referência</p>
-              <p className="font-semibold text-lg">{data.mes_ano}</p>
+
+            {/* Header 2 - Employee info */}
+            <div className="flex border-b border-black p-2">
+              <div className="w-16">
+                <div className="text-[10px]">Código</div>
+                <div className="font-bold">{mockData.cabecalho.codigo}</div>
+              </div>
+              <div className="flex-1">
+                <div className="text-[10px]">Nome do Funcionário</div>
+                <div className="font-bold uppercase">{data.nome}</div>
+                <div className="uppercase">{data.cargo}</div>
+              </div>
+              <div className="w-24">
+                <div className="text-[10px]">CBO</div>
+                <div>{mockData.cabecalho.cbo}</div>
+                <div className="mt-1 text-[10px]">Admissão:</div>
+              </div>
+              <div className="w-24 text-center">
+                <div className="text-[10px]">Departamento</div>
+                <div>{mockData.cabecalho.departamento}</div>
+                <div className="mt-1">{mockData.cabecalho.admissao}</div>
+              </div>
+              <div className="w-16 text-center">
+                <div className="text-[10px]">Filial</div>
+                <div>{mockData.cabecalho.filial}</div>
+              </div>
+            </div>
+
+            {/* Table Header */}
+            <div className="flex border-b border-black font-bold bg-slate-50">
+              <div className="w-16 p-1 border-r border-black text-center">Código</div>
+              <div className="flex-1 p-1 border-r border-black text-center">Descrição</div>
+              <div className="w-24 p-1 border-r border-black text-center">Referência</div>
+              <div className="w-32 p-1 border-r border-black text-center">Vencimentos</div>
+              <div className="w-32 p-1 text-center">Descontos</div>
+            </div>
+
+            {/* Table Body (Min height to simulate paper) */}
+            <div className="flex-1 min-h-[300px] flex text-sm">
+              <div className="w-16 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
+                {mockData.linhas.map((l: any, i: number) => (
+                  <div key={i}>{l.codigo}</div>
+                ))}
+              </div>
+              <div className="flex-1 border-r border-black p-1 flex flex-col px-2 space-y-1">
+                {mockData.linhas.map((l: any, i: number) => (
+                  <div key={i}>{l.descricao}</div>
+                ))}
+              </div>
+              <div className="w-24 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
+                {mockData.linhas.map((l: any, i: number) => (
+                  <div key={i}>{l.referencia}</div>
+                ))}
+              </div>
+              <div className="w-32 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
+                {mockData.linhas.map((l: any, i: number) => (
+                  <div key={i}>{l.vencimento ? formatNumber(l.vencimento) : '\u00A0'}</div>
+                ))}
+              </div>
+              <div className="w-32 p-1 flex flex-col items-end px-2 space-y-1">
+                {mockData.linhas.map((l: any, i: number) => (
+                  <div key={i}>{l.desconto ? formatNumber(l.desconto) : '\u00A0'}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* Totals Row */}
+            <div className="flex border-t border-black h-16">
+              <div className="flex-1 border-r border-black"></div>
+              <div className="w-32 border-r border-black flex flex-col justify-between">
+                <div className="text-[10px] p-1 border-b border-black text-center">
+                  Total de Vencimentos
+                </div>
+                <div className="p-2 text-right font-bold text-sm">
+                  {formatNumber(mockData.totais.vencimentos)}
+                </div>
+              </div>
+              <div className="w-32 flex flex-col justify-between">
+                <div className="text-[10px] p-1 border-b border-black text-center">
+                  Total de Descontos
+                </div>
+                <div className="p-2 text-right font-bold text-sm">
+                  {formatNumber(mockData.totais.descontos)}
+                </div>
+              </div>
+            </div>
+
+            {/* Liquid Row */}
+            <div className="flex border-t border-black h-12">
+              <div className="flex-1 flex justify-end items-center pr-4 border-r border-black">
+                <span className="text-[10px] mr-4">Valor Líquido</span>
+                <span className="text-xl leading-none translate-y-[-2px]">⇨</span>
+              </div>
+              <div className="w-64 flex items-center justify-end p-2 font-bold text-base bg-slate-50">
+                {formatNumber(mockData.totais.liquido)}
+              </div>
+            </div>
+
+            {/* Bases Row */}
+            <div className="flex border-t border-black text-[10px] text-center divide-x divide-black bg-slate-50">
+              <div className="flex-1 p-1">
+                <div>Salário Base</div>
+                <div className="font-bold text-sm">{formatNumber(mockData.bases.salario_base)}</div>
+              </div>
+              <div className="flex-1 p-1">
+                <div>Sal. Contr. INSS</div>
+                <div className="font-bold text-sm">
+                  {formatNumber(mockData.bases.sal_contr_inss)}
+                </div>
+              </div>
+              <div className="flex-1 p-1">
+                <div>Base Cálc. FGTS</div>
+                <div className="font-bold text-sm">
+                  {formatNumber(mockData.bases.base_calc_fgts)}
+                </div>
+              </div>
+              <div className="flex-1 p-1">
+                <div>F.G.T.S do Mês</div>
+                <div className="font-bold text-sm">{formatNumber(mockData.bases.fgts_mes)}</div>
+              </div>
+              <div className="flex-1 p-1">
+                <div>Base Cálc. IRRF</div>
+                <div className="font-bold text-sm">
+                  {formatNumber(mockData.bases.base_calc_irrf)}
+                </div>
+              </div>
+              <div className="flex-1 p-1">
+                <div>Faixa IRRF</div>
+                <div className="font-bold text-sm">{formatNumber(mockData.bases.faixa_irrf)}</div>
+              </div>
             </div>
           </div>
 
-          <div className="border-b border-slate-300 p-4 bg-white grid grid-cols-3 gap-4">
-            <div className="col-span-2">
-              <p className="font-bold uppercase text-xs text-slate-500">Colaborador</p>
-              <p className="font-semibold">{data.nome}</p>
+          {/* Right Receipt stub */}
+          <div className="w-16 border-y border-r border-black ml-1 flex flex-col relative bg-white shrink-0 overflow-hidden">
+            <div className="flex flex-row flex-1 justify-center items-center py-4 px-1 gap-2">
+              <div
+                className="text-[10px] whitespace-nowrap transform rotate-180 text-slate-600"
+                style={{ writingMode: 'vertical-rl' }}
+              >
+                Declaro ter recebido a importância liquida discriminada neste recibo.
+              </div>
+              <div
+                className="text-[11px] whitespace-nowrap transform rotate-180"
+                style={{ writingMode: 'vertical-rl' }}
+              >
+                Assinatura do Funcionário
+              </div>
             </div>
-            <div>
-              <p className="font-bold uppercase text-xs text-slate-500">Cargo</p>
-              <p className="font-semibold">{data.cargo || 'Não informado'}</p>
-            </div>
-          </div>
 
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-100 border-b border-slate-300 text-xs text-slate-600">
-                <th className="p-3 font-semibold w-12 text-center">Cód</th>
-                <th className="p-3 font-semibold">Descrição</th>
-                <th className="p-3 font-semibold text-center">Ref.</th>
-                <th className="p-3 font-semibold text-right">Vencimentos</th>
-                <th className="p-3 font-semibold text-right">Descontos</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-slate-100 last:border-0">
-                <td className="p-3 text-center text-slate-500">001</td>
-                <td className="p-3">Salário Base</td>
-                <td className="p-3 text-center">30</td>
-                <td className="p-3 text-right text-green-700">{formatCurrency(baseSalary)}</td>
-                <td className="p-3 text-right">-</td>
-              </tr>
-              <tr className="border-b border-slate-100 last:border-0">
-                <td className="p-3 text-center text-slate-500">002</td>
-                <td className="p-3">INSS</td>
-                <td className="p-3 text-center">9%</td>
-                <td className="p-3 text-right">-</td>
-                <td className="p-3 text-right text-red-600">{formatCurrency(inssDeduction)}</td>
-              </tr>
-              {irrfDeduction > 0 && (
-                <tr className="border-b border-slate-100 last:border-0">
-                  <td className="p-3 text-center text-slate-500">003</td>
-                  <td className="p-3">IRRF</td>
-                  <td className="p-3 text-center">7.5%</td>
-                  <td className="p-3 text-right">-</td>
-                  <td className="p-3 text-right text-red-600">{formatCurrency(irrfDeduction)}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          <div className="border-t border-slate-300 p-0 grid grid-cols-4 bg-slate-50">
-            <div className="col-span-2 p-3 text-xs text-slate-500 border-r border-slate-300">
-              <p>FGTS do Mês: {formatCurrency(fgts)}</p>
-              <p>Base Cálc. FGTS: {formatCurrency(baseSalary)}</p>
+            <div className="w-full flex flex-col px-2 z-10 pb-6 gap-6">
+              <div className="flex items-end justify-between px-1">
+                <span className="text-[10px] transform -rotate-90 origin-bottom-left translate-y-3">
+                  Data
+                </span>
+                <span className="border-b border-black w-full translate-y-2 ml-1"></span>
+              </div>
+              <div className="border-b border-black w-full"></div>
             </div>
-            <div className="p-3 border-r border-slate-300 text-right">
-              <p className="text-xs font-semibold text-slate-500 uppercase">Totais</p>
-              <p className="text-green-700 font-medium">{formatCurrency(totalProventos)}</p>
-            </div>
-            <div className="p-3 text-right">
-              <p className="text-xs font-semibold text-slate-500 uppercase">Totais</p>
-              <p className="text-red-600 font-medium">{formatCurrency(totalDescontos)}</p>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-300 p-4 bg-slate-800 text-white flex justify-between items-center">
-            <p className="font-semibold uppercase tracking-wider text-xs opacity-80">
-              Líquido a Receber
-            </p>
-            <p className="text-xl font-bold">{formatCurrency(valorLiquido)}</p>
           </div>
         </div>
 
-        <div className="flex justify-end items-center gap-3 mt-4 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+        <div className="flex justify-end items-center gap-3 mt-6">
+          <Button variant="outline" onClick={onClose} className="bg-white">
             Fechar
           </Button>
           <Button onClick={() => window.print()} className="bg-primary text-primary-foreground">
