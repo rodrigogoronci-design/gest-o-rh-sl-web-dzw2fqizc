@@ -37,6 +37,7 @@ import {
   Eye,
   FileUp,
   Search,
+  ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -470,7 +471,10 @@ function PdfPreviewModal({
           bUrl = URL.createObjectURL(blob)
           if (isMounted) setBlobUrl(bUrl)
         } else {
-          const res = await fetch(url)
+          const cacheBusterUrl = url.includes('?')
+            ? `${url}&_t=${Date.now()}`
+            : `${url}?_t=${Date.now()}`
+          const res = await fetch(cacheBusterUrl, { cache: 'no-store' })
           const blob = await res.blob()
           bUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
           if (isMounted) setBlobUrl(bUrl)
@@ -500,33 +504,42 @@ function PdfPreviewModal({
           <DialogTitle>Visualização de Contracheque</DialogTitle>
           <DialogDescription>Confira o demonstrativo abaixo.</DialogDescription>
         </DialogHeader>
-        <div className="flex-1 bg-muted/30 rounded-lg border overflow-hidden mt-4 relative">
+        <div className="flex-1 bg-muted/30 rounded-lg border overflow-hidden mt-4 flex flex-col">
           {loading ? (
             <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
               <Loader2 className="w-8 h-8 animate-spin" />
               <p>Carregando documento...</p>
             </div>
           ) : blobUrl ? (
-            <object
-              data={blobUrl}
-              type="application/pdf"
-              className="w-full h-full"
-              aria-label="Contracheque Preview"
-            >
-              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-8 gap-4 bg-muted/10">
-                <FileText className="w-12 h-12 text-muted-foreground/50" />
-                <p className="text-center max-w-md">
-                  Seu navegador bloqueou a visualização integrada ou não possui um leitor de PDF
-                  embutido habilitado.
-                </p>
-                <Button asChild variant="default">
-                  <a href={blobUrl} download="contracheque.pdf">
-                    <Download className="w-4 h-4 mr-2" />
-                    Baixar Documento
-                  </a>
-                </Button>
+            <>
+              <iframe
+                src={`${blobUrl}#toolbar=0&navpanes=0`}
+                className="w-full flex-1 border-0"
+                title="Contracheque Preview"
+                sandbox="allow-scripts allow-same-origin"
+              />
+              <div className="p-4 bg-muted/10 border-t flex flex-wrap gap-4 items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FileText className="w-4 h-4" />
+                  <p>Não conseguiu visualizar o PDF embutido?</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => window.open(blobUrl, '_blank', 'noopener,noreferrer')}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Abrir em Nova Aba Segura
+                  </Button>
+                  <Button size="sm" asChild>
+                    <a href={blobUrl} download="contracheque.pdf">
+                      <Download className="w-4 h-4 mr-2" /> Baixar PDF
+                    </a>
+                  </Button>
+                </div>
               </div>
-            </object>
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground">
               Nenhum documento disponível
@@ -537,13 +550,6 @@ function PdfPreviewModal({
           <Button variant="outline" onClick={onClose}>
             Fechar
           </Button>
-          {blobUrl && (
-            <Button asChild>
-              <a href={blobUrl} download="contracheque.pdf">
-                <Download className="w-4 h-4 mr-2" /> Baixar PDF
-              </a>
-            </Button>
-          )}
         </div>
       </DialogContent>
     </Dialog>
