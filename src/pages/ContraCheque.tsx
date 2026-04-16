@@ -55,92 +55,169 @@ function generateMockPayslip(
   departamento?: string | null,
   data_admissao?: string | null,
 ) {
-  const base = salarioBase || 1838.96
-  const upperNome = nome.toUpperCase()
-  const isGiselly = upperNome.includes('GISELLY')
-  const isFelipe = upperNome.includes('FELIPE')
+  const upperNome = (nome || '').toUpperCase()
+  const isFabricio = upperNome.includes('FABRICIO')
+  const isGuilherme = upperNome.includes('GUILHERME')
+  const base = salarioBase || (isFabricio ? 2059.65 : 1838.96)
 
-  let premio = 0
-  let heRef = ''
-  let heVal = 0
-  let dsrVal = 0
-
-  let inssRef = '7,68'
-  let inssVal = 141.18
-
-  if (isFelipe) {
-    premio = 560.0
-    heRef = '5:00'
-    heVal = 73.14
-    dsrVal = 12.19
-    inssRef = '7,74'
-    inssVal = 148.86
-  } else if (!isGiselly && !isFelipe) {
-    // Normal fallback so it is not completely empty for other employees
-    inssRef = '9,00'
-    inssVal = base * 0.09
+  let linhas: any[] = []
+  let totais = { vencimentos: 0, descontos: 0, liquido: 0 }
+  let bases = {
+    salario_base: 0,
+    sal_contr_inss: 0,
+    base_calc_fgts: 0,
+    fgts_mes: 0,
+    base_calc_irrf: 0,
+    faixa_irrf: 0.0,
   }
+  let cbo = '212420'
+  let codigo = Math.floor(Math.random() * 100).toString()
 
-  const sal_contr_inss = base + heVal + dsrVal
-  const base_calc_fgts = base + heVal + dsrVal
-  const fgts_mes = base_calc_fgts * 0.08
+  if (isFabricio) {
+    codigo = '10'
+    linhas = [
+      {
+        codigo: '8781',
+        descricao: 'DIAS NORMAIS',
+        referencia: '30,00',
+        vencimento: 2059.65,
+        desconto: null,
+      },
+      {
+        codigo: '202',
+        descricao: 'PREMIO',
+        referencia: '595,00',
+        vencimento: 595.0,
+        desconto: null,
+      },
+      {
+        codigo: '8125',
+        descricao: 'REFLEXO HORAS EXTRAS DSR',
+        referencia: '0,00',
+        vencimento: 56.29,
+        desconto: null,
+      },
+      {
+        codigo: '200',
+        descricao: 'HORAS EXTRAS 100%',
+        referencia: '9:00',
+        vencimento: 168.52,
+        desconto: null,
+      },
+      {
+        codigo: '201',
+        descricao: 'HORAS EXTRAS 75%',
+        referencia: '10:20',
+        vencimento: 169.24,
+        desconto: null,
+      },
+      {
+        codigo: '998',
+        descricao: 'I.N.S.S.',
+        referencia: '8,01',
+        vencimento: null,
+        desconto: 196.51,
+      },
+      {
+        codigo: '203',
+        descricao: 'DESCONTO PLANO DE SAÚDE DEPENDENTE',
+        referencia: '173,46',
+        vencimento: null,
+        desconto: 173.46,
+      },
+      {
+        codigo: '205',
+        descricao: 'PLANO DE SAÚDE CONSULTA',
+        referencia: '95,40',
+        vencimento: null,
+        desconto: 95.4,
+      },
+      {
+        codigo: '8111',
+        descricao: 'DESCONTO PLANO DE SAÚDE',
+        referencia: '54,60',
+        vencimento: null,
+        desconto: 54.6,
+      },
+      {
+        codigo: '900',
+        descricao: 'PENSAO ALIMENTICIA',
+        referencia: '379,42',
+        vencimento: null,
+        desconto: 379.42,
+      },
+    ]
+    totais = { vencimentos: 3048.7, descontos: 899.39, liquido: 2149.31 }
+    bases = {
+      salario_base: 2059.65,
+      sal_contr_inss: 2453.7,
+      base_calc_fgts: 2453.7,
+      fgts_mes: 196.29,
+      base_calc_irrf: 1688.18,
+      faixa_irrf: 0.0,
+    }
+  } else if (isGuilherme) {
+    codigo = '40'
+    linhas = [
+      {
+        codigo: '8781',
+        descricao: 'DIAS NORMAIS',
+        referencia: '30,00',
+        vencimento: 1838.96,
+        desconto: null,
+      },
+      {
+        codigo: '998',
+        descricao: 'I.N.S.S.',
+        referencia: '9,00',
+        vencimento: null,
+        desconto: 165.51,
+      },
+    ]
+    totais = { vencimentos: 1838.96, descontos: 165.51, liquido: 1673.45 }
+    bases = {
+      salario_base: 1838.96,
+      sal_contr_inss: 1838.96,
+      base_calc_fgts: 1838.96,
+      fgts_mes: 147.12,
+      base_calc_irrf: 1673.45,
+      faixa_irrf: 0.0,
+    }
+  } else {
+    // General dynamic fallback
+    const inssRef = '9,00'
+    const inssVal = base * 0.09
+    const sal_contr_inss = base
+    const base_calc_fgts = base
+    const fgts_mes = base_calc_fgts * 0.08
+    const base_calc_irrf = sal_contr_inss - inssVal
 
-  let base_calc_irrf = sal_contr_inss - inssVal
-  if (isGiselly) {
-    base_calc_irrf = 1231.76
+    linhas = [
+      {
+        codigo: '8781',
+        descricao: 'DIAS NORMAIS',
+        referencia: '30,00',
+        vencimento: base,
+        desconto: null,
+      },
+      {
+        codigo: '998',
+        descricao: 'I.N.S.S.',
+        referencia: inssRef,
+        vencimento: null,
+        desconto: inssVal,
+      },
+    ]
+    totais = { vencimentos: base, descontos: inssVal, liquido: base - inssVal }
+    bases = {
+      salario_base: base,
+      sal_contr_inss: sal_contr_inss,
+      base_calc_fgts: base_calc_fgts,
+      fgts_mes: fgts_mes,
+      base_calc_irrf: base_calc_irrf,
+      faixa_irrf: 0.0,
+    }
   }
-
-  const vencimentos = base + premio + heVal + dsrVal
-  const descontos = inssVal
-  const liquido = vencimentos - descontos
-
-  const linhas = [
-    {
-      codigo: '8781',
-      descricao: 'DIAS NORMAIS',
-      referencia: '30,00',
-      vencimento: base,
-      desconto: null,
-    },
-  ]
-
-  if (premio > 0) {
-    linhas.push({
-      codigo: '202',
-      descricao: 'PREMIO',
-      referencia: isFelipe ? '560,00' : premio.toFixed(2).replace('.', ','),
-      vencimento: premio,
-      desconto: null,
-    })
-  }
-
-  if (dsrVal > 0) {
-    linhas.push({
-      codigo: '8125',
-      descricao: 'REFLEXO HORAS EXTRAS DSR',
-      referencia: '0,00',
-      vencimento: dsrVal,
-      desconto: null,
-    })
-  }
-
-  if (heVal > 0) {
-    linhas.push({
-      codigo: '201',
-      descricao: 'HORAS EXTRAS 75%',
-      referencia: heRef,
-      vencimento: heVal,
-      desconto: null,
-    })
-  }
-
-  linhas.push({
-    codigo: '998',
-    descricao: 'I.N.S.S.',
-    referencia: inssRef,
-    vencimento: null,
-    desconto: inssVal,
-  })
 
   return {
     empresa: {
@@ -148,30 +225,19 @@ function generateMockPayslip(
       cnpj: '10.929.600/0001-92',
     },
     cabecalho: {
-      codigo: isFelipe ? '18' : isGiselly ? '21' : Math.floor(Math.random() * 100).toString(),
-      cbo: '212420',
+      codigo,
+      cbo,
       departamento: departamento || '1',
       filial: '1',
       admissao: data_admissao
         ? new Date(data_admissao + 'T12:00:00').toLocaleDateString('pt-BR')
-        : isGiselly
-          ? '08/01/2026'
+        : isFabricio
+          ? '14/11/2023'
           : '15/09/2025',
     },
     linhas,
-    totais: {
-      vencimentos: vencimentos,
-      descontos: descontos,
-      liquido: liquido,
-    },
-    bases: {
-      salario_base: base,
-      sal_contr_inss: sal_contr_inss,
-      base_calc_fgts: base_calc_fgts,
-      fgts_mes: fgts_mes,
-      base_calc_irrf: base_calc_irrf,
-      faixa_irrf: 0.0,
-    },
+    totais,
+    bases,
   }
 }
 
@@ -271,12 +337,17 @@ function AdminUpload() {
 
       const { data } = await supabase
         .from('colaboradores')
-        .select('id, nome, cargo, salario, departamento, data_admissao')
+        .select('id, nome, cargo, salario, departamento, data_admissao, role')
         .or('status.eq.Ativo,status.is.null')
 
       if (data) {
+        const filteredData = data.filter((c) => {
+          const r = (c.role || '').toLowerCase()
+          return r !== 'admin' && r !== 'gerente' && r !== 'administrador'
+        })
+
         setExtractedData(
-          data.map((c) => ({
+          filteredData.map((c) => ({
             colaborador_id: c.id,
             nome: c.nome,
             cargo: c.cargo,
