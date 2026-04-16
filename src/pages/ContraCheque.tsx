@@ -445,107 +445,45 @@ function PdfPreviewModal({
   isOpen: boolean
   onClose: () => void
 }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (!url) {
-      setBlobUrl(null)
-      return
-    }
-
-    let isMounted = true
-    let bUrl: string | null = null
-    setLoading(true)
-
-    const initPdf = async () => {
-      try {
-        if (url.startsWith('data:application/pdf;base64,')) {
-          const base64 = url.split(',')[1]
-          const binary = atob(base64)
-          const array = new Uint8Array(binary.length)
-          for (let i = 0; i < binary.length; i++) {
-            array[i] = binary.charCodeAt(i)
-          }
-          const blob = new Blob([array], { type: 'application/pdf' })
-          bUrl = URL.createObjectURL(blob)
-          if (isMounted) setBlobUrl(bUrl)
-        } else {
-          const cacheBusterUrl = url.includes('?')
-            ? `${url}&_t=${Date.now()}`
-            : `${url}?_t=${Date.now()}`
-          const res = await fetch(cacheBusterUrl, { cache: 'no-store' })
-          const blob = await res.blob()
-          bUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
-          if (isMounted) setBlobUrl(bUrl)
-        }
-      } catch (err) {
-        console.error('Error creating PDF preview:', err)
-        if (isMounted) setBlobUrl(url)
-      } finally {
-        if (isMounted) setLoading(false)
-      }
-    }
-
-    initPdf()
-
-    return () => {
-      isMounted = false
-      if (bUrl) {
-        URL.revokeObjectURL(bUrl)
-      }
-    }
-  }, [url])
+  const handleDownload = () => {
+    if (!url) return
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `contracheque-${Date.now()}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success('Download forçado iniciado.')
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl w-full h-[85vh] flex flex-col p-6">
+      <DialogContent className="max-w-md w-full flex flex-col p-6">
         <DialogHeader>
-          <DialogTitle>Visualização de Contracheque</DialogTitle>
-          <DialogDescription>Confira o demonstrativo abaixo.</DialogDescription>
+          <DialogTitle>Documento Disponível</DialogTitle>
+          <DialogDescription>
+            Devido a políticas de segurança do seu navegador (bloqueio de iframe/blob), a
+            visualização direta foi desativada.
+          </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 bg-muted/30 rounded-lg border overflow-hidden mt-4 flex flex-col">
-          {loading ? (
-            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
-              <Loader2 className="w-8 h-8 animate-spin" />
-              <p>Carregando documento...</p>
-            </div>
-          ) : blobUrl ? (
-            <>
-              <iframe
-                src={`${blobUrl}#toolbar=0&navpanes=0`}
-                className="w-full flex-1 border-0"
-                title="Contracheque Preview"
-                sandbox="allow-scripts allow-same-origin"
-              />
-              <div className="p-4 bg-muted/10 border-t flex flex-wrap gap-4 items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <FileText className="w-4 h-4" />
-                  <p>Não conseguiu visualizar o PDF embutido?</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => window.open(blobUrl, '_blank', 'noopener,noreferrer')}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Abrir em Nova Aba Segura
-                  </Button>
-                  <Button size="sm" asChild>
-                    <a href={blobUrl} download="contracheque.pdf">
-                      <Download className="w-4 h-4 mr-2" /> Baixar PDF
-                    </a>
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-              Nenhum documento disponível
-            </div>
-          )}
+
+        <div className="flex flex-col items-center justify-center p-8 bg-muted/10 rounded-lg border border-dashed mt-4 text-center">
+          <FileText className="w-16 h-16 text-blue-500 mb-4" />
+          <h3 className="text-lg font-medium mb-2">Contracheque Preparado</h3>
+          <p className="text-sm text-muted-foreground mb-6">
+            Por favor, utilize o botão abaixo para baixar o PDF diretamente para o seu dispositivo.
+            Esta ação contorna bloqueios do Chrome (ERR_BLOCKED_BY_CLIENT).
+          </p>
+          <Button
+            onClick={handleDownload}
+            size="lg"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+          >
+            <Download className="w-5 h-5 mr-2" />
+            Baixar Arquivo Agora
+          </Button>
         </div>
+
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={onClose}>
             Fechar
