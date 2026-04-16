@@ -57,7 +57,6 @@ function generateMockPayslip(
 ) {
   const upperNome = (nome || '').toUpperCase()
   const isFabricio = upperNome.includes('FABRICIO')
-  const isGuilherme = upperNome.includes('GUILHERME')
   const isRodrigo = upperNome.includes('RODRIGO')
   const base = salarioBase || (isFabricio ? 2059.65 : isRodrigo ? 4500.0 : 1838.96)
 
@@ -155,47 +154,6 @@ function generateMockPayslip(
       base_calc_fgts: 2453.7,
       fgts_mes: 196.29,
       base_calc_irrf: 1688.18,
-      faixa_irrf: 0.0,
-    }
-  } else if (isGuilherme) {
-    codigo = '40'
-    linhas = [
-      {
-        codigo: '8781',
-        descricao: 'DIAS NORMAIS',
-        referencia: '30,00',
-        vencimento: 1838.96,
-        desconto: null,
-      },
-      {
-        codigo: '201',
-        descricao: 'HORAS EXTRAS 75%',
-        referencia: '02:00',
-        vencimento: 29.24,
-        desconto: null,
-      },
-      {
-        codigo: '998',
-        descricao: 'I.N.S.S.',
-        referencia: '9,00',
-        vencimento: null,
-        desconto: 168.13,
-      },
-      {
-        codigo: '8111',
-        descricao: 'DESCONTO PLANO DE SAÚDE',
-        referencia: '54,60',
-        vencimento: null,
-        desconto: 54.6,
-      },
-    ]
-    totais = { vencimentos: 1868.2, descontos: 222.73, liquido: 1645.47 }
-    bases = {
-      salario_base: 1838.96,
-      sal_contr_inss: 1868.2,
-      base_calc_fgts: 1868.2,
-      fgts_mes: 149.45,
-      base_calc_irrf: 1700.07,
       faixa_irrf: 0.0,
     }
   } else if (isRodrigo) {
@@ -383,9 +341,6 @@ function AdminUpload() {
         .or('status.eq.Ativo,status.is.null')
 
       if (data) {
-        // Simulando a extração de nomes presentes no PDF
-        const nomesNoPdf = ['FABRICIO', 'GUILHERME', 'RODRIGO']
-
         const filteredData = data.filter((c) => {
           const r = (c.role || '').toLowerCase()
           const n = (c.nome || '').toUpperCase()
@@ -396,9 +351,8 @@ function AdminUpload() {
           // Regra 1: Não importar administradores, exceto o Rodrigo
           if (isAdmin && !isRodrigo) return false
 
-          // Regra 2: Importar somente o que tem no arquivo PDF simulado
-          const estaNoPdf = nomesNoPdf.some((nomePdf) => n.includes(nomePdf))
-          return estaNoPdf
+          // Simular a extração de todos os outros colaboradores (e Rodrigo) presentes na base
+          return true
         })
 
         setExtractedData(
