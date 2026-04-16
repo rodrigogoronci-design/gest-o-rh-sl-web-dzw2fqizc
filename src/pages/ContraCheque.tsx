@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Link } from 'react-router-dom'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -279,10 +280,24 @@ function AdminUpload() {
       <CardHeader>
         <CardTitle>Importar Arquivo Consolidado</CardTitle>
         <CardDescription>
-          Faça o upload do PDF. O sistema irá extrair e disponibilizar os dados.
+          Faça o upload do PDF. O sistema irá extrair e vincular automaticamente os dados ao
+          cadastro do colaborador.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="bg-blue-50/50 text-blue-800 text-sm p-4 rounded-lg flex items-start gap-3 border border-blue-100">
+          <div className="mt-0.5">💡</div>
+          <div>
+            <strong>Amarração de Cadastro Ativa:</strong> Os nomes exibidos nos demonstrativos são
+            vinculados ao <strong>Cadastro de Usuários</strong>. Para exibir o nome completo de um
+            funcionário no holerite,{' '}
+            <Link to="/app/usuarios" className="underline font-medium hover:text-blue-900">
+              atualize o cadastro dele aqui
+            </Link>
+            .
+          </div>
+        </div>
+
         <div className="space-y-2 max-w-[200px]">
           <label className="text-sm font-medium">Mês de Referência</label>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
