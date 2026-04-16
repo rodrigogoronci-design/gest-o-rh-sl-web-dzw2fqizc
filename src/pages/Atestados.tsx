@@ -252,10 +252,28 @@ export default function Atestados() {
                   <span className="text-sm font-medium truncate px-2">
                     {selectedFile.colaboradores?.nome} - {selectedFile.quantidade_dias} dias
                   </span>
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={selectedFile.arquivo_url} target="_blank" rel="noopener noreferrer">
-                      <Download className="w-4 h-4 mr-2" /> Baixar
-                    </a>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      let finalUrl = selectedFile.arquivo_url
+                      if (finalUrl.includes('/public/atestados/')) {
+                        const path = finalUrl.split('/public/atestados/')[1]
+                        const { data } = await supabase.storage
+                          .from('atestados')
+                          .createSignedUrl(path, 3600)
+                        if (data?.signedUrl) finalUrl = data.signedUrl
+                      }
+                      const link = document.createElement('a')
+                      link.href = finalUrl
+                      link.target = '_blank'
+                      link.download = `atestado-${Date.now()}`
+                      document.body.appendChild(link)
+                      link.click()
+                      document.body.removeChild(link)
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" /> Baixar
                   </Button>
                 </div>
                 <div className="flex-1 w-full overflow-hidden bg-slate-100 flex items-center justify-center p-2 sm:p-4">
@@ -266,28 +284,49 @@ export default function Atestados() {
                       <div>
                         <p className="font-medium">Documento em PDF</p>
                         <p className="text-sm text-muted-foreground mt-1">
-                          A visualização direta foi desativada por segurança.
+                          A visualização direta foi desativada por segurança. Utilize o acesso via
+                          URL assinada temporária.
                         </p>
                       </div>
                       <div className="flex flex-col sm:flex-row gap-3 mt-4 w-full">
-                        <Button variant="secondary" className="w-full" asChild>
-                          <a
-                            href={selectedFile.arquivo_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <ExternalLink className="w-4 h-4 mr-2" /> Nova Aba
-                          </a>
+                        <Button
+                          variant="secondary"
+                          className="w-full"
+                          onClick={async () => {
+                            let finalUrl = selectedFile.arquivo_url
+                            if (finalUrl.includes('/public/atestados/')) {
+                              const path = finalUrl.split('/public/atestados/')[1]
+                              const { data } = await supabase.storage
+                                .from('atestados')
+                                .createSignedUrl(path, 3600)
+                              if (data?.signedUrl) finalUrl = data.signedUrl
+                            }
+                            window.open(finalUrl, '_blank')
+                          }}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" /> Nova Aba
                         </Button>
-                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" asChild>
-                          <a
-                            href={selectedFile.arquivo_url}
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <Download className="w-4 h-4 mr-2" /> Baixar
-                          </a>
+                        <Button
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                          onClick={async () => {
+                            let finalUrl = selectedFile.arquivo_url
+                            if (finalUrl.includes('/public/atestados/')) {
+                              const path = finalUrl.split('/public/atestados/')[1]
+                              const { data } = await supabase.storage
+                                .from('atestados')
+                                .createSignedUrl(path, 3600)
+                              if (data?.signedUrl) finalUrl = data.signedUrl
+                            }
+                            const link = document.createElement('a')
+                            link.href = finalUrl
+                            link.target = '_blank'
+                            link.download = `atestado-${Date.now()}`
+                            document.body.appendChild(link)
+                            link.click()
+                            document.body.removeChild(link)
+                          }}
+                        >
+                          <Download className="w-4 h-4 mr-2" /> Baixar
                         </Button>
                       </div>
                     </div>
@@ -296,6 +335,18 @@ export default function Atestados() {
                       src={selectedFile.arquivo_url}
                       alt="Atestado"
                       className="max-w-full max-h-full object-contain shadow-sm rounded-md bg-white border"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        if (target.parentElement) {
+                          target.parentElement.innerHTML = `
+                            <div class="flex flex-col items-center text-center space-y-4 p-6">
+                              <p class="text-sm text-muted-foreground">Não foi possível carregar a imagem.</p>
+                              <p class="text-xs text-muted-foreground mt-2">O arquivo pode ter sido removido ou não está mais acessível no servidor de armazenamento seguro.</p>
+                            </div>
+                          `
+                        }
+                      }}
                     />
                   )}
                 </div>

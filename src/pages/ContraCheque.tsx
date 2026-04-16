@@ -139,14 +139,15 @@ function AdminUpload() {
         .from('contracheques')
         .upload(fileName, file)
 
-      let publicUrl = DUMMY_PDF
-
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('contracheques').getPublicUrl(fileName)
-        publicUrl = urlData.publicUrl
-      } else {
+      if (uploadError) {
         console.error('Erro no upload', uploadError)
+        toast.error('Erro no upload: ' + uploadError.message)
+        setProcessing(false)
+        return
       }
+
+      const { data: urlData } = supabase.storage.from('contracheques').getPublicUrl(fileName)
+      const publicUrl = urlData.publicUrl
 
       const { data } = await supabase
         .from('colaboradores')
@@ -467,21 +468,47 @@ function PdfPreviewModal({
   isOpen: boolean
   onClose: () => void
 }) {
-  const handleDownload = () => {
+  const [loadingAction, setLoadingAction] = useState(false)
+
+  const getSignedUrlIfPossible = async (publicUrl: string) => {
+    try {
+      if (publicUrl.includes('/public/contracheques/')) {
+        const path = publicUrl.split('/public/contracheques/')[1]
+        const { data, error } = await supabase.storage
+          .from('contracheques')
+          .createSignedUrl(path, 3600)
+        if (data?.signedUrl) {
+          return data.signedUrl
+        }
+        if (error) console.error('Error generating signed url:', error)
+      }
+    } catch (e) {
+      console.error(e)
+    }
+    return publicUrl
+  }
+
+  const handleDownload = async () => {
     if (!url) return
+    setLoadingAction(true)
+    const finalUrl = await getSignedUrlIfPossible(url)
     const link = document.createElement('a')
-    link.href = url
+    link.href = finalUrl
     link.download = `documento-${Date.now()}.pdf`
     link.target = '_blank'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     toast.success('Download original iniciado.')
+    setLoadingAction(false)
   }
 
-  const handleOpenNewTab = () => {
+  const handleOpenNewTab = async () => {
     if (!url) return
-    window.open(url, '_blank')
+    setLoadingAction(true)
+    const finalUrl = await getSignedUrlIfPossible(url)
+    window.open(finalUrl, '_blank')
+    setLoadingAction(false)
   }
 
   return (
@@ -491,30 +518,51 @@ function PdfPreviewModal({
           <DialogTitle>Acessar Documento</DialogTitle>
           <DialogDescription>
             Devido a políticas de segurança do navegador, a visualização embutida foi desativada.
-            Escolha uma das opções abaixo para acessar seu documento.
+            Escolha uma das opções abaixo para acessar seu documento de forma direta e segura.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 py-8 items-center justify-center bg-slate-50 rounded-lg mt-2 mb-4 border">
           <FileText className="w-16 h-16 text-muted-foreground opacity-50" />
           <p className="text-center text-sm text-muted-foreground px-4">
-            O documento está pronto para ser visualizado ou baixado de forma segura em uma nova
-            janela.
+            O documento está pronto para ser acessado. O sistema utilizará uma URL assinada
+            temporária para garantir sua privacidade e contornar bloqueios do navegador.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row justify-end items-center gap-3">
-          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="w-full sm:w-auto"
+            disabled={loadingAction}
+          >
             Fechar
           </Button>
-          <Button variant="secondary" onClick={handleOpenNewTab} className="w-full sm:w-auto">
-            <ExternalLink className="w-4 h-4 mr-2" /> Nova Aba
+          <Button
+            variant="secondary"
+            onClick={handleOpenNewTab}
+            className="w-full sm:w-auto"
+            disabled={loadingAction}
+          >
+            {loadingAction ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <ExternalLink className="w-4 h-4 mr-2" />
+            )}
+            Nova Aba
           </Button>
           <Button
             onClick={handleDownload}
+            disabled={loadingAction}
             className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
           >
-            <Download className="w-4 h-4 mr-2" /> Baixar Arquivo
+            {loadingAction ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            Baixar Arquivo
           </Button>
         </div>
       </DialogContent>
