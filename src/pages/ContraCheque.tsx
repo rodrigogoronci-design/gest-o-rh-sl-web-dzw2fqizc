@@ -168,62 +168,62 @@ function generateMockPayslip(
         desconto: null,
       },
       {
+        codigo: '201',
+        descricao: 'HORAS EXTRAS 75%',
+        referencia: '02:00',
+        vencimento: 29.24,
+        desconto: null,
+      },
+      {
         codigo: '998',
         descricao: 'I.N.S.S.',
         referencia: '9,00',
         vencimento: null,
-        desconto: 165.51,
+        desconto: 168.13,
+      },
+      {
+        codigo: '8111',
+        descricao: 'DESCONTO PLANO DE SAÚDE',
+        referencia: '54,60',
+        vencimento: null,
+        desconto: 54.6,
       },
     ]
-    totais = { vencimentos: 1838.96, descontos: 165.51, liquido: 1673.45 }
+    totais = { vencimentos: 1868.2, descontos: 222.73, liquido: 1645.47 }
     bases = {
       salario_base: 1838.96,
-      sal_contr_inss: 1838.96,
-      base_calc_fgts: 1838.96,
-      fgts_mes: 147.12,
-      base_calc_irrf: 1673.45,
+      sal_contr_inss: 1868.2,
+      base_calc_fgts: 1868.2,
+      fgts_mes: 149.45,
+      base_calc_irrf: 1700.07,
       faixa_irrf: 0.0,
     }
   } else if (isRodrigo) {
     codigo = '20'
     linhas = [
       {
-        codigo: '8781',
-        descricao: 'DIAS NORMAIS',
+        codigo: '9380',
+        descricao: 'PROLABORE DIAS',
         referencia: '30,00',
         vencimento: 4500.0,
         desconto: null,
       },
       {
-        codigo: '202',
-        descricao: 'PREMIO',
-        referencia: '1000,00',
-        vencimento: 1000.0,
-        desconto: null,
-      },
-      {
-        codigo: '998',
-        descricao: 'I.N.S.S.',
-        referencia: '14,00',
+        codigo: '843',
+        descricao: 'INSS EMPREGADOR',
+        referencia: '11,00',
         vencimento: null,
-        desconto: 558.94,
-      },
-      {
-        codigo: '999',
-        descricao: 'I.R.R.F.',
-        referencia: '27,50',
-        vencimento: null,
-        desconto: 320.0,
+        desconto: 495.0,
       },
     ]
-    totais = { vencimentos: 5500.0, descontos: 878.94, liquido: 4621.06 }
+    totais = { vencimentos: 4500.0, descontos: 495.0, liquido: 4005.0 }
     bases = {
       salario_base: 4500.0,
-      sal_contr_inss: 5500.0,
-      base_calc_fgts: 5500.0,
-      fgts_mes: 440.0,
-      base_calc_irrf: 4941.06,
-      faixa_irrf: 27.5,
+      sal_contr_inss: 4500.0,
+      base_calc_fgts: 0.0,
+      fgts_mes: 0.0,
+      base_calc_irrf: 4005.0,
+      faixa_irrf: 0.0,
     }
   } else {
     // General dynamic fallback
