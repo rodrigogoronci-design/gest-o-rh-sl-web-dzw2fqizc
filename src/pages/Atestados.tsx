@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { FileText, Plus, Trash2, Eye, Download, ExternalLink } from 'lucide-react'
+import { Plus, Trash2, Eye, Download, Activity, Calendar, User, Clock } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 export default function Atestados() {
@@ -105,11 +105,11 @@ export default function Atestados() {
   const validUsers = users.filter((u) => u.role === 'user')
 
   return (
-    <div className="h-full flex flex-col gap-6">
+    <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Gestão de Atestados</h1>
-          <p className="text-muted-foreground mt-1">Envie e consulte atestados médicos</p>
+          <p className="text-muted-foreground mt-1">Consulte as informações de afastamentos.</p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
@@ -189,7 +189,7 @@ export default function Atestados() {
                 {atestados.map((a) => (
                   <div
                     key={a.id}
-                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${selectedFile?.id === a.id ? 'border-primary bg-primary/5' : 'hover:bg-slate-50'}`}
+                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${selectedFile?.id === a.id ? 'border-primary bg-primary/5 shadow-sm' : 'hover:bg-slate-50'}`}
                     onClick={() => setSelectedFile(a)}
                   >
                     <div className="flex justify-between items-start">
@@ -197,7 +197,8 @@ export default function Atestados() {
                         <p className="font-medium text-sm">
                           {a.colaboradores?.nome || currentUser?.name}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
                           {format(parseISO(a.data_inicio), 'dd/MM/yyyy')} a{' '}
                           {format(parseISO(a.data_fim), 'dd/MM/yyyy')} ({a.quantidade_dias} dias)
                         </p>
@@ -237,118 +238,117 @@ export default function Atestados() {
         <Card className="flex flex-col border-0 shadow-sm overflow-hidden bg-slate-50/50">
           <CardHeader className="bg-slate-50 py-3 shrink-0">
             <CardTitle className="text-sm text-slate-600 uppercase">
-              Visualização do Documento
+              Informações do Afastamento
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 p-0 relative overflow-hidden flex items-center justify-center">
+          <CardContent className="flex-1 p-6 relative overflow-y-auto">
             {!selectedFile ? (
-              <div className="text-center text-muted-foreground flex flex-col items-center">
-                <FileText className="w-12 h-12 mb-2 opacity-20" />
-                <p>Selecione um atestado para visualizar</p>
+              <div className="text-center text-muted-foreground flex flex-col items-center justify-center h-full opacity-50">
+                <Activity className="w-16 h-16 mb-4" />
+                <p>Selecione um atestado ao lado para visualizar os dados</p>
               </div>
             ) : (
-              <div className="absolute inset-0 w-full h-full flex flex-col">
-                <div className="bg-white p-2 border-b flex justify-between items-center shrink-0">
-                  <span className="text-sm font-medium truncate px-2">
-                    {selectedFile.colaboradores?.nome} - {selectedFile.quantidade_dias} dias
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      let finalUrl = selectedFile.arquivo_url
-                      if (finalUrl.includes('/public/atestados/')) {
-                        const path = finalUrl.split('/public/atestados/')[1]
-                        const { data } = await supabase.storage
-                          .from('atestados')
-                          .createSignedUrl(path, 3600)
-                        if (data?.signedUrl) finalUrl = data.signedUrl
-                      }
-                      const link = document.createElement('a')
-                      link.href = finalUrl
-                      link.target = '_blank'
-                      link.download = `atestado-${Date.now()}`
-                      document.body.appendChild(link)
-                      link.click()
-                      document.body.removeChild(link)
-                    }}
-                  >
-                    <Download className="w-4 h-4 mr-2" /> Baixar
-                  </Button>
-                </div>
-                <div className="flex-1 w-full overflow-hidden bg-slate-100 flex items-center justify-center p-2 sm:p-4">
-                  {selectedFile.arquivo_url.toLowerCase().includes('.pdf') ||
-                  selectedFile.arquivo_url.includes('application/pdf') ? (
-                    <div className="flex flex-col items-center text-center space-y-4 max-w-sm">
-                      <FileText className="w-16 h-16 text-muted-foreground opacity-50" />
+              <div className="max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+                  <div className="bg-blue-50/50 border-b p-5 flex items-center gap-4">
+                    <div className="p-3 bg-blue-100 text-blue-600 rounded-full">
+                      <Activity className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-blue-900 text-lg">Atestado Médico</h3>
+                      <p className="text-sm text-blue-700/80">Comprovante de afastamento legal</p>
+                    </div>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    <div className="flex items-center gap-3 border-b pb-4">
+                      <div className="p-2 bg-slate-100 rounded text-slate-500">
+                        <User className="w-5 h-5" />
+                      </div>
                       <div>
-                        <p className="font-medium">Documento em PDF</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          A visualização direta foi desativada por segurança. Utilize o acesso via
-                          URL assinada temporária.
+                        <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-0.5">
+                          Colaborador
+                        </p>
+                        <p className="font-medium text-slate-900">
+                          {selectedFile.colaboradores?.nome}
                         </p>
                       </div>
-                      <div className="flex flex-col sm:flex-row gap-3 mt-4 w-full">
-                        <Button
-                          variant="secondary"
-                          className="w-full"
-                          onClick={async () => {
-                            let finalUrl = selectedFile.arquivo_url
-                            if (finalUrl.includes('/public/atestados/')) {
-                              const path = finalUrl.split('/public/atestados/')[1]
-                              const { data } = await supabase.storage
-                                .from('atestados')
-                                .createSignedUrl(path, 3600)
-                              if (data?.signedUrl) finalUrl = data.signedUrl
-                            }
-                            window.open(finalUrl, '_blank')
-                          }}
-                        >
-                          <ExternalLink className="w-4 h-4 mr-2" /> Nova Aba
-                        </Button>
-                        <Button
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                          onClick={async () => {
-                            let finalUrl = selectedFile.arquivo_url
-                            if (finalUrl.includes('/public/atestados/')) {
-                              const path = finalUrl.split('/public/atestados/')[1]
-                              const { data } = await supabase.storage
-                                .from('atestados')
-                                .createSignedUrl(path, 3600)
-                              if (data?.signedUrl) finalUrl = data.signedUrl
-                            }
-                            const link = document.createElement('a')
-                            link.href = finalUrl
-                            link.target = '_blank'
-                            link.download = `atestado-${Date.now()}`
-                            document.body.appendChild(link)
-                            link.click()
-                            document.body.removeChild(link)
-                          }}
-                        >
-                          <Download className="w-4 h-4 mr-2" /> Baixar
-                        </Button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6 border-b pb-4">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-slate-100 rounded text-slate-500 shrink-0">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-0.5">
+                            Data de Início
+                          </p>
+                          <p className="font-medium text-slate-900">
+                            {format(parseISO(selectedFile.data_inicio), 'dd/MM/yyyy')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-slate-100 rounded text-slate-500 shrink-0">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-0.5">
+                            Data de Retorno
+                          </p>
+                          <p className="font-medium text-slate-900">
+                            {format(parseISO(selectedFile.data_fim), 'dd/MM/yyyy')}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  ) : (
-                    <img
-                      src={selectedFile.arquivo_url}
-                      alt="Atestado"
-                      className="max-w-full max-h-full object-contain shadow-sm rounded-md bg-white border"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        target.style.display = 'none'
-                        if (target.parentElement) {
-                          target.parentElement.innerHTML = `
-                            <div class="flex flex-col items-center text-center space-y-4 p-6">
-                              <p class="text-sm text-muted-foreground">Não foi possível carregar a imagem.</p>
-                              <p class="text-xs text-muted-foreground mt-2">O arquivo pode ter sido removido ou não está mais acessível no servidor de armazenamento seguro.</p>
-                            </div>
-                          `
+
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-amber-100 text-amber-600 rounded">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-0.5">
+                          Período de Afastamento
+                        </p>
+                        <p className="font-semibold text-lg text-slate-900">
+                          {selectedFile.quantidade_dias}{' '}
+                          {selectedFile.quantidade_dias === 1 ? 'dia' : 'dias'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 flex justify-between items-center border-t">
+                    <span className="text-xs text-muted-foreground">
+                      Adicionado em {format(parseISO(selectedFile.created_at), 'dd/MM/yyyy')}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-white"
+                      onClick={async () => {
+                        let finalUrl = selectedFile.arquivo_url
+                        if (finalUrl.includes('/public/atestados/')) {
+                          const path = finalUrl.split('/public/atestados/')[1]
+                          const { data } = await supabase.storage
+                            .from('atestados')
+                            .createSignedUrl(path, 3600)
+                          if (data?.signedUrl) finalUrl = data.signedUrl
                         }
+                        const link = document.createElement('a')
+                        link.href = finalUrl
+                        link.target = '_blank'
+                        link.download = `atestado-${selectedFile.id}`
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
                       }}
-                    />
-                  )}
+                    >
+                      <Download className="w-4 h-4 mr-2" /> Baixar Original
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
