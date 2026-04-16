@@ -445,6 +445,7 @@ function PdfPreviewModal({
   onClose: () => void
 }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!url) {
@@ -452,24 +453,43 @@ function PdfPreviewModal({
       return
     }
 
-    if (url.startsWith('data:application/pdf;base64,')) {
+    let isMounted = true
+    let bUrl: string | null = null
+    setLoading(true)
+
+    const initPdf = async () => {
       try {
-        const base64 = url.split(',')[1]
-        const binary = atob(base64)
-        const array = new Uint8Array(binary.length)
-        for (let i = 0; i < binary.length; i++) {
-          array[i] = binary.charCodeAt(i)
+        if (url.startsWith('data:application/pdf;base64,')) {
+          const base64 = url.split(',')[1]
+          const binary = atob(base64)
+          const array = new Uint8Array(binary.length)
+          for (let i = 0; i < binary.length; i++) {
+            array[i] = binary.charCodeAt(i)
+          }
+          const blob = new Blob([array], { type: 'application/pdf' })
+          bUrl = URL.createObjectURL(blob)
+          if (isMounted) setBlobUrl(bUrl)
+        } else {
+          const res = await fetch(url)
+          const blob = await res.blob()
+          bUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+          if (isMounted) setBlobUrl(bUrl)
         }
-        const blob = new Blob([array], { type: 'application/pdf' })
-        const bUrl = URL.createObjectURL(blob)
-        setBlobUrl(bUrl)
-        return () => URL.revokeObjectURL(bUrl)
       } catch (err) {
-        console.error('Error creating PDF blob:', err)
-        setBlobUrl(url)
+        console.error('Error creating PDF preview:', err)
+        if (isMounted) setBlobUrl(url)
+      } finally {
+        if (isMounted) setLoading(false)
       }
-    } else {
-      setBlobUrl(url)
+    }
+
+    initPdf()
+
+    return () => {
+      isMounted = false
+      if (bUrl) {
+        URL.revokeObjectURL(bUrl)
+      }
     }
   }, [url])
 
@@ -480,9 +500,33 @@ function PdfPreviewModal({
           <DialogTitle>Visualização de Contracheque</DialogTitle>
           <DialogDescription>Confira o demonstrativo abaixo.</DialogDescription>
         </DialogHeader>
-        <div className="flex-1 bg-muted/30 rounded-lg border overflow-hidden mt-4">
-          {blobUrl ? (
-            <iframe src={blobUrl} className="w-full h-full border-0" title="PDF Preview" />
+        <div className="flex-1 bg-muted/30 rounded-lg border overflow-hidden mt-4 relative">
+          {loading ? (
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
+              <Loader2 className="w-8 h-8 animate-spin" />
+              <p>Carregando documento...</p>
+            </div>
+          ) : blobUrl ? (
+            <object
+              data={blobUrl}
+              type="application/pdf"
+              className="w-full h-full"
+              aria-label="Contracheque Preview"
+            >
+              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-8 gap-4 bg-muted/10">
+                <FileText className="w-12 h-12 text-muted-foreground/50" />
+                <p className="text-center max-w-md">
+                  Seu navegador bloqueou a visualização integrada ou não possui um leitor de PDF
+                  embutido habilitado.
+                </p>
+                <Button asChild variant="default">
+                  <a href={blobUrl} download="contracheque.pdf">
+                    <Download className="w-4 h-4 mr-2" />
+                    Baixar Documento
+                  </a>
+                </Button>
+              </div>
+            </object>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground">
               Nenhum documento disponível
@@ -493,9 +537,9 @@ function PdfPreviewModal({
           <Button variant="outline" onClick={onClose}>
             Fechar
           </Button>
-          {url && (
+          {blobUrl && (
             <Button asChild>
-              <a href={url} download="contracheque.pdf">
+              <a href={blobUrl} download="contracheque.pdf">
                 <Download className="w-4 h-4 mr-2" /> Baixar PDF
               </a>
             </Button>
