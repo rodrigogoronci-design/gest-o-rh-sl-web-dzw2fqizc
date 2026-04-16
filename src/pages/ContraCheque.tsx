@@ -26,6 +26,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import {
@@ -63,109 +64,24 @@ function generateMockPayslip(
   data_admissao?: string | null,
 ) {
   const upperNome = (nome || '').toUpperCase()
-  const isFabricio = upperNome.includes('FABRICIO')
   const isRodrigo = upperNome.includes('RODRIGO')
-  const isGuilherme = upperNome.includes('GUILHERME')
-  const base = salarioBase || (isFabricio ? 2059.65 : isRodrigo ? 1621.0 : 1838.96)
+  const base = salarioBase || 1838.96
 
   let linhas: any[] = []
-  let totais = { vencimentos: 0, descontos: 0, liquido: 0 }
+  let totais = { vencimentos: base, descontos: 0, liquido: base }
   let bases = {
-    salario_base: 0,
-    sal_contr_inss: 0,
-    base_calc_fgts: 0,
-    fgts_mes: 0,
-    base_calc_irrf: 0,
+    salario_base: base,
+    sal_contr_inss: base,
+    base_calc_fgts: base,
+    fgts_mes: base * 0.08,
+    base_calc_irrf: base,
     faixa_irrf: 0.0,
   }
   let cbo = '212420'
   let codigo = Math.floor(Math.random() * 100).toString()
   let nome_impresso = upperNome
 
-  if (isFabricio) {
-    codigo = '10'
-    linhas = [
-      {
-        codigo: '8781',
-        descricao: 'DIAS NORMAIS',
-        referencia: '30,00',
-        vencimento: 2059.65,
-        desconto: null,
-      },
-      {
-        codigo: '202',
-        descricao: 'PREMIO',
-        referencia: '595,00',
-        vencimento: 595.0,
-        desconto: null,
-      },
-      {
-        codigo: '8125',
-        descricao: 'REFLEXO HORAS EXTRAS DSR',
-        referencia: '0,00',
-        vencimento: 56.29,
-        desconto: null,
-      },
-      {
-        codigo: '200',
-        descricao: 'HORAS EXTRAS 100%',
-        referencia: '9:00',
-        vencimento: 168.52,
-        desconto: null,
-      },
-      {
-        codigo: '201',
-        descricao: 'HORAS EXTRAS 75%',
-        referencia: '10:20',
-        vencimento: 169.24,
-        desconto: null,
-      },
-      {
-        codigo: '998',
-        descricao: 'I.N.S.S.',
-        referencia: '8,01',
-        vencimento: null,
-        desconto: 196.51,
-      },
-      {
-        codigo: '203',
-        descricao: 'DESCONTO PLANO DE SAÚDE DEPENDENTE',
-        referencia: '173,46',
-        vencimento: null,
-        desconto: 173.46,
-      },
-      {
-        codigo: '205',
-        descricao: 'PLANO DE SAÚDE CONSULTA',
-        referencia: '95,40',
-        vencimento: null,
-        desconto: 95.4,
-      },
-      {
-        codigo: '8111',
-        descricao: 'DESCONTO PLANO DE SAÚDE',
-        referencia: '54,60',
-        vencimento: null,
-        desconto: 54.6,
-      },
-      {
-        codigo: '900',
-        descricao: 'PENSAO ALIMENTICIA',
-        referencia: '379,42',
-        vencimento: null,
-        desconto: 379.42,
-      },
-    ]
-    totais = { vencimentos: 3048.7, descontos: 899.39, liquido: 2149.31 }
-    bases = {
-      salario_base: 2059.65,
-      sal_contr_inss: 2453.7,
-      base_calc_fgts: 2453.7,
-      fgts_mes: 196.29,
-      base_calc_irrf: 1688.18,
-      faixa_irrf: 0.0,
-    }
-  } else if (isRodrigo) {
+  if (isRodrigo) {
     codigo = '16'
     cbo = '252105'
     nome_impresso = 'RODRIGO CORONCI SANT ANA'
@@ -498,9 +414,8 @@ function AdminUpload() {
                   <TableRow>
                     <TableHead>Colaborador</TableHead>
                     <TableHead>Cargo</TableHead>
-                    <TableHead className="text-right">Vencimentos (Bruto)</TableHead>
-                    <TableHead className="text-right">Descontos</TableHead>
-                    <TableHead className="text-right">Líquido</TableHead>
+                    <TableHead className="text-right">Valor Bruto</TableHead>
+                    <TableHead className="text-right">Valor Líquido</TableHead>
                     <TableHead className="text-center">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -510,19 +425,13 @@ function AdminUpload() {
                     <TableRow key={i}>
                       <TableCell className="font-medium">{d.nome}</TableCell>
                       <TableCell>{d.cargo || '-'}</TableCell>
-                      <TableCell className="text-right text-slate-600">
+                      <TableCell className="text-right text-slate-600 font-medium">
                         R${' '}
                         {d.dados_extraidos?.totais?.vencimentos?.toLocaleString('pt-BR', {
                           minimumFractionDigits: 2,
                         })}
                       </TableCell>
-                      <TableCell className="text-right text-red-600">
-                        R${' '}
-                        {d.dados_extraidos?.totais?.descontos?.toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
+                      <TableCell className="text-right font-bold text-slate-900">
                         R$ {d.valor_liquido?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell className="text-center">
@@ -555,6 +464,25 @@ function AdminUpload() {
                     </TableRow>
                   ))}
                 </TableBody>
+                {extractedData.length > 0 && (
+                  <TableFooter>
+                    <TableRow className="bg-muted/50">
+                      <TableCell colSpan={2} className="text-right font-bold text-slate-700">
+                        Total Geral Bruto:
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-slate-900 text-lg">
+                        R${' '}
+                        {extractedData
+                          .reduce(
+                            (acc, curr) => acc + (curr.dados_extraidos?.totais?.vencimentos || 0),
+                            0,
+                          )
+                          .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell colSpan={3}></TableCell>
+                    </TableRow>
+                  </TableFooter>
+                )}
               </Table>
             </div>
           </div>
@@ -618,12 +546,6 @@ function ComparacaoModal({
                   R$ {formatNumber(data.dados_extraidos.totais.vencimentos)}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Descontos:</span>
-                <span className="font-medium text-red-600">
-                  R$ {formatNumber(data.dados_extraidos.totais.descontos)}
-                </span>
-              </div>
               <div className="border-t border-slate-300 pt-3 mt-3 flex justify-between items-center">
                 <span className="font-semibold text-slate-600">Valor Líquido Extraído:</span>
                 <span className="font-bold text-xl text-slate-900">
@@ -650,12 +572,6 @@ function ComparacaoModal({
                 <span className="text-muted-foreground">Total Vencimentos:</span>
                 <span className="font-medium text-blue-900">
                   R$ {formatNumber(data.dados_extraidos.totais.vencimentos)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Descontos:</span>
-                <span className="font-medium text-red-600">
-                  R$ {formatNumber(data.dados_extraidos.totais.descontos)}
                 </span>
               </div>
               <div className="border-t border-blue-200 pt-3 mt-3 flex justify-between items-center">
