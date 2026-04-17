@@ -277,12 +277,12 @@ export default function Users() {
             <form onSubmit={handleAdd} className="space-y-4 pt-4">
               <div className="flex justify-center mb-4">
                 <div className="relative group">
-                  <Avatar className="w-20 h-20 border-2 border-slate-100 shadow-sm">
+                  <Avatar className="w-24 h-24 border-2 border-slate-100 shadow-sm">
                     <AvatarImage src={avatarPreview} />
-                    <AvatarFallback className="text-xl">{name?.charAt(0) || 'U'}</AvatarFallback>
+                    <AvatarFallback className="text-2xl">{name?.charAt(0) || 'U'}</AvatarFallback>
                   </Avatar>
-                  <label className="absolute bottom-0 right-0 w-7 h-7 bg-primary text-white rounded-full flex items-center justify-center cursor-pointer shadow-md hover:bg-primary/90 transition-colors">
-                    <Camera className="w-3 h-3" />
+                  <label className="absolute bottom-0 right-1 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center cursor-pointer shadow-md hover:bg-primary/90 transition-colors">
+                    <Camera className="w-4 h-4" />
                     <input
                       type="file"
                       accept="image/*"
@@ -372,12 +372,12 @@ export default function Users() {
           <form onSubmit={handleUpdate} className="space-y-4 pt-4">
             <div className="flex justify-center mb-4">
               <div className="relative group">
-                <Avatar className="w-20 h-20 border-2 border-slate-100 shadow-sm">
+                <Avatar className="w-24 h-24 border-2 border-slate-100 shadow-sm">
                   <AvatarImage src={editAvatarPreview || editAvatarUrl} />
-                  <AvatarFallback className="text-xl">{editName?.charAt(0) || 'U'}</AvatarFallback>
+                  <AvatarFallback className="text-2xl">{editName?.charAt(0) || 'U'}</AvatarFallback>
                 </Avatar>
-                <label className="absolute bottom-0 right-0 w-7 h-7 bg-primary text-white rounded-full flex items-center justify-center cursor-pointer shadow-md hover:bg-primary/90 transition-colors">
-                  <Camera className="w-3 h-3" />
+                <label className="absolute bottom-0 right-1 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center cursor-pointer shadow-md hover:bg-primary/90 transition-colors">
+                  <Camera className="w-4 h-4" />
                   <input
                     type="file"
                     accept="image/*"
@@ -478,9 +478,9 @@ export default function Users() {
                   <TableRow key={u.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <Avatar className="w-8 h-8">
+                        <Avatar className="w-11 h-11">
                           <AvatarImage src={u.avatar_url} />
-                          <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                          <AvatarFallback className="bg-primary/10 text-primary text-sm">
                             {(u.name || u.nome)?.charAt(0)}
                           </AvatarFallback>
                         </Avatar>

@@ -387,7 +387,7 @@ export default function Transport() {
                             }
                           />
                           <div className="flex w-[84px] justify-center items-center px-1">
-                            <span className="text-[10px] text-blue-600 font-medium">
+                            <span className="text-[10px] text-red-600 font-medium">
                               -R${' '}
                               {((data.homeOffice || 0) * transportValue)
                                 .toFixed(2)
