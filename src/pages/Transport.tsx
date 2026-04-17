@@ -110,14 +110,18 @@ export default function Transport() {
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
-      const [{ data: transports }, { data: cols }, { data: tickets }] = await Promise.all([
-        supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
-        supabase.from('colaboradores').select('*').order('nome'),
-        supabase
-          .from('beneficios_ticket')
-          .select('colaborador_id, ferias, atestados, faltas')
-          .eq('mes_ano', selectedMonth),
-      ])
+      const [{ data: transports }, { data: cols }, { data: tickets }, { data: hoData }] =
+        await Promise.all([
+          supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
+          supabase.from('colaboradores').select('*').order('nome'),
+          supabase
+            .from('beneficios_ticket')
+            .select('colaborador_id, ferias, atestados, faltas')
+            .eq('mes_ano', selectedMonth),
+          supabase.from('dias_home_office').select('data').gte('data', pStart).lte('data', pEnd),
+        ])
+
+      const globalHomeOfficeCount = hoData ? hoData.length : 0
 
       const freshUsers = cols || []
       setActiveUsers(freshUsers)
@@ -149,6 +153,7 @@ export default function Transport() {
             vacation: isStored ? data.ferias : tk.ferias,
             sick: isStored ? data.atestados : tk.atestados,
             faltas: isStored ? data.faltas : tk.faltas,
+            homeOffice: isStored ? data.home_office : globalHomeOfficeCount,
           }
         })
       setLocalData(initial)
@@ -188,7 +193,7 @@ export default function Transport() {
       colaborador_id,
       mes_ano: selectedMonth,
       dias_uteis: data.businessDays,
-      home_office: 0, // Ignored in logic, set to 0 to keep clean
+      home_office: data.homeOffice || 0,
       ferias: data.vacation,
       atestados: data.sick,
       faltas: data.faltas,
@@ -280,6 +285,7 @@ export default function Transport() {
                 <TableHead className="w-[100px] text-center">Atestados</TableHead>
                 <TableHead className="w-[100px] text-center">Férias</TableHead>
                 <TableHead className="w-[100px] text-center">Faltas</TableHead>
+                <TableHead className="w-[100px] text-center">Home Office</TableHead>
                 <TableHead className="text-center w-[90px]">Total</TableHead>
                 <TableHead className="text-right min-w-[120px]">Valor</TableHead>
               </TableRow>
@@ -296,10 +302,15 @@ export default function Transport() {
                     vacation: 0,
                     sick: 0,
                     faltas: 0,
+                    homeOffice: 0,
                   }
                   const eligibleDays = Math.max(
                     0,
-                    data.businessDays - data.vacation - (data.sick || 0) - (data.faltas || 0),
+                    data.businessDays -
+                      data.vacation -
+                      (data.sick || 0) -
+                      (data.faltas || 0) -
+                      (data.homeOffice || 0),
                   )
                   const totalValue = eligibleDays * transportValue
                   grandTotal += totalValue
@@ -363,6 +374,24 @@ export default function Transport() {
                             <span className="text-[10px] text-red-600 font-medium">
                               -R${' '}
                               {((data.faltas || 0) * transportValue).toFixed(2).replace('.', ',')}
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1 items-center">
+                          <UnitInput
+                            value={data.homeOffice || 0}
+                            onChange={(e: any) =>
+                              handleInputChange(u.id, 'homeOffice', e.target.value)
+                            }
+                          />
+                          <div className="flex w-[84px] justify-center items-center px-1">
+                            <span className="text-[10px] text-blue-600 font-medium">
+                              -R${' '}
+                              {((data.homeOffice || 0) * transportValue)
+                                .toFixed(2)
+                                .replace('.', ',')}
                             </span>
                           </div>
                         </div>

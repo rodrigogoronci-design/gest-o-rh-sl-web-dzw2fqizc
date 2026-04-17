@@ -55,6 +55,7 @@ export default function Mural() {
   const [assignUserId, setAssignUserId] = useState<string>('')
   const [assignFaltaUserId, setAssignFaltaUserId] = useState<string>('')
   const [feriados, setFeriados] = useState<Record<string, boolean>>({})
+  const [homeOfficeDays, setHomeOfficeDays] = useState<Record<string, boolean>>({})
   const [escalaStatus, setEscalaStatus] = useState<'Rascunho' | 'Pendente' | 'Aprovada'>('Rascunho')
   const [feriasList, setFeriasList] = useState<any[]>([])
   const [faltas, setFaltas] = useState<Record<string, string[]>>({})
@@ -93,6 +94,22 @@ export default function Mural() {
         setFeriados(fMap)
       } else {
         setFeriados({})
+      }
+
+      const { data: hoData } = await supabase
+        .from('dias_home_office')
+        .select('data')
+        .gte('data', start)
+        .lte('data', end)
+
+      if (hoData) {
+        const hoMap: Record<string, boolean> = {}
+        hoData.forEach((h) => {
+          hoMap[h.data] = true
+        })
+        setHomeOfficeDays(hoMap)
+      } else {
+        setHomeOfficeDays({})
       }
 
       // Férias
@@ -152,6 +169,18 @@ export default function Mural() {
       const next = { ...feriados }
       delete next[dateStr]
       setFeriados(next)
+    }
+  }
+
+  const toggleHomeOffice = async (dateStr: string, isHO: boolean) => {
+    if (isHO) {
+      await supabase.from('dias_home_office').insert({ data: dateStr })
+      setHomeOfficeDays((prev) => ({ ...prev, [dateStr]: true }))
+    } else {
+      await supabase.from('dias_home_office').delete().match({ data: dateStr })
+      const next = { ...homeOfficeDays }
+      delete next[dateStr]
+      setHomeOfficeDays(next)
     }
   }
 
@@ -324,6 +353,7 @@ export default function Mural() {
               const isCurrentMonth = day >= startOfDay(monthStart) && day <= endOfDay(monthEnd)
               const isWeekend = day.getDay() === 0 || day.getDay() === 6
               const isFeriado = feriados[dateStr]
+              const isHomeOffice = homeOfficeDays[dateStr]
 
               return (
                 <Dialog key={idx}>
@@ -339,21 +369,28 @@ export default function Mural() {
                               isFeriado && 'bg-amber-50/50',
                             )}
                           >
-                            <div className="flex justify-between items-center">
+                            <div className="flex justify-between items-start">
                               <span
                                 className={cn(
-                                  'text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full',
+                                  'text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full shrink-0',
                                   isToday(day) ? 'bg-primary text-white' : 'text-slate-700',
                                   (isWeekend || isFeriado) && !isToday(day) && 'text-red-500',
                                 )}
                               >
                                 {format(day, 'd')}
                               </span>
-                              {isFeriado && (
-                                <span className="text-[10px] uppercase font-bold text-amber-600 bg-amber-100 px-1 rounded">
-                                  Feriado
-                                </span>
-                              )}
+                              <div className="flex flex-col items-end gap-0.5 mt-0.5">
+                                {isFeriado && (
+                                  <span className="text-[10px] uppercase font-bold text-amber-600 bg-amber-100 px-1 rounded">
+                                    Feriado
+                                  </span>
+                                )}
+                                {isHomeOffice && (
+                                  <span className="text-[10px] uppercase font-bold text-blue-600 bg-blue-100 px-1 rounded">
+                                    Home Office
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
                             <div className="flex-1 flex flex-col gap-1 overflow-y-auto mt-1">
@@ -465,6 +502,20 @@ export default function Mural() {
                         <Switch
                           checked={!!feriados[dateStr]}
                           onCheckedChange={(c) => toggleFeriado(dateStr, c)}
+                          disabled={!canEdit}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+                        <div className="space-y-0.5">
+                          <Label className="text-base">Home Office</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Marcar este dia como Home Office global
+                          </p>
+                        </div>
+                        <Switch
+                          checked={!!homeOfficeDays[dateStr]}
+                          onCheckedChange={(c) => toggleHomeOffice(dateStr, c)}
                           disabled={!canEdit}
                         />
                       </div>

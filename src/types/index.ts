@@ -22,6 +22,7 @@ export interface TransportRecord {
   vacation: number
   sick?: number
   faltas: number
+  homeOffice?: number
 }
 
 export interface AppState {
