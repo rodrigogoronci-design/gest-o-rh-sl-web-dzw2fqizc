@@ -1095,12 +1095,12 @@ function ContraChequeDataModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl w-full flex flex-col p-6 bg-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl">
+      <DialogContent className="max-w-5xl w-full flex flex-col p-6 bg-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl print:block print:p-0 print:bg-white print:shadow-none print:h-auto print:max-h-none print:absolute print:top-0 print:left-0 print:translate-x-0 print:translate-y-0 print:transform-none print:w-full print:max-w-full print:m-0 print:border-none print:overflow-visible print:break-inside-avoid">
         <DialogHeader className="hidden">
           <DialogTitle>Demonstrativo</DialogTitle>
         </DialogHeader>
 
-        <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-1 flex relative overflow-x-auto min-w-[850px] shadow-sm">
+        <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-2 flex relative overflow-x-auto min-w-[760px] w-full shadow-sm print-area print:min-w-0 print:w-full print:border-none print:shadow-none print:overflow-visible print:p-0">
           <div className="flex-1 flex flex-col border border-black">
             <div className="flex justify-between border-b border-black p-2">
               <div>
@@ -1303,12 +1303,28 @@ function ContraChequeDataModal({
           </div>
         </div>
 
-        <div className="flex justify-end items-center gap-3 mt-6">
+        <div className="flex justify-end items-center gap-3 mt-6 print-hidden">
           <Button variant="outline" onClick={onClose} className="bg-white">
             Fechar
           </Button>
           <Button onClick={() => window.print()} className="bg-primary text-primary-foreground">
-            Imprimir
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="mr-2"
+            >
+              <polyline points="6 9 6 2 18 2 18 9"></polyline>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            Imprimir A4
           </Button>
         </div>
       </DialogContent>
