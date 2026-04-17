@@ -41,6 +41,18 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
+import {
+  Bar,
+  BarChart,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip as RechartsTooltip,
+} from 'recharts'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 
 const generateMonths = () => {
   const months = []
@@ -96,14 +108,18 @@ export default function ContraCheque() {
 }
 
 function AdminTabs() {
-  const [activeTab, setActiveTab] = useState('upload')
+  const [activeTab, setActiveTab] = useState('memoria')
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <TabsList>
+        <TabsTrigger value="memoria">Memória de Cálculo</TabsTrigger>
         <TabsTrigger value="upload">Importar Excel</TabsTrigger>
         <TabsTrigger value="historico">Histórico Geral</TabsTrigger>
       </TabsList>
+      <TabsContent value="memoria">
+        <AdminMemoriaCalculo />
+      </TabsContent>
       <TabsContent value="upload">
         <AdminUpload onPublishSuccess={() => setActiveTab('historico')} />
       </TabsContent>
@@ -111,6 +127,343 @@ function AdminTabs() {
         <AdminHistorico />
       </TabsContent>
     </Tabs>
+  )
+}
+
+function AdminMemoriaCalculo() {
+  const months = generateMonths()
+  const [selectedMonth, setSelectedMonth] = useState(months[0])
+  const [registros, setRegistros] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [previewData, setPreviewData] = useState<any>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    supabase
+      .from('contracheques')
+      .select('*, colaboradores!inner(nome, cargo, salario, role, departamento, data_admissao)')
+      .eq('mes_ano', selectedMonth)
+      .then(({ data }) => {
+        if (data) {
+          const validRecords = data.filter((r) => {
+            const colab = r.colaboradores
+            if (!colab) return false
+            const role = (colab.role || '').toLowerCase()
+            const isAdmin = role === 'admin' || role === 'gerente'
+            const isRodrigo = (colab.nome || '').toLowerCase().includes('rodrigo')
+            if (isAdmin && !isRodrigo) return false
+            return true
+          })
+          setRegistros(validRecords)
+        }
+        setLoading(false)
+      })
+  }, [selectedMonth])
+
+  let totalVencimentos = 0
+  let totalDescontos = 0
+  let totalLiquido = 0
+
+  const eventos: Record<string, { descricao: string; provento: number; desconto: number }> = {}
+
+  registros.forEach((r) => {
+    const ext = r.dados_extraidos
+    if (ext?.totais) {
+      totalVencimentos += ext.totais.vencimentos || 0
+      totalDescontos += ext.totais.descontos || 0
+      totalLiquido += ext.totais.liquido || 0
+    } else if (r.valor_liquido) {
+      totalLiquido += r.valor_liquido
+    }
+
+    if (ext?.linhas) {
+      ext.linhas.forEach((linha: any) => {
+        if (!linha.codigo && !linha.descricao) return
+        const key = linha.codigo || linha.descricao
+        if (!eventos[key]) {
+          eventos[key] = {
+            descricao: linha.descricao || `Cód. ${linha.codigo}`,
+            provento: 0,
+            desconto: 0,
+          }
+        }
+        eventos[key].provento += linha.vencimento || 0
+        eventos[key].desconto += linha.desconto || 0
+      })
+    }
+  })
+
+  const topDescontos = Object.values(eventos)
+    .filter((e) => e.desconto > 0)
+    .sort((a, b) => b.desconto - a.desconto)
+    .slice(0, 5)
+    .map((e) => ({ ...e, desconto: Number(e.desconto.toFixed(2)) }))
+
+  const topProventos = Object.values(eventos)
+    .filter((e) => e.provento > 0)
+    .sort((a, b) => b.provento - a.provento)
+    .slice(0, 5)
+    .map((e) => ({ ...e, provento: Number(e.provento.toFixed(2)) }))
+
+  const distData = [
+    { name: 'Líquido', valor: Number(totalLiquido.toFixed(2)), fill: 'hsl(var(--chart-2))' },
+    { name: 'Descontos', valor: Number(totalDescontos.toFixed(2)), fill: 'hsl(var(--chart-1))' },
+  ]
+
+  const chartConfig = {
+    valor: { label: 'Valor', color: 'hsl(var(--primary))' },
+    provento: { label: 'Provento', color: 'hsl(var(--chart-2))' },
+    desconto: { label: 'Desconto', color: 'hsl(var(--chart-1))' },
+  }
+
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Memória de Cálculo da Folha</CardTitle>
+          <CardDescription>
+            Análise descritiva dos proventos, descontos e líquidos pagos na competência.
+          </CardDescription>
+        </div>
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {months.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </CardHeader>
+      <CardContent className="space-y-8">
+        {loading ? (
+          <div className="flex justify-center p-10">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : registros.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
+            Nenhuma memória de cálculo gerada para {selectedMonth}.
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="bg-slate-50/50 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Composição da Folha Bruta
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold mb-4">{formatCurrency(totalVencimentos)}</div>
+                  <div className="h-[200px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={distData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="valor"
+                        >
+                          {distData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip formatter={(value: number) => formatCurrency(value)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-2))]"></div> Líquido
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-1))]"></div>{' '}
+                      Descontos
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-slate-50/50 shadow-sm col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <CardHeader className="pb-0">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Maiores Proventos
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <ChartContainer config={chartConfig} className="h-[220px] w-full">
+                      <BarChart
+                        data={topProventos}
+                        layout="vertical"
+                        margin={{ left: 0, right: 0 }}
+                      >
+                        <XAxis type="number" hide />
+                        <YAxis
+                          dataKey="descricao"
+                          type="category"
+                          width={120}
+                          tick={{ fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(val) =>
+                            val.substring(0, 15) + (val.length > 15 ? '...' : '')
+                          }
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={<ChartTooltipContent indicator="line" />}
+                        />
+                        <Bar
+                          dataKey="provento"
+                          fill="var(--color-provento)"
+                          radius={[0, 4, 4, 0]}
+                        />
+                      </BarChart>
+                    </ChartContainer>
+                  </CardContent>
+                </div>
+                <div>
+                  <CardHeader className="pb-0">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Maiores Descontos
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <ChartContainer config={chartConfig} className="h-[220px] w-full">
+                      <BarChart
+                        data={topDescontos}
+                        layout="vertical"
+                        margin={{ left: 0, right: 0 }}
+                      >
+                        <XAxis type="number" hide />
+                        <YAxis
+                          dataKey="descricao"
+                          type="category"
+                          width={120}
+                          tick={{ fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(val) =>
+                            val.substring(0, 15) + (val.length > 15 ? '...' : '')
+                          }
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={<ChartTooltipContent indicator="line" />}
+                        />
+                        <Bar
+                          dataKey="desconto"
+                          fill="var(--color-desconto)"
+                          radius={[0, 4, 4, 0]}
+                        />
+                      </BarChart>
+                    </ChartContainer>
+                  </CardContent>
+                </div>
+              </Card>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" /> Descritivo por Funcionário
+              </h3>
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead>Colaborador</TableHead>
+                      <TableHead>Cargo</TableHead>
+                      <TableHead className="text-right">Proventos</TableHead>
+                      <TableHead className="text-right">Descontos</TableHead>
+                      <TableHead className="text-right">Valor Líquido</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {registros.map((r) => {
+                      const ext = r.dados_extraidos
+                      const prov = ext?.totais?.vencimentos || 0
+                      const desc = ext?.totais?.descontos || 0
+                      const liq = ext?.totais?.liquido || r.valor_liquido || 0
+
+                      return (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-medium">{r.colaboradores?.nome}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {r.colaboradores?.cargo}
+                          </TableCell>
+                          <TableCell className="text-right text-green-600 font-medium">
+                            {formatCurrency(prov)}
+                          </TableCell>
+                          <TableCell className="text-right text-red-600 font-medium">
+                            {formatCurrency(desc)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {formatCurrency(liq)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setPreviewData({
+                                  nome: r.colaboradores?.nome,
+                                  cargo: r.colaboradores?.cargo,
+                                  mes_ano: r.mes_ano,
+                                  salario: r.colaboradores?.salario,
+                                  departamento: r.colaboradores?.departamento,
+                                  data_admissao: r.colaboradores?.data_admissao,
+                                  arquivo_url: r.arquivo_url,
+                                  dados_extraidos: r.dados_extraidos,
+                                })
+                              }
+                            >
+                              <Eye className="w-4 h-4 mr-2" /> Demonstrativo
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={2} className="font-bold">
+                        Totalizadores
+                      </TableCell>
+                      <TableCell className="text-right text-green-700 font-bold">
+                        {formatCurrency(totalVencimentos)}
+                      </TableCell>
+                      <TableCell className="text-right text-red-700 font-bold">
+                        {formatCurrency(totalDescontos)}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-lg">
+                        {formatCurrency(totalLiquido)}
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+      <ContraChequeDataModal
+        data={previewData}
+        isOpen={!!previewData}
+        onClose={() => setPreviewData(null)}
+      />
+    </Card>
   )
 }
 

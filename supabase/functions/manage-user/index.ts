@@ -156,10 +156,10 @@ Deno.serve(async (req: Request) => {
         role: mapRole(role),
         departamento: payload.departamento || null,
         recebe_transporte: receivesTransport,
-      };
-      
+      }
+
       if (payload.avatar_url !== undefined) {
-        updateDataDb.avatar_url = payload.avatar_url;
+        updateDataDb.avatar_url = payload.avatar_url
       }
 
       const { error: dbErr } = await supabase
