@@ -115,16 +115,12 @@ function AdminTabs() {
       <TabsList>
         <TabsTrigger value="memoria">Memória de Cálculo</TabsTrigger>
         <TabsTrigger value="upload">Importar Excel</TabsTrigger>
-        <TabsTrigger value="historico">Histórico Geral</TabsTrigger>
       </TabsList>
       <TabsContent value="memoria">
         <AdminMemoriaCalculo />
       </TabsContent>
       <TabsContent value="upload">
-        <AdminUpload onPublishSuccess={() => setActiveTab('historico')} />
-      </TabsContent>
-      <TabsContent value="historico">
-        <AdminHistorico />
+        <AdminUpload onPublishSuccess={() => setActiveTab('memoria')} />
       </TabsContent>
     </Tabs>
   )
@@ -1213,113 +1209,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
             </div>
           </div>
         )}
-      </CardContent>
-      <ContraChequeDataModal
-        data={previewData}
-        isOpen={!!previewData}
-        onClose={() => setPreviewData(null)}
-      />
-    </Card>
-  )
-}
-
-function AdminHistorico() {
-  const months = generateMonths()
-  const [selectedMonth, setSelectedMonth] = useState(months[0])
-  const [registros, setRegistros] = useState<any[]>([])
-  const [previewData, setPreviewData] = useState<any>(null)
-
-  useEffect(() => {
-    supabase
-      .from('contracheques')
-      .select('*, colaboradores!inner(nome, cargo, salario, role, departamento, data_admissao)')
-      .eq('mes_ano', selectedMonth)
-      .then(({ data }) => {
-        if (data) {
-          const validRecords = data.filter((r) => {
-            const colab = r.colaboradores
-            if (!colab) return false
-
-            const role = (colab.role || '').toLowerCase()
-            const isAdmin = role === 'admin' || role === 'gerente'
-            const isRodrigo = (colab.nome || '').toLowerCase().includes('rodrigo')
-
-            if (isAdmin && !isRodrigo) return false
-            return true
-          })
-
-          setRegistros(validRecords)
-        }
-      })
-  }, [selectedMonth])
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Histórico de Contracheques</CardTitle>
-          <CardDescription>Visualize os demonstrativos já publicados por mês.</CardDescription>
-        </div>
-        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {months.map((m) => (
-              <SelectItem key={m} value={m}>
-                {m}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Colaborador</TableHead>
-              <TableHead>Cargo</TableHead>
-              <TableHead>Mês</TableHead>
-              <TableHead className="text-right">Ação</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {registros.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-medium">{r.colaboradores?.nome}</TableCell>
-                <TableCell>{r.colaboradores?.cargo}</TableCell>
-                <TableCell>{r.mes_ano}</TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      setPreviewData({
-                        nome: r.colaboradores?.nome,
-                        cargo: r.colaboradores?.cargo,
-                        mes_ano: r.mes_ano,
-                        salario: r.colaboradores?.salario,
-                        departamento: r.colaboradores?.departamento,
-                        data_admissao: r.colaboradores?.data_admissao,
-                        arquivo_url: r.arquivo_url,
-                        dados_extraidos: r.dados_extraidos,
-                      })
-                    }
-                  >
-                    <Eye className="w-4 h-4 mr-2" /> Visualizar
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!registros.length && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                  Nenhum contracheque publicado para este mês.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
       </CardContent>
       <ContraChequeDataModal
         data={previewData}

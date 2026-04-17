@@ -21,6 +21,9 @@ import {
   AlertTriangle,
   FileText,
   CalendarOff,
+  Banknote,
+  Star,
+  TrendingDown,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import useAppStore from '@/stores/useAppStore'
@@ -39,6 +42,8 @@ export default function Reports() {
     faltas: [] as any[],
     atestados: [] as any[],
     feriados: [] as any[],
+    contracheques: [] as any[],
+    avaliacoes: [] as any[],
   })
 
   const ticketValue = parseFloat(localStorage.getItem('ticketValue') || '31.59')
@@ -59,6 +64,8 @@ export default function Reports() {
         { data: faltas },
         { data: atestados },
         { data: feriados },
+        { data: contracheques },
+        { data: avaliacoes },
       ] = await Promise.all([
         supabase.from('beneficios_ticket').select('*').eq('mes_ano', selectedMonth),
         supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
@@ -71,6 +78,8 @@ export default function Reports() {
           .gte('data_fim', pStart)
           .order('data_inicio'),
         supabase.from('feriados').select('*').gte('data', pStart).lte('data', pEnd).order('data'),
+        supabase.from('contracheques').select('*').eq('mes_ano', selectedMonth),
+        supabase.from('avaliacoes').select('*').eq('periodo', selectedMonth),
       ])
 
       setData({
@@ -80,6 +89,8 @@ export default function Reports() {
         faltas: faltas || [],
         atestados: atestados || [],
         feriados: feriados || [],
+        contracheques: contracheques || [],
+        avaliacoes: avaliacoes || [],
       })
       setIsLoading(false)
     }
@@ -100,9 +111,37 @@ export default function Reports() {
 
   let totalTransport = 0
   data.transports.forEach((t) => {
-    const eligible = Math.max(0, t.dias_uteis - t.ferias - t.atestados - t.faltas)
+    const eligible = Math.max(
+      0,
+      t.dias_uteis - t.ferias - t.atestados - t.faltas - (t.home_office || 0),
+    )
     totalTransport += eligible * transportValue
   })
+
+  let totalBruto = 0
+  let totalLiquido = 0
+  let totalDescontos = 0
+
+  data.contracheques.forEach((c) => {
+    const ext = c.dados_extraidos
+    if (ext?.totais) {
+      totalBruto += ext.totais.vencimentos || 0
+      totalDescontos += ext.totais.descontos || 0
+      totalLiquido += ext.totais.liquido || c.valor_liquido || 0
+    } else {
+      totalLiquido += c.valor_liquido || 0
+    }
+  })
+
+  const avaliacoesCount = data.avaliacoes.length
+  const avgAvaliacoes =
+    avaliacoesCount > 0
+      ? data.avaliacoes.reduce(
+          (acc, a) => acc + a.nota_pontualidade + a.nota_qualidade + a.nota_trabalho_equipe,
+          0,
+        ) /
+        (avaliacoesCount * 3)
+      : 0
 
   const handleExportCsv = () => {
     const rows = []
@@ -112,11 +151,51 @@ export default function Reports() {
     ])
     rows.push([])
 
-    rows.push(['RESUMO FINANCEIRO'])
+    rows.push(['RESUMO FINANCEIRO DE BENEFÍCIOS'])
     rows.push(['Benefício', 'Valor Total (R$)'])
     rows.push(['Ticket Alimentação', totalTicket.toFixed(2).replace('.', ',')])
     rows.push(['Vale Transporte', totalTransport.toFixed(2).replace('.', ',')])
     rows.push(['Total Geral', (totalTicket + totalTransport).toFixed(2).replace('.', ',')])
+    rows.push([])
+
+    rows.push(['RESUMO DA FOLHA DE PAGAMENTO E MERITOCRACIA'])
+    rows.push(['Métrica', 'Valor'])
+    rows.push(['Folha Bruta', totalBruto.toFixed(2).replace('.', ',')])
+    rows.push(['Total Descontos', totalDescontos.toFixed(2).replace('.', ',')])
+    rows.push(['Folha Líquida', totalLiquido.toFixed(2).replace('.', ',')])
+    rows.push(['Média de Meritocracia', avgAvaliacoes.toFixed(1).replace('.', ',')])
+    rows.push([])
+
+    rows.push(['CONTRACHEQUES (FOLHA DE PAGAMENTO)'])
+    rows.push(['Colaborador', 'Total Bruto (R$)', 'Total Descontos (R$)', 'Valor Líquido (R$)'])
+    data.contracheques.forEach((c) => {
+      const ext = c.dados_extraidos
+      const bruto = ext?.totais?.vencimentos || 0
+      const desc = ext?.totais?.descontos || 0
+      const liq = ext?.totais?.liquido || c.valor_liquido || 0
+      rows.push([
+        getUserName(c.colaborador_id),
+        bruto.toFixed(2).replace('.', ','),
+        desc.toFixed(2).replace('.', ','),
+        liq.toFixed(2).replace('.', ','),
+      ])
+    })
+    rows.push([])
+
+    rows.push(['AVALIAÇÕES (MERITOCRACIA)'])
+    rows.push(['Colaborador', 'Pontualidade', 'Qualidade', 'Trabalho em Equipe', 'Média'])
+    data.avaliacoes.forEach((a) => {
+      const media = ((a.nota_pontualidade + a.nota_qualidade + a.nota_trabalho_equipe) / 3).toFixed(
+        1,
+      )
+      rows.push([
+        getUserName(a.colaborador_id),
+        a.nota_pontualidade,
+        a.nota_qualidade,
+        a.nota_trabalho_equipe,
+        media.replace('.', ','),
+      ])
+    })
     rows.push([])
 
     rows.push(['PLANTÕES'])
@@ -211,13 +290,75 @@ export default function Reports() {
       ) : (
         <div className="grid gap-6 print:block print:space-y-6">
           <div className="hidden print:block mb-6">
-            <h2 className="text-2xl font-bold">Relatório Mensal de Benefícios</h2>
+            <h2 className="text-2xl font-bold">Relatório Mensal Consolidado</h2>
             <p className="text-sm text-slate-600">
               Período de Apuração: {format(parseISO(pStart), 'dd/MM/yyyy')} a{' '}
               {format(parseISO(pEnd), 'dd/MM/yyyy')}
             </p>
           </div>
 
+          <h3 className="text-lg font-semibold text-slate-800 mb-0">
+            Resumo da Folha e Meritocracia
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 print:grid-cols-4 print:gap-4 print:mb-6">
+            <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">Total Bruto</CardTitle>
+                <Banknote className="w-4 h-4 text-emerald-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600">
+                  R$ {totalBruto.toFixed(2).replace('.', ',')}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Folha bruta do mês</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">Descontos</CardTitle>
+                <TrendingDown className="w-4 h-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  R$ {totalDescontos.toFixed(2).replace('.', ',')}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Total de descontos</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">Total Líquido</CardTitle>
+                <Activity className="w-4 h-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-slate-800">
+                  R$ {totalLiquido.toFixed(2).replace('.', ',')}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Líquido a pagar</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 shadow-sm print:shadow-none print:border bg-amber-50/50">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Média Meritocracia
+                </CardTitle>
+                <Star className="w-4 h-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-amber-600">
+                  {avgAvaliacoes.toFixed(1)} / 5.0
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {avaliacoesCount} avaliações no período
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-0">Resumo de Benefícios</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-4 print:mb-6">
             <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -255,7 +396,9 @@ export default function Reports() {
 
             <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">Custo Total</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Custo Total Benefícios
+                </CardTitle>
                 <Activity className="w-4 h-4 text-blue-500" />
               </CardHeader>
               <CardContent>
@@ -267,7 +410,100 @@ export default function Reports() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-2 print:gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-2 print:gap-4 mt-4">
+            <Card className="border-slate-200 shadow-sm print:shadow-none print:border print:break-inside-avoid">
+              <CardHeader className="pb-2 border-b bg-slate-50/50 print:bg-transparent">
+                <div className="flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-blue-600" />
+                  <CardTitle className="text-sm font-semibold">
+                    Contracheques Processados ({data.contracheques.length})
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 max-h-[300px] overflow-auto print:max-h-none print:overflow-visible">
+                <Table>
+                  <TableHeader className="bg-slate-50 sticky top-0 print:static print:bg-transparent">
+                    <TableRow className="[&>th]:py-2">
+                      <TableHead className="text-xs">Colaborador</TableHead>
+                      <TableHead className="text-xs text-right">Líquido (R$)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.contracheques.length > 0 ? (
+                      data.contracheques.map((c) => {
+                        const ext = c.dados_extraidos
+                        const liq = ext?.totais?.liquido || c.valor_liquido || 0
+                        return (
+                          <TableRow key={c.id} className="[&>td]:py-2">
+                            <TableCell className="text-xs font-medium text-slate-700">
+                              {getUserName(c.colaborador_id)}
+                            </TableCell>
+                            <TableCell className="text-xs text-right font-medium">
+                              {liq.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={2} className="text-center text-xs text-slate-500 py-4">
+                          Nenhum contracheque processado
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 shadow-sm print:shadow-none print:border print:break-inside-avoid">
+              <CardHeader className="pb-2 border-b bg-slate-50/50 print:bg-transparent">
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-amber-500" />
+                  <CardTitle className="text-sm font-semibold">
+                    Avaliações de Meritocracia ({data.avaliacoes.length})
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 max-h-[300px] overflow-auto print:max-h-none print:overflow-visible">
+                <Table>
+                  <TableHeader className="bg-slate-50 sticky top-0 print:static print:bg-transparent">
+                    <TableRow className="[&>th]:py-2">
+                      <TableHead className="text-xs">Colaborador</TableHead>
+                      <TableHead className="text-xs text-center w-[80px]">Média</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.avaliacoes.length > 0 ? (
+                      data.avaliacoes.map((a) => {
+                        const media =
+                          (a.nota_pontualidade + a.nota_qualidade + a.nota_trabalho_equipe) / 3
+                        return (
+                          <TableRow key={a.id} className="[&>td]:py-2">
+                            <TableCell className="text-xs font-medium text-slate-700">
+                              {getUserName(a.colaborador_id)}
+                            </TableCell>
+                            <TableCell className="text-xs text-center font-medium text-amber-600">
+                              {media.toFixed(1)}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={2} className="text-center text-xs text-slate-500 py-4">
+                          Nenhuma avaliação no período
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
             <Card className="border-slate-200 shadow-sm print:shadow-none print:border print:break-inside-avoid">
               <CardHeader className="pb-2 border-b bg-slate-50/50 print:bg-transparent">
                 <div className="flex items-center gap-2">
