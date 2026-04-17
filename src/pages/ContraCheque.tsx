@@ -110,20 +110,38 @@ function generateMockPayslip(
       base_calc_irrf: 1013.8,
       faixa_irrf: 0.0,
     }
+  } else if (upperNome.includes('GISELLY')) {
+    codigo = '21'
+    cbo = '212420'
+    nome_impresso = 'GISELLY OLIVEIRA CAETANO MOURA'
+    linhas = [
+      {
+        codigo: '8781',
+        descricao: 'DIAS NORMAIS',
+        referencia: '30,00',
+        vencimento: 1838.96,
+        desconto: null,
+      },
+      {
+        codigo: '998',
+        descricao: 'I.N.S.S.',
+        referencia: '7,68',
+        vencimento: null,
+        desconto: 141.18,
+      },
+    ]
+    totais = { vencimentos: 1838.96, descontos: 141.18, liquido: 1697.78 }
+    bases = {
+      salario_base: 1838.96,
+      sal_contr_inss: 1838.96,
+      base_calc_fgts: 1838.96,
+      fgts_mes: 147.11,
+      base_calc_irrf: 1231.76,
+      faixa_irrf: 0.0,
+    }
   } else {
     // General dynamic fallback avoiding random assumptions. Leitura bruta sem cálculos fantasmas.
-    const inss = 141.18
-    const dsr = 150.0
-    const adicNoturno = 200.0
-    const he50 = 300.0
-    const gratificacao = 100.0
-    const he100 = 120.0
-
-    const vt = 110.33
-    const planoSaude = 89.9
-
-    const totalVenc = base + dsr + adicNoturno + he50 + gratificacao + he100
-    const totalDesc = inss + vt + planoSaude
+    const inss = base * 0.0768 // Calculo aproximado para fallback
 
     linhas = [
       {
@@ -134,55 +152,6 @@ function generateMockPayslip(
         desconto: null,
       },
       {
-        codigo: '202',
-        descricao: 'DSR SOBRE HORAS EXTRAS',
-        referencia: '0,00',
-        vencimento: dsr,
-        desconto: null,
-      },
-      {
-        codigo: '8125',
-        descricao: 'ADICIONAL NOTURNO',
-        referencia: '0,00',
-        vencimento: adicNoturno,
-        desconto: null,
-      },
-      {
-        codigo: '201',
-        descricao: 'HORAS EXTRAS 50%',
-        referencia: '10,00',
-        vencimento: he50,
-        desconto: null,
-      },
-      {
-        codigo: '8069',
-        descricao: 'GRATIFICACAO',
-        referencia: '0,00',
-        vencimento: gratificacao,
-        desconto: null,
-      },
-      {
-        codigo: '8784',
-        descricao: 'HORAS EXTRAS 100%',
-        referencia: '5,00',
-        vencimento: he100,
-        desconto: null,
-      },
-      {
-        codigo: '8111',
-        descricao: 'DESCONTO PLANO DE SAUDE',
-        referencia: '0,00',
-        vencimento: null,
-        desconto: planoSaude,
-      },
-      {
-        codigo: '984',
-        descricao: 'DESCONTO VALE TRANSPORTE',
-        referencia: '6,00',
-        vencimento: null,
-        desconto: vt,
-      },
-      {
         codigo: '998',
         descricao: 'I.N.S.S.',
         referencia: '7,68',
@@ -190,13 +159,13 @@ function generateMockPayslip(
         desconto: inss,
       },
     ]
-    totais = { vencimentos: totalVenc, descontos: totalDesc, liquido: totalVenc - totalDesc }
+    totais = { vencimentos: base, descontos: inss, liquido: base - inss }
     bases = {
       salario_base: base,
-      sal_contr_inss: totalVenc,
-      base_calc_fgts: totalVenc,
-      fgts_mes: totalVenc * 0.08,
-      base_calc_irrf: totalVenc - inss,
+      sal_contr_inss: base,
+      base_calc_fgts: base,
+      fgts_mes: base * 0.08,
+      base_calc_irrf: base - inss,
       faixa_irrf: 0.0,
     }
   }
@@ -212,7 +181,9 @@ function generateMockPayslip(
         ? new Date(data_admissao + 'T12:00:00').toLocaleDateString('pt-BR')
         : isRodrigo
           ? '15/06/2009'
-          : '15/09/2025',
+          : upperNome.includes('GISELLY')
+            ? '08/01/2026'
+            : '15/09/2025',
     },
     linhas,
     totais,
@@ -913,7 +884,12 @@ function ContraChequeDataModal({
               <div className="flex-1">
                 <div className="text-[10px]">Nome do Funcionário</div>
                 <div className="font-bold uppercase">{mockData.cabecalho.nome_impresso}</div>
-                <div className="uppercase">{data.cargo}</div>
+                <div className="uppercase">
+                  {data.cargo ||
+                    (mockData.cabecalho.nome_impresso.includes('GISELLY')
+                      ? 'Analista de suporte I'
+                      : '')}
+                </div>
               </div>
               <div className="w-24">
                 <div className="text-[10px]">CBO</div>
