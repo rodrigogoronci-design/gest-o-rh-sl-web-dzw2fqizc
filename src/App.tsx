@@ -21,6 +21,7 @@ import Historico from './pages/Historico'
 import Ponto from './pages/Ponto'
 import ContraCheque from './pages/ContraCheque'
 import Profile from './pages/Profile'
+import Admissao from './pages/Admissao'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -76,6 +77,7 @@ const App = () => (
                   <Route path="usuarios" element={<Users />} />
                   <Route path="ticket" element={<Ticket />} />
                   <Route path="transporte" element={<Transport />} />
+                  <Route path="admissao" element={<Admissao />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />
                 <Route path="ponto" element={<Ponto />} />

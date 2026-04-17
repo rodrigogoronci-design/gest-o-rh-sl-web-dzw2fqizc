@@ -886,15 +886,20 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
         let colab = null
 
-        if (empName) {
+        // 0. Primary strict code match
+        if (empCode && empCode !== '00') {
+          colab = colabs.find((c) => !mappedColabIds.has(c.id) && c.codigo_funcionario === empCode)
+        }
+
+        if (!colab && empName) {
           const normEmpName = empName.toUpperCase().replace(/\s+/g, ' ').trim()
 
-          // 1. Exact match
+          // 1. Exact name match
           colab = colabs.find(
             (c) => !mappedColabIds.has(c.id) && (c.nome || '').toUpperCase().trim() === normEmpName,
           )
 
-          // 2. Code match
+          // 2. Fallback Code match
           if (!colab && empCode && empCode !== '00') {
             colab = colabs.find(
               (c) =>
@@ -940,7 +945,19 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           }
         }
 
+        let has_error = false
+        let error_msg = ''
+
         if (colab) {
+          if (
+            colab.codigo_funcionario &&
+            empCode &&
+            empCode !== '00' &&
+            colab.codigo_funcionario !== empCode
+          ) {
+            has_error = true
+            error_msg = `Código divergente: Planilha (${empCode}) vs Sistema (${colab.codigo_funcionario}). Resolva para importar.`
+          }
           mappedColabIds.add(colab.id)
         }
 
@@ -978,6 +995,8 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           valor_liquido: empData.totais.liquido,
           valor_bruto: empData.totais.vencimentos,
           is_mapped: !!colab,
+          has_error,
+          error_msg,
         })
       }
 
@@ -1006,9 +1025,17 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
   }
 
   const publish = async () => {
-    const validData = extractedData.filter((e) => e.is_mapped !== false)
+    const errorCount = extractedData.filter((e) => e.has_error).length
+    if (errorCount > 0) {
+      toast.error(
+        'Não é possível publicar: Há divergências de código de funcionário. Corrija o cadastro ou a planilha.',
+      )
+      return
+    }
+
+    const validData = extractedData.filter((e) => e.is_mapped !== false && !e.has_error)
     if (!validData.length) {
-      toast.error('Nenhum colaborador mapeado para publicar.')
+      toast.error('Nenhum colaborador válido mapeado para publicar.')
       return
     }
 
@@ -1151,7 +1178,9 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                   {extractedData.map((d, i) => (
                     <TableRow
                       key={i}
-                      className={d.is_mapped === false ? 'opacity-60 bg-muted/30' : ''}
+                      className={
+                        d.is_mapped === false || d.has_error ? 'opacity-70 bg-muted/20' : ''
+                      }
                     >
                       <TableCell className="font-medium">
                         {d.dados_extraidos?.cabecalho?.codigo &&
@@ -1160,9 +1189,14 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                           ? `${d.dados_extraidos.cabecalho.codigo} - `
                           : ''}
                         {d.nome}
-                        {d.is_mapped === false && (
-                          <span className="ml-2 text-xs text-red-500 font-normal">
+                        {d.is_mapped === false && !d.has_error && (
+                          <span className="ml-2 text-xs text-muted-foreground font-normal">
                             (Não mapeado)
+                          </span>
+                        )}
+                        {d.has_error && (
+                          <span className="ml-2 text-xs text-red-600 font-semibold block mt-1">
+                            ⚠️ {d.error_msg}
                           </span>
                         )}
                       </TableCell>
@@ -1173,12 +1207,19 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                         })}
                       </TableCell>
                       <TableCell className="text-center">
-                        {d.is_mapped !== false ? (
+                        {d.has_error ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-red-50 text-red-700 border-red-200"
+                          >
+                            Divergência
+                          </Badge>
+                        ) : d.is_mapped !== false ? (
                           <Badge
                             variant="outline"
                             className="bg-green-50 text-green-700 border-green-200"
                           >
-                            <CheckCircle2 className="w-3 h-3 mr-1" /> Importado
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Válido
                           </Badge>
                         ) : (
                           <Badge

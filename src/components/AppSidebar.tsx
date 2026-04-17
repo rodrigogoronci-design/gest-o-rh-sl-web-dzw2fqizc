@@ -10,6 +10,7 @@ import {
   BarChart,
   Clock,
   Wallet,
+  UserPlus,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
@@ -39,6 +40,12 @@ export default function AppSidebar() {
       path: '/app/mural',
       icon: CalendarDays,
       roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador'],
+    },
+    {
+      title: 'Admissão',
+      path: '/app/admissao',
+      icon: UserPlus,
+      roles: ['admin', 'Admin', 'Gerente'],
     },
     {
       title: 'Controle de Ponto',
