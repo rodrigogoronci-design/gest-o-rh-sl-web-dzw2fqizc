@@ -1,5 +1,6 @@
 {
   "_versions": {
-    "manage-user": 17
+    "manage-user": 17,
+    "parse-excel": 1
   }
 }

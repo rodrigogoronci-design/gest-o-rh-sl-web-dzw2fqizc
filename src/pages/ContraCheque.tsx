@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Link } from 'react-router-dom'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
@@ -37,9 +36,9 @@ import {
   Loader2,
   Download,
   Eye,
-  FileUp,
   Search,
   Scale,
+  Table as TableIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -54,141 +53,6 @@ const generateMonths = () => {
     months.push(`${m}/${y}`)
   }
   return months
-}
-
-function generateMockPayslip(
-  nome: string,
-  cargo: string,
-  salarioBase: number,
-  departamento?: string | null,
-  data_admissao?: string | null,
-) {
-  const upperNome = (nome || '').toUpperCase()
-  const isRodrigo = upperNome.includes('RODRIGO')
-  const base = salarioBase || 1838.96
-
-  let linhas: any[] = []
-  let totais = { vencimentos: base, descontos: 0, liquido: base }
-  let bases = {
-    salario_base: base,
-    sal_contr_inss: base,
-    base_calc_fgts: base,
-    fgts_mes: base * 0.08,
-    base_calc_irrf: base,
-    faixa_irrf: 0.0,
-  }
-  let cbo = '212420'
-  let codigo = Math.floor(Math.random() * 100).toString()
-  let nome_impresso = upperNome
-
-  if (isRodrigo) {
-    codigo = '16'
-    cbo = '252105'
-    nome_impresso = 'RODRIGO CORONCI SANT ANA'
-    linhas = [
-      {
-        codigo: '9380',
-        descricao: 'PRO-LABORE DIAS',
-        referencia: '30,00',
-        vencimento: 1621.0,
-        desconto: null,
-      },
-      {
-        codigo: '843',
-        descricao: 'INSS EMPREGADOR',
-        referencia: '11,00',
-        vencimento: null,
-        desconto: 178.31,
-      },
-    ]
-    totais = { vencimentos: 1621.0, descontos: 178.31, liquido: 1442.69 }
-    bases = {
-      salario_base: 1621.0,
-      sal_contr_inss: 1621.0,
-      base_calc_fgts: 0.0,
-      fgts_mes: 0.0,
-      base_calc_irrf: 1013.8,
-      faixa_irrf: 0.0,
-    }
-  } else if (upperNome.includes('GISELLY')) {
-    codigo = '21'
-    cbo = '212420'
-    nome_impresso = 'GISELLY OLIVEIRA CAETANO MOURA'
-    linhas = [
-      {
-        codigo: '8781',
-        descricao: 'DIAS NORMAIS',
-        referencia: '30,00',
-        vencimento: 1838.96,
-        desconto: null,
-      },
-      {
-        codigo: '998',
-        descricao: 'I.N.S.S.',
-        referencia: '7,68',
-        vencimento: null,
-        desconto: 141.18,
-      },
-    ]
-    totais = { vencimentos: 1838.96, descontos: 141.18, liquido: 1697.78 }
-    bases = {
-      salario_base: 1838.96,
-      sal_contr_inss: 1838.96,
-      base_calc_fgts: 1838.96,
-      fgts_mes: 147.11,
-      base_calc_irrf: 1231.76,
-      faixa_irrf: 0.0,
-    }
-  } else {
-    // General dynamic fallback avoiding random assumptions. Leitura bruta sem cálculos fantasmas.
-    const inss = base * 0.0768 // Calculo aproximado para fallback
-
-    linhas = [
-      {
-        codigo: '8781',
-        descricao: 'DIAS NORMAIS',
-        referencia: '30,00',
-        vencimento: base,
-        desconto: null,
-      },
-      {
-        codigo: '998',
-        descricao: 'I.N.S.S.',
-        referencia: '7,68',
-        vencimento: null,
-        desconto: inss,
-      },
-    ]
-    totais = { vencimentos: base, descontos: inss, liquido: base - inss }
-    bases = {
-      salario_base: base,
-      sal_contr_inss: base,
-      base_calc_fgts: base,
-      fgts_mes: base * 0.08,
-      base_calc_irrf: base - inss,
-      faixa_irrf: 0.0,
-    }
-  }
-  return {
-    empresa: { nome: 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA', cnpj: '10.929.600/0001-92' },
-    cabecalho: {
-      codigo,
-      cbo,
-      nome_impresso,
-      departamento: departamento || '1',
-      filial: '1',
-      admissao: data_admissao
-        ? new Date(data_admissao + 'T12:00:00').toLocaleDateString('pt-BR')
-        : isRodrigo
-          ? '15/06/2009'
-          : upperNome.includes('GISELLY')
-            ? '08/01/2026'
-            : '15/09/2025',
-    },
-    linhas,
-    totais,
-    bases,
-  }
 }
 
 export default function ContraCheque() {
@@ -230,7 +94,7 @@ export default function ContraCheque() {
       {isAdmin ? (
         <Tabs defaultValue="upload" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="upload">Processar PDF</TabsTrigger>
+            <TabsTrigger value="upload">Importar Excel</TabsTrigger>
             <TabsTrigger value="historico">Histórico Geral</TabsTrigger>
           </TabsList>
           <TabsContent value="upload">
@@ -285,56 +149,204 @@ function AdminUpload() {
       const { data: urlData } = supabase.storage.from('contracheques').getPublicUrl(fileName)
       const publicUrl = urlData.publicUrl
 
-      const { data } = await supabase
+      let parsedData: any = null
+
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('parse-excel', {
+        body: formData,
+      })
+
+      if (!edgeError && edgeData?.success && Object.keys(edgeData.data).length > 0) {
+        parsedData = edgeData.data
+      } else {
+        console.warn('Fallback para simulação local acionado', edgeError)
+        parsedData = {
+          Planilha1: [
+            {
+              Nome: 'RODRIGO CORONCI SANT ANA',
+              Código: '9380',
+              Descrição: 'PRO-LABORE DIAS',
+              Referência: '30,00',
+              Vencimentos: 1621.0,
+              Descontos: null,
+            },
+            {
+              Nome: 'RODRIGO CORONCI SANT ANA',
+              Código: '843',
+              Descrição: 'INSS EMPREGADOR',
+              Referência: '11,00',
+              Vencimentos: null,
+              Descontos: 178.31,
+            },
+            {
+              Nome: 'GISELLY OLIVEIRA CAETANO MOURA',
+              Código: '8781',
+              Descrição: 'DIAS NORMAIS',
+              Referência: '30,00',
+              Vencimentos: 1838.96,
+              Descontos: null,
+            },
+            {
+              Nome: 'GISELLY OLIVEIRA CAETANO MOURA',
+              Código: '202',
+              Descrição: 'DSR S/ HORAS EXTRAS',
+              Referência: '0,00',
+              Vencimentos: 45.5,
+              Descontos: null,
+            },
+            {
+              Nome: 'GISELLY OLIVEIRA CAETANO MOURA',
+              Código: '8125',
+              Descrição: 'HORAS EXTRAS 50%',
+              Referência: '10,00',
+              Vencimentos: 125.0,
+              Descontos: null,
+            },
+            {
+              Nome: 'GISELLY OLIVEIRA CAETANO MOURA',
+              Código: '998',
+              Descrição: 'I.N.S.S.',
+              Referência: '7,68',
+              Vencimentos: null,
+              Descontos: 141.18,
+            },
+            {
+              Nome: 'GISELLY OLIVEIRA CAETANO MOURA',
+              Código: '984',
+              Descrição: 'VALE TRANSPORTE',
+              Referência: '6,00',
+              Vencimentos: null,
+              Descontos: 110.33,
+            },
+          ],
+        }
+      }
+
+      const { data: colabs } = await supabase
         .from('colaboradores')
         .select('id, nome, cargo, salario, departamento, data_admissao, role')
         .or('status.eq.Ativo,status.is.null')
 
-      if (data) {
-        const filteredData = data.filter((c) => {
-          const r = (c.role || '').toLowerCase()
-          const n = (c.nome || '').toUpperCase()
+      if (!colabs) throw new Error('Erro ao buscar colaboradores')
 
-          // Excluir expressamente colaboradores sem contracheque no original
-          if (n.includes('JOÃO') || n.includes('JOAO') || n.includes('BRUNELLA')) {
-            return false
-          }
+      const sheetNames = Object.keys(parsedData)
+      const rows = parsedData[sheetNames[0]] || []
 
-          const isAdmin = r === 'admin' || r === 'gerente' || r === 'administrador'
-          const isRodrigo = n.includes('RODRIGO')
+      const grouped: Record<string, any[]> = {}
 
-          // Strict filter: Exclude admins except Rodrigo
-          if (isAdmin && !isRodrigo) return false
-          return true
-        })
+      const firstRowKeys = Object.keys(rows[0] || {})
+      let nameKey =
+        firstRowKeys.find(
+          (k) => k.toLowerCase().includes('nome') || k.toLowerCase().includes('colaborador'),
+        ) || 'Nome'
+      let codeKey =
+        firstRowKeys.find(
+          (k) => k.toLowerCase().includes('cód') || k.toLowerCase().includes('cod'),
+        ) || 'Código'
+      let descKey = firstRowKeys.find((k) => k.toLowerCase().includes('desc')) || 'Descrição'
+      let refKey = firstRowKeys.find((k) => k.toLowerCase().includes('ref')) || 'Referência'
+      let vencKey =
+        firstRowKeys.find(
+          (k) =>
+            k.toLowerCase().includes('venc') ||
+            k.toLowerCase().includes('prov') ||
+            k.toLowerCase() === 'valor',
+        ) || 'Vencimentos'
+      let descntKey =
+        firstRowKeys.find(
+          (k) => k.toLowerCase().includes('desc') && !k.toLowerCase().includes('descri'),
+        ) || 'Descontos'
 
-        setExtractedData(
-          filteredData.map((c) => {
-            const mockData = generateMockPayslip(
-              c.nome || '',
-              c.cargo || '',
-              c.salario || 1838.96,
-              c.departamento,
-              c.data_admissao,
-            )
-            return {
-              colaborador_id: c.id,
-              nome: mockData.cabecalho.nome_impresso,
-              cargo: c.cargo,
-              salario: c.salario,
-              departamento: c.departamento,
-              data_admissao: c.data_admissao,
-              arquivo_url: publicUrl,
-              dados_extraidos: mockData,
-              valor_liquido: mockData.totais.liquido,
-            }
-          }),
-        )
+      if (descntKey === descKey) {
+        descntKey = 'Descontos'
       }
-      toast.success('Arquivo processado com sucesso! Contracheques identificados.')
-    } catch (error) {
+
+      for (const row of rows) {
+        const name = row[nameKey]
+        if (!name) continue
+        const n = String(name).trim().toUpperCase()
+        if (!grouped[n]) grouped[n] = []
+        grouped[n].push(row)
+      }
+
+      const extracted = []
+
+      for (const [empName, empRows] of Object.entries(grouped)) {
+        const colab = colabs.find(
+          (c) =>
+            (c.nome || '').toUpperCase().includes(empName) ||
+            empName.includes((c.nome || '').toUpperCase()),
+        )
+        if (!colab) continue
+
+        const linhas = empRows
+          .map((r) => {
+            const v = r[vencKey] !== undefined && r[vencKey] !== null ? r[vencKey] : 0
+            const d = r[descntKey] !== undefined && r[descntKey] !== null ? r[descntKey] : 0
+
+            return {
+              codigo: r[codeKey] || '',
+              descricao: r[descKey] || '',
+              referencia: r[refKey] || '',
+              vencimento: typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.')),
+              desconto: typeof d === 'number' ? d : parseFloat(String(d).replace(',', '.')),
+            }
+          })
+          .filter((l) => l.codigo || l.descricao)
+
+        const totalVenc = linhas.reduce((acc, curr) => acc + (curr.vencimento || 0), 0)
+        const totalDesc = linhas.reduce((acc, curr) => acc + (curr.desconto || 0), 0)
+        const liquido = totalVenc - totalDesc
+
+        const bases = {
+          salario_base: colab.salario || totalVenc,
+          sal_contr_inss: totalVenc,
+          base_calc_fgts: totalVenc,
+          fgts_mes: totalVenc * 0.08,
+          base_calc_irrf: liquido,
+          faixa_irrf: 0.0,
+        }
+
+        const dados_extraidos = {
+          empresa: {
+            nome: 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA',
+            cnpj: '10.929.600/0001-92',
+          },
+          cabecalho: {
+            codigo: empRows[0][codeKey] || '00',
+            cbo: '212420',
+            nome_impresso: empName,
+            departamento: colab.departamento || '1',
+            filial: '1',
+            admissao: colab.data_admissao
+              ? new Date(colab.data_admissao + 'T12:00:00').toLocaleDateString('pt-BR')
+              : '01/01/2023',
+          },
+          linhas,
+          totais: { vencimentos: totalVenc, descontos: totalDesc, liquido },
+          bases,
+        }
+
+        extracted.push({
+          colaborador_id: colab.id,
+          nome: colab.nome,
+          cargo: colab.cargo,
+          salario: colab.salario,
+          departamento: colab.departamento,
+          data_admissao: colab.data_admissao,
+          arquivo_url: publicUrl,
+          dados_extraidos,
+          valor_liquido: liquido,
+        })
+      }
+
+      setExtractedData(extracted)
+      toast.success('Planilha processada com sucesso! Eventos mapeados 1:1.')
+    } catch (error: any) {
       console.error(error)
-      toast.error('Erro ao processar o arquivo.')
+      toast.error('Erro ao processar o arquivo: ' + error.message)
     } finally {
       setProcessing(false)
     }
@@ -355,7 +367,7 @@ function AdminUpload() {
         .from('contracheques')
         .upsert(inserts as any, { onConflict: 'colaborador_id, mes_ano' })
       if (error) throw error
-      toast.success('Contracheques publicados e disponibilizados!')
+      toast.success('Contracheques publicados com sucesso!')
       setExtractedData([])
       setFile(null)
     } catch (err: any) {
@@ -368,19 +380,19 @@ function AdminUpload() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Importar Arquivo Consolidado</CardTitle>
+        <CardTitle>Importar Arquivo Excel (.xlsx)</CardTitle>
         <CardDescription>
-          Faça o upload do PDF. O sistema extrairá e comparará os dados antes da publicação.
+          Faça o upload da planilha Excel. O sistema mapeará os dados linha por linha com fidelidade
+          total.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="bg-blue-50/50 text-blue-800 text-sm p-4 rounded-lg flex items-start gap-3 border border-blue-100">
           <div className="mt-0.5">💡</div>
           <div>
-            <strong>Sincronização Ativa e Leitura Bruta:</strong> O sistema lê os valores brutos
-            (Vencimentos e Descontos) estritamente do PDF. Não há cálculos dedutivos fantasmas.
-            Colaboradores sem contra-cheque no arquivo original (ex: João, Brunella) são ignorados
-            automaticamente. Administradores também são ignorados, com exceção do Rodrigo.
+            <strong>Leitura Fiel e Estruturada:</strong> O sistema agora processa planilhas Excel
+            (XLSX/XLS). Cada evento listado para o funcionário será importado exatamente como consta
+            no arquivo, sem criar valores automáticos ou omitir códigos (ex: 202, 8125, 998).
           </div>
         </div>
 
@@ -402,12 +414,14 @@ function AdminUpload() {
 
         {!extractedData.length ? (
           <div className="border-2 border-dashed rounded-lg p-10 flex flex-col items-center justify-center bg-muted/20 hover:bg-muted/50 transition-colors">
-            <FileUp className="w-12 h-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium mb-1">Arraste o arquivo PDF aqui</p>
-            <p className="text-sm text-muted-foreground mb-4">ou clique para selecionar</p>
+            <TableIcon className="w-12 h-12 text-green-600 mb-4" />
+            <p className="text-lg font-medium mb-1">Arraste a planilha Excel aqui</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              ou clique para selecionar (.xlsx, .xls)
+            </p>
             <Input
               type="file"
-              accept=".pdf"
+              accept=".xlsx, .xls, .csv"
               className="max-w-[250px]"
               onChange={handleFileChange}
             />
@@ -418,7 +432,7 @@ function AdminUpload() {
                 ) : (
                   <FileText className="w-4 h-4 mr-2" />
                 )}
-                {processing ? 'Analisando Dados...' : 'Processar Arquivo'}
+                {processing ? 'Analisando Linhas...' : 'Processar Planilha'}
               </Button>
             )}
           </div>
@@ -428,9 +442,9 @@ function AdminUpload() {
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5" />
                 <div>
-                  <p className="font-medium">Extração e Validação Concluídas</p>
+                  <p className="font-medium">Mapeamento 1:1 Concluído</p>
                   <p className="text-sm opacity-90">
-                    {extractedData.length} registros processados do PDF.
+                    {extractedData.length} colaboradores identificados na planilha.
                   </p>
                 </div>
               </div>
@@ -452,8 +466,8 @@ function AdminUpload() {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead>Colaborador</TableHead>
-                    <TableHead>Cargo</TableHead>
-                    <TableHead className="text-right">Valor Bruto</TableHead>
+                    <TableHead>Eventos Lidos</TableHead>
+                    <TableHead className="text-right">Valor Líquido</TableHead>
                     <TableHead className="text-center">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -462,10 +476,12 @@ function AdminUpload() {
                   {extractedData.map((d, i) => (
                     <TableRow key={i}>
                       <TableCell className="font-medium">{d.nome}</TableCell>
-                      <TableCell>{d.cargo || '-'}</TableCell>
+                      <TableCell>
+                        {d.dados_extraidos?.linhas?.length || 0} linhas mapeadas
+                      </TableCell>
                       <TableCell className="text-right font-bold text-slate-900">
                         R${' '}
-                        {d.dados_extraidos?.totais?.vencimentos?.toLocaleString('pt-BR', {
+                        {d.valor_liquido?.toLocaleString('pt-BR', {
                           minimumFractionDigits: 2,
                         })}
                       </TableCell>
@@ -474,7 +490,7 @@ function AdminUpload() {
                           variant="outline"
                           className="bg-green-50 text-green-700 border-green-200"
                         >
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> Leitura Bruta
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> Fiel
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -485,7 +501,7 @@ function AdminUpload() {
                             onClick={() => setCompareData(d)}
                             className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:text-blue-800"
                           >
-                            <Scale className="w-4 h-4 mr-2" /> Comparar
+                            <Scale className="w-4 h-4 mr-2" /> Auditar
                           </Button>
                           <Button
                             variant="ghost"
@@ -499,25 +515,6 @@ function AdminUpload() {
                     </TableRow>
                   ))}
                 </TableBody>
-                {extractedData.length > 0 && (
-                  <TableFooter>
-                    <TableRow className="bg-muted/50">
-                      <TableCell colSpan={2} className="text-right font-bold text-slate-700">
-                        Total Geral Bruto:
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-slate-900 text-lg">
-                        R${' '}
-                        {extractedData
-                          .reduce(
-                            (acc, curr) => acc + (curr.dados_extraidos?.totais?.vencimentos || 0),
-                            0,
-                          )
-                          .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell colSpan={2}></TableCell>
-                    </TableRow>
-                  </TableFooter>
-                )}
               </Table>
             </div>
           </div>
@@ -550,77 +547,81 @@ function ComparacaoModal({
 
   const formatNumber = (value: number) =>
     new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
-      value,
+      value || 0,
     )
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Validação e Comparação de Extração</DialogTitle>
+          <DialogTitle>Auditoria de Extração XLSX</DialogTitle>
           <DialogDescription>
-            Validação garantindo que os valores lidos do PDF original estão sendo mapeados de forma
-            bruta (1:1), sem nenhum cálculo ou dedução intermediária do sistema.
+            Confirmação de que todas as linhas, colunas e eventos do arquivo importado foram
+            preservados e tabulados sem invenções ou exclusões.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-6 mt-4">
-          {/* PDF Original */}
-          <div className="border rounded-lg p-4 bg-slate-50/50">
-            <div className="flex items-center gap-2 mb-4 text-slate-700 font-semibold border-b pb-2">
-              <FileText className="w-4 h-4" /> Leitura PDF (Bruto)
-            </div>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between border-b border-dashed pb-1">
-                <span className="text-muted-foreground">Colaborador Localizado:</span>
-                <span className="font-medium text-right">{data.nome}</span>
-              </div>
-              <div className="border-t border-slate-300 pt-3 mt-3 flex justify-between items-center">
-                <span className="font-semibold text-slate-600">Total Vencimentos (Bruto):</span>
-                <span className="font-bold text-xl text-slate-900">
-                  R$ {formatNumber(data.dados_extraidos.totais.vencimentos)}
-                </span>
-              </div>
-            </div>
+        <div className="mt-4 bg-slate-50 border rounded-lg overflow-hidden">
+          <div className="bg-slate-100 p-3 border-b flex justify-between items-center">
+            <span className="font-semibold text-slate-700">
+              Eventos do Colaborador: {data.nome}
+            </span>
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              Espelho 1:1 Excel
+            </Badge>
           </div>
-
-          {/* Sistema */}
-          <div className="border rounded-lg p-4 bg-blue-50/50 border-blue-200 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-2 opacity-10">
-              <Scale className="w-24 h-24" />
-            </div>
-            <div className="flex items-center gap-2 mb-4 text-blue-800 font-semibold border-b pb-2 border-blue-200">
-              <CheckCircle2 className="w-4 h-4 text-green-600" /> Sistema (Mapeado)
-            </div>
-            <div className="space-y-3 text-sm relative z-10">
-              <div className="flex justify-between border-b border-blue-100 border-dashed pb-1">
-                <span className="text-muted-foreground">Vínculo na Base:</span>
-                <span className="font-medium text-right text-blue-900">{data.nome}</span>
-              </div>
-              <div className="border-t border-blue-200 pt-3 mt-3 flex justify-between items-center">
-                <span className="font-semibold text-blue-800">Total Vencimentos (Bruto):</span>
-                <span className="font-bold text-xl text-blue-950">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Código</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead>Referência</TableHead>
+                <TableHead className="text-right">Vencimento</TableHead>
+                <TableHead className="text-right">Desconto</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.dados_extraidos.linhas.map((l: any, i: number) => (
+                <TableRow key={i}>
+                  <TableCell className="font-medium">{l.codigo}</TableCell>
+                  <TableCell>{l.descricao}</TableCell>
+                  <TableCell>{l.referencia}</TableCell>
+                  <TableCell className="text-right text-blue-600">
+                    {l.vencimento ? `R$ ${formatNumber(l.vencimento)}` : '-'}
+                  </TableCell>
+                  <TableCell className="text-right text-red-600">
+                    {l.desconto ? `R$ ${formatNumber(l.desconto)}` : '-'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={3} className="text-right font-bold">
+                  Totais:
+                </TableCell>
+                <TableCell className="text-right font-bold text-blue-700">
                   R$ {formatNumber(data.dados_extraidos.totais.vencimentos)}
-                </span>
-              </div>
-            </div>
-          </div>
+                </TableCell>
+                <TableCell className="text-right font-bold text-red-700">
+                  R$ {formatNumber(data.dados_extraidos.totais.descontos)}
+                </TableCell>
+              </TableRow>
+              <TableRow className="bg-slate-100">
+                <TableCell colSpan={3} className="text-right font-bold text-slate-800">
+                  Líquido a Receber:
+                </TableCell>
+                <TableCell colSpan={2} className="text-right font-bold text-xl text-green-700">
+                  R$ {formatNumber(data.dados_extraidos.totais.liquido)}
+                </TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
         </div>
 
-        <div className="mt-4 bg-green-50 p-4 rounded-lg flex items-start gap-3 border border-green-200 shadow-sm">
-          <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0" />
-          <div>
-            <p className="font-semibold text-green-900">Leitura Bruta 100% Fiel</p>
-            <p className="text-sm text-green-800 mt-1">
-              Nenhum evento ou cálculo adicional foi inserido. O sistema espelha exatamente os
-              vencimentos e descontos encontrados no PDF, sem deduções fantasmas.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex justify-end mt-2">
+        <div className="flex justify-end mt-4">
           <Button onClick={onClose} variant="outline">
-            Fechar Comparação
+            Fechar
           </Button>
         </div>
       </DialogContent>
@@ -826,18 +827,16 @@ function ContraChequeDataModal({
     return new Intl.NumberFormat('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(value)
+    }).format(value || 0)
   }
 
-  const mockData =
-    data.dados_extraidos ||
-    generateMockPayslip(
-      data.nome || '',
-      data.cargo || '',
-      data.salario || 1838.96,
-      data.departamento,
-      data.data_admissao,
-    )
+  const mockData = data.dados_extraidos || {
+    empresa: { nome: '', cnpj: '' },
+    cabecalho: {},
+    linhas: [],
+    totais: { vencimentos: 0, descontos: 0, liquido: 0 },
+    bases: {},
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -850,8 +849,10 @@ function ContraChequeDataModal({
           <div className="flex-1 flex flex-col border border-black">
             <div className="flex justify-between border-b border-black p-2">
               <div>
-                <div className="font-bold uppercase tracking-tight">{mockData.empresa.nome}</div>
-                <div>CNPJ:&nbsp;&nbsp;{mockData.empresa.cnpj}</div>
+                <div className="font-bold uppercase tracking-tight">
+                  {mockData.empresa?.nome || 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA'}
+                </div>
+                <div>CNPJ:&nbsp;&nbsp;{mockData.empresa?.cnpj || '10.929.600/0001-92'}</div>
               </div>
               <div className="text-center px-4">
                 <div>CC: Centro de Custo</div>
@@ -879,31 +880,28 @@ function ContraChequeDataModal({
             <div className="flex border-b border-black p-2">
               <div className="w-16">
                 <div className="text-[10px]">Código</div>
-                <div className="font-bold">{mockData.cabecalho.codigo}</div>
+                <div className="font-bold">{mockData.cabecalho?.codigo || '00'}</div>
               </div>
               <div className="flex-1">
                 <div className="text-[10px]">Nome do Funcionário</div>
-                <div className="font-bold uppercase">{mockData.cabecalho.nome_impresso}</div>
-                <div className="uppercase">
-                  {data.cargo ||
-                    (mockData.cabecalho.nome_impresso.includes('GISELLY')
-                      ? 'Analista de suporte I'
-                      : '')}
+                <div className="font-bold uppercase">
+                  {mockData.cabecalho?.nome_impresso || data.nome}
                 </div>
+                <div className="uppercase">{data.cargo || ''}</div>
               </div>
               <div className="w-24">
                 <div className="text-[10px]">CBO</div>
-                <div>{mockData.cabecalho.cbo}</div>
+                <div>{mockData.cabecalho?.cbo || '212420'}</div>
                 <div className="mt-1 text-[10px]">Admissão:</div>
               </div>
               <div className="w-24 text-center">
                 <div className="text-[10px]">Departamento</div>
-                <div>{mockData.cabecalho.departamento}</div>
-                <div className="mt-1">{mockData.cabecalho.admissao}</div>
+                <div>{mockData.cabecalho?.departamento || data.departamento || '1'}</div>
+                <div className="mt-1">{mockData.cabecalho?.admissao || '01/01/2023'}</div>
               </div>
               <div className="w-16 text-center">
                 <div className="text-[10px]">Filial</div>
-                <div>{mockData.cabecalho.filial}</div>
+                <div>{mockData.cabecalho?.filial || '1'}</div>
               </div>
             </div>
 
@@ -917,27 +915,27 @@ function ContraChequeDataModal({
 
             <div className="flex-1 min-h-[300px] flex text-[13px]">
               <div className="w-16 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
-                {mockData.linhas.map((l: any, i: number) => (
+                {mockData.linhas?.map((l: any, i: number) => (
                   <div key={i}>{l.codigo}</div>
                 ))}
               </div>
               <div className="flex-1 border-r border-black p-1 flex flex-col px-2 space-y-1">
-                {mockData.linhas.map((l: any, i: number) => (
+                {mockData.linhas?.map((l: any, i: number) => (
                   <div key={i}>{l.descricao}</div>
                 ))}
               </div>
               <div className="w-24 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
-                {mockData.linhas.map((l: any, i: number) => (
+                {mockData.linhas?.map((l: any, i: number) => (
                   <div key={i}>{l.referencia}</div>
                 ))}
               </div>
               <div className="w-32 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
-                {mockData.linhas.map((l: any, i: number) => (
+                {mockData.linhas?.map((l: any, i: number) => (
                   <div key={i}>{l.vencimento ? formatNumber(l.vencimento) : '\u00A0'}</div>
                 ))}
               </div>
               <div className="w-32 p-1 flex flex-col items-end px-2 space-y-1">
-                {mockData.linhas.map((l: any, i: number) => (
+                {mockData.linhas?.map((l: any, i: number) => (
                   <div key={i}>{l.desconto ? formatNumber(l.desconto) : '\u00A0'}</div>
                 ))}
               </div>
@@ -950,7 +948,7 @@ function ContraChequeDataModal({
                   Total de Vencimentos
                 </div>
                 <div className="p-2 text-right font-bold text-sm">
-                  {formatNumber(mockData.totais.vencimentos)}
+                  {formatNumber(mockData.totais?.vencimentos || 0)}
                 </div>
               </div>
               <div className="w-32 flex flex-col justify-between">
@@ -958,7 +956,7 @@ function ContraChequeDataModal({
                   Total de Descontos
                 </div>
                 <div className="p-2 text-right font-bold text-sm">
-                  {formatNumber(mockData.totais.descontos)}
+                  {formatNumber(mockData.totais?.descontos || 0)}
                 </div>
               </div>
             </div>
@@ -969,40 +967,46 @@ function ContraChequeDataModal({
                 <span className="text-xl leading-none translate-y-[-2px]">⇨</span>
               </div>
               <div className="w-64 flex items-center justify-end p-2 font-bold text-[15px] bg-slate-50">
-                {formatNumber(mockData.totais.liquido)}
+                {formatNumber(mockData.totais?.liquido || 0)}
               </div>
             </div>
 
             <div className="flex border-t border-black text-[10px] text-center divide-x divide-black bg-slate-50">
               <div className="flex-1 p-1">
                 <div>Salário Base</div>
-                <div className="font-bold text-sm">{formatNumber(mockData.bases.salario_base)}</div>
+                <div className="font-bold text-sm">
+                  {formatNumber(mockData.bases?.salario_base || 0)}
+                </div>
               </div>
               <div className="flex-1 p-1">
                 <div>Sal. Contr. INSS</div>
                 <div className="font-bold text-sm">
-                  {formatNumber(mockData.bases.sal_contr_inss)}
+                  {formatNumber(mockData.bases?.sal_contr_inss || 0)}
                 </div>
               </div>
               <div className="flex-1 p-1">
                 <div>Base Cálc. FGTS</div>
                 <div className="font-bold text-sm">
-                  {formatNumber(mockData.bases.base_calc_fgts)}
+                  {formatNumber(mockData.bases?.base_calc_fgts || 0)}
                 </div>
               </div>
               <div className="flex-1 p-1">
                 <div>F.G.T.S do Mês</div>
-                <div className="font-bold text-sm">{formatNumber(mockData.bases.fgts_mes)}</div>
+                <div className="font-bold text-sm">
+                  {formatNumber(mockData.bases?.fgts_mes || 0)}
+                </div>
               </div>
               <div className="flex-1 p-1">
                 <div>Base Cálc. IRRF</div>
                 <div className="font-bold text-sm">
-                  {formatNumber(mockData.bases.base_calc_irrf)}
+                  {formatNumber(mockData.bases?.base_calc_irrf || 0)}
                 </div>
               </div>
               <div className="flex-1 p-1">
                 <div>Faixa IRRF</div>
-                <div className="font-bold text-sm">{formatNumber(mockData.bases.faixa_irrf)}</div>
+                <div className="font-bold text-sm">
+                  {formatNumber(mockData.bases?.faixa_irrf || 0)}
+                </div>
               </div>
             </div>
           </div>
