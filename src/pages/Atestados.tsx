@@ -35,6 +35,38 @@ export default function Atestados() {
 
   const [colaboradorId, setColaboradorId] = useState(currentUser?.id || '')
   const [dataInicio, setDataInicio] = useState('')
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  useEffect(() => {
+    if (!selectedFile?.arquivo_url) {
+      setPreviewUrl(null)
+      return
+    }
+
+    let isMounted = true
+    setPreviewLoading(true)
+
+    const loadUrl = async () => {
+      let finalUrl = selectedFile.arquivo_url
+      if (finalUrl.includes('/public/atestados/')) {
+        const path = finalUrl.split('/public/atestados/')[1]
+        const { data } = await supabase.storage.from('atestados').createSignedUrl(path, 3600)
+        if (data?.signedUrl) finalUrl = data.signedUrl
+      }
+
+      if (isMounted) {
+        setPreviewUrl(finalUrl)
+        setPreviewLoading(false)
+      }
+    }
+
+    loadUrl()
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedFile])
   const [dataFim, setDataFim] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -318,6 +350,34 @@ export default function Atestados() {
                         </p>
                       </div>
                     </div>
+
+                    {previewUrl && (
+                      <div className="mt-6 border-t pt-6">
+                        <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-3">
+                          Visualização do Documento
+                        </p>
+                        <div className="rounded-lg border bg-slate-50/50 overflow-hidden flex justify-center items-center relative min-h-[200px]">
+                          {previewLoading ? (
+                            <div className="p-8 text-muted-foreground flex flex-col items-center">
+                              <Activity className="w-6 h-6 animate-pulse mb-2" />
+                              <span className="text-sm">Carregando visualização...</span>
+                            </div>
+                          ) : selectedFile.arquivo_url.toLowerCase().match(/\.(pdf)$/) ? (
+                            <iframe
+                              src={`${previewUrl}#view=FitH`}
+                              className="w-full h-[400px]"
+                              title="Preview do Atestado"
+                            />
+                          ) : (
+                            <img
+                              src={previewUrl}
+                              alt="Preview do Atestado"
+                              className="max-w-full max-h-[500px] object-contain"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-slate-50 p-4 flex justify-between items-center border-t">
