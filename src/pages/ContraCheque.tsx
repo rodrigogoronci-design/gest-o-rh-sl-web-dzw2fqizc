@@ -272,6 +272,26 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
               if (longest.length > 10 && !longest.includes('CNPJ')) h.empresa.nome = longest.trim()
             }
 
+            if (rowTextUpper.includes('ADMISSÃO') || rowTextUpper.includes('ADMISSAO')) {
+              const dateMatch = rowTextUpper.match(
+                /(?:ADMISSÃO|ADMISSAO)[\s:]*([\d]{2}\/[\d]{2}\/[\d]{4})/,
+              )
+              if (dateMatch) {
+                h.cabecalho.admissao = dateMatch[1]
+              } else {
+                for (const c of row) {
+                  const m = c.match(/([\d]{2}\/[\d]{2}\/[\d]{4})/)
+                  if (m) h.cabecalho.admissao = m[1]
+                }
+                if (!h.cabecalho.admissao && i + 1 < expandedRows.length) {
+                  for (const c of expandedRows[i + 1]) {
+                    const m = c.match(/([\d]{2}\/[\d]{2}\/[\d]{4})/)
+                    if (m) h.cabecalho.admissao = m[1]
+                  }
+                }
+              }
+            }
+
             const nomeIdx = row.findIndex(
               (c) => c.toUpperCase().includes('NOME DO FUNCION') || c.toUpperCase() === 'NOME',
             )
@@ -468,6 +488,22 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           sheetName.toUpperCase() !== 'PLAN1'
         ) {
           h.cabecalho.nome_impresso = sheetName
+        }
+
+        if (h.cabecalho.nome_impresso) {
+          const dashMatch = h.cabecalho.nome_impresso.match(/^(\d+)\s*[-|–]\s*(.+)$/)
+          const nameMatch = h.cabecalho.nome_impresso.match(/^(\d+)\s+(.+)$/)
+          if (dashMatch) {
+            if (!h.cabecalho.codigo || h.cabecalho.codigo === '00') {
+              h.cabecalho.codigo = dashMatch[1]
+            }
+            h.cabecalho.nome_impresso = dashMatch[2].trim()
+          } else if (nameMatch) {
+            if (!h.cabecalho.codigo || h.cabecalho.codigo === '00') {
+              h.cabecalho.codigo = nameMatch[1]
+            }
+            h.cabecalho.nome_impresso = nameMatch[2].trim()
+          }
         }
 
         if (h.cabecalho.nome_impresso || h.linhas.length > 0) {
