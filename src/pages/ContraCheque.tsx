@@ -37,7 +37,6 @@ import {
   Download,
   Eye,
   Search,
-  Scale,
   Table as TableIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -123,7 +122,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
   const [publishing, setPublishing] = useState(false)
   const [extractedData, setExtractedData] = useState<any[]>([])
   const [previewData, setPreviewData] = useState<any>(null)
-  const [compareData, setCompareData] = useState<any>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -755,7 +753,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                             variant="outline"
                             className="bg-green-50 text-green-700 border-green-200"
                           >
-                            <CheckCircle2 className="w-3 h-3 mr-1" /> Fiel
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Importado
                           </Badge>
                         ) : (
                           <Badge
@@ -768,14 +766,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCompareData(d)}
-                            className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:text-blue-800"
-                          >
-                            <Scale className="w-4 h-4 mr-2" /> Auditar
-                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -810,107 +800,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         isOpen={!!previewData}
         onClose={() => setPreviewData(null)}
       />
-      <ComparacaoModal
-        data={compareData}
-        isOpen={!!compareData}
-        onClose={() => setCompareData(null)}
-      />
     </Card>
-  )
-}
-
-function ComparacaoModal({
-  data,
-  isOpen,
-  onClose,
-}: {
-  data: any
-  isOpen: boolean
-  onClose: () => void
-}) {
-  if (!data) return null
-
-  const formatNumber = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
-      value || 0,
-    )
-
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Auditoria de Extração XLSX</DialogTitle>
-          <DialogDescription>
-            Confirmação de que todas as linhas, colunas e eventos do arquivo importado foram
-            preservados e tabulados sem invenções ou exclusões.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="mt-4 bg-slate-50 border rounded-lg overflow-hidden">
-          <div className="bg-slate-100 p-3 border-b flex justify-between items-center">
-            <span className="font-semibold text-slate-700">
-              Eventos do Colaborador: {data.nome}
-            </span>
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              Espelho 1:1 Excel
-            </Badge>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Referência</TableHead>
-                <TableHead className="text-right">Vencimento</TableHead>
-                <TableHead className="text-right">Desconto</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.dados_extraidos.linhas.map((l: any, i: number) => (
-                <TableRow key={i}>
-                  <TableCell className="font-medium">{l.codigo}</TableCell>
-                  <TableCell>{l.descricao}</TableCell>
-                  <TableCell>{l.referencia}</TableCell>
-                  <TableCell className="text-right text-blue-600">
-                    {l.vencimento ? `R$ ${formatNumber(l.vencimento)}` : '-'}
-                  </TableCell>
-                  <TableCell className="text-right text-red-600">
-                    {l.desconto ? `R$ ${formatNumber(l.desconto)}` : '-'}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-            <TableFooter>
-              <TableRow>
-                <TableCell colSpan={3} className="text-right font-bold">
-                  Totais:
-                </TableCell>
-                <TableCell className="text-right font-bold text-blue-700">
-                  R$ {formatNumber(data.dados_extraidos.totais.vencimentos)}
-                </TableCell>
-                <TableCell className="text-right font-bold text-red-700">
-                  R$ {formatNumber(data.dados_extraidos.totais.descontos)}
-                </TableCell>
-              </TableRow>
-              <TableRow className="bg-slate-100">
-                <TableCell colSpan={3} className="text-right font-bold text-slate-800">
-                  Líquido a Receber:
-                </TableCell>
-                <TableCell colSpan={2} className="text-right font-bold text-xl text-green-700">
-                  R$ {formatNumber(data.dados_extraidos.totais.liquido)}
-                </TableCell>
-              </TableRow>
-            </TableFooter>
-          </Table>
-        </div>
-
-        <div className="flex justify-end mt-4">
-          <Button onClick={onClose} variant="outline">
-            Fechar
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   )
 }
 
