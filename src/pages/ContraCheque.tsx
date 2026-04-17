@@ -266,30 +266,61 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
               }
             }
 
-            if (rowTextUpper.includes('NOME DO FUNCION') || rowTextUpper.includes('FUNCIONÁRIO')) {
+            if (
+              rowTextUpper.includes('NOME DO FUNCION') ||
+              rowTextUpper.includes('FUNCIONÁRIO') ||
+              rowTextUpper.includes('COLABORADOR')
+            ) {
               for (let j = 0; j < cells.length; j++) {
-                if (cells[j].toUpperCase().includes('FUNCION')) {
-                  if (i + 1 < rawRows.length) {
+                const upperCell = cells[j].toUpperCase()
+                if (
+                  upperCell.includes('FUNCION') ||
+                  upperCell.includes('NOME') ||
+                  upperCell.includes('COLABORADOR')
+                ) {
+                  const match = cells[j].match(
+                    /(?:NOME|FUNCION[A-ZÁÀÂÃÉÈÍÏÓÔÕÖÚÇ]*|COLABORADOR).*?:?\s*(?:(\d+)\s*[-|–]?\s*)?([A-ZÀ-Úa-zà-ú\s]{5,})/i,
+                  )
+                  if (match && match[2] && !match[2].toUpperCase().includes('CBO')) {
+                    if (match[1]) h.cabecalho.codigo = match[1]
+                    h.cabecalho.nome_impresso = match[2].trim()
+                  }
+
+                  if (!h.cabecalho.nome_impresso && i + 1 < rawRows.length) {
                     const val = String(rawRows[i + 1][j] || '').trim()
-                    const match = val.match(/^(\d+)\s*[-|–]?\s*(.+)$/)
-                    if (match) {
-                      h.cabecalho.codigo = match[1]
-                      h.cabecalho.nome_impresso = match[2].trim()
-                    } else if (val && !val.toUpperCase().includes('CBO')) {
-                      h.cabecalho.nome_impresso = val
-                      if (j > 0 && rawRows[i + 1][j - 1])
-                        h.cabecalho.codigo = String(rawRows[i + 1][j - 1]).trim()
+                    const invalidVals = [
+                      'CÓDIGO',
+                      'CODIGO',
+                      'DESCRIÇÃO',
+                      'DESCRICAO',
+                      'REFERÊNCIA',
+                      'REFERENCIA',
+                      'VENCIMENTO',
+                      'DESCONTO',
+                    ]
+                    if (!invalidVals.includes(val.toUpperCase()) && val.length > 2) {
+                      const matchBelow = val.match(/^(\d+)\s*[-|–]?\s*(.+)$/)
+                      if (matchBelow) {
+                        h.cabecalho.codigo = matchBelow[1]
+                        h.cabecalho.nome_impresso = matchBelow[2].trim()
+                      } else if (val && !val.toUpperCase().includes('CBO')) {
+                        h.cabecalho.nome_impresso = val
+                        if (j > 0 && rawRows[i + 1][j - 1]) {
+                          h.cabecalho.codigo = String(rawRows[i + 1][j - 1]).trim()
+                        }
+                      }
                     }
                   }
                 }
               }
-              if (!h.cabecalho.nome_impresso) {
-                for (let c of cells) {
-                  const m = c.match(/^(\d+)\s+([A-ZÀ-Ú\s]{5,})$/i)
-                  if (m && !c.toUpperCase().includes('CBO')) {
-                    h.cabecalho.codigo = m[1]
-                    h.cabecalho.nome_impresso = m[2].trim()
-                  }
+            }
+
+            if (!h.cabecalho.nome_impresso) {
+              for (let c of cells) {
+                const m = c.match(/^(\d+)\s*[-|–]\s*([A-ZÀ-Ú\s]{5,})$/i)
+                if (m && !c.toUpperCase().includes('CBO')) {
+                  h.cabecalho.codigo = m[1]
+                  h.cabecalho.nome_impresso = m[2].trim()
                 }
               }
             }
@@ -511,6 +542,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           arquivo_url: publicUrl,
           dados_extraidos,
           valor_liquido: empData.totais.liquido,
+          valor_bruto: empData.totais.vencimentos,
           is_mapped: !!colab,
         })
       }
@@ -664,8 +696,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead>Colaborador</TableHead>
-                    <TableHead>Eventos Lidos</TableHead>
-                    <TableHead className="text-right">Valor Líquido</TableHead>
+                    <TableHead className="text-right">Valor Bruto</TableHead>
                     <TableHead className="text-center">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -689,12 +720,9 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        {d.dados_extraidos?.linhas?.length || 0} linhas mapeadas
-                      </TableCell>
                       <TableCell className="text-right font-bold text-slate-900">
                         R${' '}
-                        {d.valor_liquido?.toLocaleString('pt-BR', {
+                        {d.valor_bruto?.toLocaleString('pt-BR', {
                           minimumFractionDigits: 2,
                         })}
                       </TableCell>
@@ -737,6 +765,18 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                     </TableRow>
                   ))}
                 </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell className="font-bold text-right">Total da Folha:</TableCell>
+                    <TableCell className="text-right font-bold text-lg text-blue-700">
+                      R${' '}
+                      {extractedData
+                        .reduce((acc, curr) => acc + (curr.valor_bruto || 0), 0)
+                        .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell colSpan={2}></TableCell>
+                  </TableRow>
+                </TableFooter>
               </Table>
             </div>
           </div>
