@@ -15,14 +15,14 @@ Deno.serve(async (req) => {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File
-
+    
     if (!file) {
       throw new Error('Nenhum arquivo enviado.')
     }
 
     const arrayBuffer = await file.arrayBuffer()
     const workbook = XLSX.read(arrayBuffer, { type: 'buffer' })
-
+    
     const result: any = {}
     for (const sheetName of workbook.SheetNames) {
       result[sheetName] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null })
