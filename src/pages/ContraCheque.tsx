@@ -510,26 +510,49 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       }
 
       const extracted = []
+      const mappedColabIds = new Set()
 
       for (const empData of finalExtracted) {
-        const empName = empData.cabecalho.nome_impresso || ''
-        const empCode = empData.cabecalho.codigo || ''
+        const empName = (empData.cabecalho.nome_impresso || '').trim()
+        const empCode = (empData.cabecalho.codigo || '').trim()
 
-        // Find match in DB
-        const colab = colabs.find((c) => {
-          if (!empName) return false
-          const nameMatches =
-            (c.nome || '').toUpperCase().includes(empName.toUpperCase()) ||
-            empName.toUpperCase().includes((c.nome || '').toUpperCase())
-          const codeMatches =
-            empCode &&
-            (String(c.id).includes(empCode) ||
-              String(c.cpf).includes(empCode) ||
-              String(c.rg).includes(empCode))
+        let colab = null
 
-          if (empName === empCode) return codeMatches || nameMatches
-          return nameMatches || codeMatches
-        })
+        if (empName) {
+          const normEmpName = empName.toUpperCase()
+
+          // 1. Exact match
+          colab = colabs.find(
+            (c) => !mappedColabIds.has(c.id) && (c.nome || '').toUpperCase().trim() === normEmpName,
+          )
+
+          // 2. Code match
+          if (!colab && empCode && empCode !== '00') {
+            colab = colabs.find(
+              (c) =>
+                !mappedColabIds.has(c.id) &&
+                (String(c.id).includes(empCode) ||
+                  String(c.cpf).includes(empCode) ||
+                  String(c.rg).includes(empCode)),
+            )
+          }
+
+          // 3. Includes match
+          if (!colab) {
+            colab = colabs.find((c) => {
+              if (mappedColabIds.has(c.id)) return false
+              const normColabName = (c.nome || '').toUpperCase().trim()
+              if (normEmpName.length > 3 && normColabName.length > 3) {
+                return normColabName.includes(normEmpName) || normEmpName.includes(normColabName)
+              }
+              return false
+            })
+          }
+        }
+
+        if (colab) {
+          mappedColabIds.add(colab.id)
+        }
 
         const dados_extraidos = {
           empresa: {
@@ -546,7 +569,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
               empData.cabecalho.admissao ||
               (colab?.data_admissao
                 ? new Date(colab.data_admissao + 'T12:00:00').toLocaleDateString('pt-BR')
-                : '01/01/2023'),
+                : ''),
           },
           linhas: empData.linhas,
           totais: empData.totais,
@@ -603,13 +626,15 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
     try {
       const insertsMap = new Map()
       validData.forEach((e) => {
-        insertsMap.set(e.colaborador_id, {
-          colaborador_id: e.colaborador_id,
-          mes_ano: selectedMonth,
-          arquivo_url: e.arquivo_url,
-          valor_liquido: e.valor_liquido,
-          dados_extraidos: e.dados_extraidos,
-        })
+        if (!insertsMap.has(e.colaborador_id)) {
+          insertsMap.set(e.colaborador_id, {
+            colaborador_id: e.colaborador_id,
+            mes_ano: selectedMonth,
+            arquivo_url: e.arquivo_url,
+            valor_liquido: e.valor_liquido,
+            dados_extraidos: e.dados_extraidos,
+          })
+        }
       })
       const inserts = Array.from(insertsMap.values())
 
