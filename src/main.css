@@ -117,17 +117,52 @@
   }
 
   .print-area {
-    width: 190mm !important;
-    max-width: 190mm !important;
+    width: 180mm !important;
+    max-width: 180mm !important;
     margin: 0 auto !important;
     overflow: hidden !important;
     border: none !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    box-sizing: border-box !important;
+    transform: scale(0.96) !important;
+    transform-origin: top center !important;
   }
 
   /* Força a renderização das bordas na impressão para evitar falhas visuais */
   .border-black {
     border-color: #000000 !important;
+    border-style: solid !important;
+  }
+
+  .border {
+    border-width: 1px !important;
+    border-style: solid !important;
+  }
+  .border-t {
+    border-top-width: 1px !important;
+    border-style: solid !important;
+  }
+  .border-b {
+    border-bottom-width: 1px !important;
+    border-style: solid !important;
+  }
+  .border-r {
+    border-right-width: 1px !important;
+    border-style: solid !important;
+  }
+  .border-l {
+    border-left-width: 1px !important;
+    border-style: solid !important;
+  }
+  .border-y {
+    border-top-width: 1px !important;
+    border-bottom-width: 1px !important;
+    border-style: solid !important;
+  }
+  .border-x {
+    border-left-width: 1px !important;
+    border-right-width: 1px !important;
+    border-style: solid !important;
   }
 }

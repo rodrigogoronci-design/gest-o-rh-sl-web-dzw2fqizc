@@ -1101,7 +1101,7 @@ function ContraChequeDataModal({
         </DialogHeader>
 
         <div className="w-full overflow-x-auto print:overflow-visible pb-4">
-          <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-2 flex relative min-w-[700px] w-full max-w-[850px] mx-auto shadow-sm print-area print:min-w-0 print:w-[190mm] print:max-w-[190mm] print:border-none print:shadow-none print:overflow-hidden print:p-0 print:m-0 print:mx-auto">
+          <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-2 flex relative min-w-[700px] w-full max-w-[850px] mx-auto shadow-sm print-area print:min-w-0 print:w-full print:max-w-[180mm] print:border-none print:shadow-none print:overflow-hidden print:p-0 print:m-0 print:mx-auto">
             <div className="flex-1 flex flex-col border border-black box-border">
               <div className="flex justify-between border-b border-black p-2 box-border">
                 <div>
@@ -1283,7 +1283,7 @@ function ContraChequeDataModal({
               </div>
             </div>
 
-            <div className="w-[45px] sm:w-[50px] border-y border-r border-black ml-1 flex flex-col relative bg-white shrink-0 overflow-hidden box-border">
+            <div className="w-[45px] sm:w-[50px] border-y border-r border-black flex flex-col relative bg-white shrink-0 overflow-hidden box-border">
               <div className="flex flex-row flex-1 justify-center items-center py-4 px-1 gap-1">
                 <div
                   className="text-[9px] whitespace-nowrap transform rotate-180 text-slate-600 print:text-black"
