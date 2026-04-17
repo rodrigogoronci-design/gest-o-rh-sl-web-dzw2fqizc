@@ -189,27 +189,38 @@ function AdminMemoriaCalculo() {
     }
   })
 
+  const COLORS_PROVENTOS = ['#10b981', '#059669', '#34d399', '#047857', '#6ee7b7']
+  const COLORS_DESCONTOS = ['#ef4444', '#dc2626', '#f87171', '#b91c1c', '#fca5a5']
+
   const topDescontos = Object.values(eventos)
     .filter((e) => e.desconto > 0)
     .sort((a, b) => b.desconto - a.desconto)
     .slice(0, 5)
-    .map((e) => ({ ...e, desconto: Number(e.desconto.toFixed(2)) }))
+    .map((e, index) => ({
+      ...e,
+      desconto: Number(e.desconto.toFixed(2)),
+      fill: COLORS_DESCONTOS[index % COLORS_DESCONTOS.length],
+    }))
 
   const topProventos = Object.values(eventos)
     .filter((e) => e.provento > 0)
     .sort((a, b) => b.provento - a.provento)
     .slice(0, 5)
-    .map((e) => ({ ...e, provento: Number(e.provento.toFixed(2)) }))
+    .map((e, index) => ({
+      ...e,
+      provento: Number(e.provento.toFixed(2)),
+      fill: COLORS_PROVENTOS[index % COLORS_PROVENTOS.length],
+    }))
 
   const distData = [
-    { name: 'Líquido', valor: Number(totalLiquido.toFixed(2)), fill: 'hsl(var(--chart-2))' },
-    { name: 'Descontos', valor: Number(totalDescontos.toFixed(2)), fill: 'hsl(var(--chart-1))' },
+    { name: 'Líquido', valor: Number(totalLiquido.toFixed(2)), fill: '#3b82f6' },
+    { name: 'Descontos', valor: Number(totalDescontos.toFixed(2)), fill: '#ef4444' },
   ]
 
   const chartConfig = {
     valor: { label: 'Valor', color: 'hsl(var(--primary))' },
-    provento: { label: 'Provento', color: 'hsl(var(--chart-2))' },
-    desconto: { label: 'Desconto', color: 'hsl(var(--chart-1))' },
+    provento: { label: 'Provento', color: '#10b981' },
+    desconto: { label: 'Desconto', color: '#ef4444' },
   }
 
   const formatCurrency = (val: number) =>
@@ -279,11 +290,10 @@ function AdminMemoriaCalculo() {
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground mt-2">
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-2))]"></div> Líquido
+                      <div className="w-3 h-3 rounded-full bg-[#3b82f6]"></div> Líquido
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-1))]"></div>{' '}
-                      Descontos
+                      <div className="w-3 h-3 rounded-full bg-[#ef4444]"></div> Descontos
                     </div>
                   </div>
                 </CardContent>
@@ -319,11 +329,11 @@ function AdminMemoriaCalculo() {
                           cursor={false}
                           content={<ChartTooltipContent indicator="line" />}
                         />
-                        <Bar
-                          dataKey="provento"
-                          fill="var(--color-provento)"
-                          radius={[0, 4, 4, 0]}
-                        />
+                        <Bar dataKey="provento" radius={[0, 4, 4, 0]}>
+                          {topProventos.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ChartContainer>
                   </CardContent>
@@ -357,11 +367,11 @@ function AdminMemoriaCalculo() {
                           cursor={false}
                           content={<ChartTooltipContent indicator="line" />}
                         />
-                        <Bar
-                          dataKey="desconto"
-                          fill="var(--color-desconto)"
-                          radius={[0, 4, 4, 0]}
-                        />
+                        <Bar dataKey="desconto" radius={[0, 4, 4, 0]}>
+                          {topDescontos.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ChartContainer>
                   </CardContent>
