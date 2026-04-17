@@ -45,6 +45,10 @@ const generateMonths = () => {
 }
 
 const chartConfig = {
+  Folha: {
+    label: 'Folha de Pgto',
+    color: '#8b5cf6',
+  },
   Ticket: {
     label: 'Ticket Aliment.',
     color: '#f97316',
@@ -52,6 +56,10 @@ const chartConfig = {
   Transporte: {
     label: 'Vale Transporte',
     color: '#3b82f6',
+  },
+  Meritocracia: {
+    label: 'Meritocracia',
+    color: '#eab308',
   },
   Total: {
     label: 'Total Gasto',
@@ -91,7 +99,7 @@ export default function Dashboard() {
     }
   }
 
-  const totalCost = stats ? stats.ticketCost + stats.transportCost : 0
+  const totalCost = stats ? stats.ticketCost + stats.transportCost + stats.folhaPagamento : 0
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto space-y-6 animate-fade-in-up">
@@ -123,7 +131,7 @@ export default function Dashboard() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <Card className="border-0 shadow-elevation overflow-hidden relative">
             <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -163,20 +171,20 @@ export default function Dashboard() {
           </Card>
 
           <Card className="border-0 shadow-elevation overflow-hidden relative">
-            <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+            <div className="absolute top-0 left-0 w-1 h-full bg-violet-500" />
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-500">
-                Custo Médio / Colab.
+                Folha de Pagamento
               </CardTitle>
-              <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
-                <Calculator className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center text-violet-600">
+                <Wallet className="w-6 h-6" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900">
-                {formatCurrency(stats.averageCost)}
+                {formatCurrency(stats.folhaPagamento || 0)}
               </div>
-              <p className="text-sm text-slate-500 mt-2">Média por funcionário ativo</p>
+              <p className="text-sm text-slate-500 mt-2">Soma dos contracheques</p>
             </CardContent>
           </Card>
 
@@ -222,6 +230,24 @@ export default function Dashboard() {
           </Card>
 
           <Card className="border-0 shadow-elevation overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">
+                Custo Médio / Colab.
+              </CardTitle>
+              <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
+                <Calculator className="w-6 h-6" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-900">
+                {formatCurrency(stats.averageCost)}
+              </div>
+              <p className="text-sm text-slate-500 mt-2">Média por funcionário ativo</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-elevation overflow-hidden relative">
             <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-500">
@@ -234,6 +260,22 @@ export default function Dashboard() {
             <CardContent>
               <div className="text-3xl font-bold text-slate-900">{stats.activeEmployees}</div>
               <p className="text-sm text-slate-500 mt-2">Registrados na base de dados</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-elevation overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-1 h-full bg-yellow-500" />
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Meritocracia</CardTitle>
+              <div className="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-600">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-900">
+                {formatCurrency(stats.meritocracia || 0)}
+              </div>
+              <p className="text-sm text-slate-500 mt-2">Prêmios do período</p>
             </CardContent>
           </Card>
         </div>
@@ -252,6 +294,10 @@ export default function Dashboard() {
               <ChartContainer config={chartConfig} className="w-full h-full">
                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
+                    <linearGradient id="fillFolha" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-Folha)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--color-Folha)" stopOpacity={0} />
+                    </linearGradient>
                     <linearGradient id="fillTicket" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="var(--color-Ticket)" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="var(--color-Ticket)" stopOpacity={0} />
@@ -259,6 +305,10 @@ export default function Dashboard() {
                     <linearGradient id="fillTransporte" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="var(--color-Transporte)" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="var(--color-Transporte)" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="fillMeritocracia" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-Meritocracia)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--color-Meritocracia)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -279,6 +329,15 @@ export default function Dashboard() {
                   <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
                   <Area
                     type="monotone"
+                    dataKey="Folha"
+                    stroke="var(--color-Folha)"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#fillFolha)"
+                    stackId="1"
+                  />
+                  <Area
+                    type="monotone"
                     dataKey="Ticket"
                     stroke="var(--color-Ticket)"
                     strokeWidth={2}
@@ -293,6 +352,15 @@ export default function Dashboard() {
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#fillTransporte)"
+                    stackId="1"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="Meritocracia"
+                    stroke="var(--color-Meritocracia)"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#fillMeritocracia)"
                     stackId="1"
                   />
                   <ChartLegend content={<ChartLegendContent />} />

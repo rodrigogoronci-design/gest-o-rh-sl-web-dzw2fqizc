@@ -28,7 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Edit2, Trash2, UserPlus, Mail } from 'lucide-react'
+import { Edit2, Trash2, UserPlus, Mail, Camera } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
@@ -61,6 +62,8 @@ export default function Users() {
   const [recebeTransporte, setRecebeTransporte] = useState(true)
   const [sendInvite, setSendInvite] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState('')
 
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [editId, setEditId] = useState('')
@@ -70,6 +73,9 @@ export default function Users() {
   const [editPassword, setEditPassword] = useState('')
   const [editRecebeTransporte, setEditRecebeTransporte] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [editAvatarUrl, setEditAvatarUrl] = useState('')
+  const [editAvatarFile, setEditAvatarFile] = useState<File | null>(null)
+  const [editAvatarPreview, setEditAvatarPreview] = useState('')
 
   if (currentUser?.role !== 'admin' && currentUser?.role !== 'Admin') {
     return <Navigate to="/app/mural" replace />
@@ -81,7 +87,27 @@ export default function Users() {
 
     setIsSaving(true)
     try {
-      const payload: any = { name, email, role, recebe_transporte: recebeTransporte, sendInvite }
+      let uploadedAvatarUrl = ''
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop()
+        const filePath = `avatars/new-${Date.now()}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, avatarFile)
+        if (!uploadError) {
+          const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+          uploadedAvatarUrl = data.publicUrl
+        }
+      }
+
+      const payload: any = {
+        name,
+        email,
+        role,
+        recebe_transporte: recebeTransporte,
+        sendInvite,
+        avatar_url: uploadedAvatarUrl,
+      }
       if (password && !sendInvite) payload.password = password
 
       const { data, error } = await supabase.functions.invoke('manage-user', {
@@ -96,6 +122,8 @@ export default function Users() {
       setPassword('')
       setRecebeTransporte(true)
       setSendInvite(false)
+      setAvatarFile(null)
+      setAvatarPreview('')
       toast({
         title: 'Usuário adicionado',
         description: `${name} foi adicionado com sucesso.${sendInvite ? ' Um convite foi enviado para o e-mail.' : ''}`,
@@ -119,6 +147,9 @@ export default function Users() {
     setEditRole(u.role?.toLowerCase() === 'admin' ? 'admin' : 'colaborador')
     setEditPassword('')
     setEditRecebeTransporte(u.recebe_transporte ?? true)
+    setEditAvatarUrl(u.avatar_url || '')
+    setEditAvatarFile(null)
+    setEditAvatarPreview('')
     setIsEditOpen(true)
   }
 
@@ -128,6 +159,19 @@ export default function Users() {
 
     setIsUpdating(true)
     try {
+      let finalAvatarUrl = editAvatarUrl
+      if (editAvatarFile) {
+        const fileExt = editAvatarFile.name.split('.').pop()
+        const filePath = `avatars/${editId}-${Date.now()}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, editAvatarFile, { upsert: true })
+        if (!uploadError) {
+          const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+          finalAvatarUrl = data.publicUrl
+        }
+      }
+
       const payload = {
         id: editId,
         name: editName,
@@ -135,6 +179,7 @@ export default function Users() {
         role: editRole,
         password: editPassword || undefined,
         recebe_transporte: editRecebeTransporte === true,
+        avatar_url: finalAvatarUrl,
       }
 
       const { data, error } = await supabase.functions.invoke('manage-user', {
@@ -230,6 +275,28 @@ export default function Users() {
               <DialogTitle>Adicionar Novo Usuário</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAdd} className="space-y-4 pt-4">
+              <div className="flex justify-center mb-4">
+                <div className="relative group">
+                  <Avatar className="w-20 h-20 border-2 border-slate-100 shadow-sm">
+                    <AvatarImage src={avatarPreview} />
+                    <AvatarFallback className="text-xl">{name?.charAt(0) || 'U'}</AvatarFallback>
+                  </Avatar>
+                  <label className="absolute bottom-0 right-0 w-7 h-7 bg-primary text-white rounded-full flex items-center justify-center cursor-pointer shadow-md hover:bg-primary/90 transition-colors">
+                    <Camera className="w-3 h-3" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          setAvatarFile(e.target.files[0])
+                          setAvatarPreview(URL.createObjectURL(e.target.files[0]))
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label>Nome Completo</Label>
                 <Input
@@ -303,6 +370,28 @@ export default function Users() {
             <DialogTitle>Editar Usuário</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleUpdate} className="space-y-4 pt-4">
+            <div className="flex justify-center mb-4">
+              <div className="relative group">
+                <Avatar className="w-20 h-20 border-2 border-slate-100 shadow-sm">
+                  <AvatarImage src={editAvatarPreview || editAvatarUrl} />
+                  <AvatarFallback className="text-xl">{editName?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
+                <label className="absolute bottom-0 right-0 w-7 h-7 bg-primary text-white rounded-full flex items-center justify-center cursor-pointer shadow-md hover:bg-primary/90 transition-colors">
+                  <Camera className="w-3 h-3" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        setEditAvatarFile(e.target.files[0])
+                        setEditAvatarPreview(URL.createObjectURL(e.target.files[0]))
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Nome Completo</Label>
               <Input
@@ -387,7 +476,17 @@ export default function Users() {
               ) : (
                 colaboradores.map((u: any) => (
                   <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.name || u.nome}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src={u.avatar_url} />
+                          <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                            {(u.name || u.nome)?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">{u.name || u.nome}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
                       <Badge variant={u.role?.toLowerCase() === 'admin' ? 'default' : 'secondary'}>

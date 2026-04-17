@@ -57,6 +57,7 @@ Deno.serve(async (req: Request) => {
         nome: payload.name,
         role: mapRole(payload.role),
         departamento: payload.departamento || null,
+        avatar_url: payload.avatar_url || null,
         recebe_transporte:
           payload.recebe_transporte === false || payload.recebe_transporte === 'false'
             ? false
@@ -149,15 +150,21 @@ Deno.serve(async (req: Request) => {
       const receivesTransport =
         recebe_transporte === false || recebe_transporte === 'false' ? false : true
 
+      const updateDataDb: any = {
+        email,
+        nome: name,
+        role: mapRole(role),
+        departamento: payload.departamento || null,
+        recebe_transporte: receivesTransport,
+      }
+
+      if (payload.avatar_url !== undefined) {
+        updateDataDb.avatar_url = payload.avatar_url
+      }
+
       const { error: dbErr } = await supabase
         .from('colaboradores')
-        .update({
-          email,
-          nome: name,
-          role: mapRole(role),
-          departamento: payload.departamento || null,
-          recebe_transporte: receivesTransport,
-        })
+        .update(updateDataDb)
         .eq('id', colabId)
 
       if (dbErr) throw dbErr

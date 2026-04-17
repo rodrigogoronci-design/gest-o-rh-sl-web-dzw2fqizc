@@ -8,18 +8,26 @@ export const getDashboardStats = async (month: string) => {
   const prevMonthDate = subMonths(parseISO(`${month}-01T12:00:00`), 1)
   const prevMonth = format(prevMonthDate, 'yyyy-MM')
 
-  const [tickets, transports, cols, prevTickets, prevTransports] = await Promise.all([
-    supabase.from('beneficios_ticket').select('*').eq('mes_ano', month),
-    supabase.from('beneficios_transporte').select('*').eq('mes_ano', month),
-    supabase.from('colaboradores').select('id, status').eq('status', 'Ativo'),
-    supabase.from('beneficios_ticket').select('*').eq('mes_ano', prevMonth),
-    supabase.from('beneficios_transporte').select('*').eq('mes_ano', prevMonth),
-  ])
+  const [tickets, transports, cols, prevTickets, prevTransports, contracheques, prevContracheques] =
+    await Promise.all([
+      supabase.from('beneficios_ticket').select('*').eq('mes_ano', month),
+      supabase.from('beneficios_transporte').select('*').eq('mes_ano', month),
+      supabase.from('colaboradores').select('id, status').eq('status', 'Ativo'),
+      supabase.from('beneficios_ticket').select('*').eq('mes_ano', prevMonth),
+      supabase.from('beneficios_transporte').select('*').eq('mes_ano', prevMonth),
+      supabase.from('contracheques').select('valor_liquido').eq('mes_ano', month),
+      supabase.from('contracheques').select('valor_liquido').eq('mes_ano', prevMonth),
+    ])
 
   const ticketData = tickets.data || []
   const transportData = transports.data || []
   const prevTicketData = prevTickets.data || []
   const prevTransportData = prevTransports.data || []
+
+  const folhaPagamento =
+    contracheques.data?.reduce((acc, curr) => acc + (Number(curr.valor_liquido) || 0), 0) || 0
+  const prevFolhaPagamento =
+    prevContracheques.data?.reduce((acc, curr) => acc + (Number(curr.valor_liquido) || 0), 0) || 0
 
   let totalTicketDays = 0
   ticketData.forEach((t) => {
@@ -65,8 +73,10 @@ export const getDashboardStats = async (month: string) => {
     if (days > 0) prevTotalTransportDays += days
   })
 
-  const currentTotal = totalTicketDays * TICKET_RATE + totalTransportDays * TRANSPORT_RATE
-  const prevTotal = prevTotalTicketDays * TICKET_RATE + prevTotalTransportDays * TRANSPORT_RATE
+  const currentTotal =
+    totalTicketDays * TICKET_RATE + totalTransportDays * TRANSPORT_RATE + folhaPagamento
+  const prevTotal =
+    prevTotalTicketDays * TICKET_RATE + prevTotalTransportDays * TRANSPORT_RATE + prevFolhaPagamento
 
   let totalCostVariation = 0
   if (prevTotal > 0) {
@@ -81,6 +91,8 @@ export const getDashboardStats = async (month: string) => {
   return {
     ticketCost: totalTicketDays * TICKET_RATE,
     transportCost: totalTransportDays * TRANSPORT_RATE,
+    folhaPagamento,
+    meritocracia: 0,
     activeEmployees,
     ticketCount: ticketData.length,
     transportCount: transportData.length,
@@ -105,10 +117,15 @@ export const getDashboardChartData = async () => {
     .from('beneficios_transporte')
     .select('mes_ano, dias_uteis, faltas, ferias, atestados, home_office')
     .in('mes_ano', months)
+  const { data: contracheques } = await supabase
+    .from('contracheques')
+    .select('mes_ano, valor_liquido')
+    .in('mes_ano', months)
 
   const chartData = months.map((m) => {
     const tData = (tickets || []).filter((t) => t.mes_ano === m)
     const trData = (transports || []).filter((t) => t.mes_ano === m)
+    const cData = (contracheques || []).filter((c) => c.mes_ano === m)
 
     let tDays = 0
     tData.forEach((t) => {
@@ -132,11 +149,15 @@ export const getDashboardChartData = async () => {
       if (days > 0) trDays += days
     })
 
+    const folhaValor = cData.reduce((acc, curr) => acc + (Number(curr.valor_liquido) || 0), 0)
+
     return {
       name: m,
       Ticket: tDays * TICKET_RATE,
       Transporte: trDays * TRANSPORT_RATE,
-      Total: tDays * TICKET_RATE + trDays * TRANSPORT_RATE,
+      Folha: folhaValor,
+      Meritocracia: 0,
+      Total: tDays * TICKET_RATE + trDays * TRANSPORT_RATE + folhaValor,
     }
   })
 

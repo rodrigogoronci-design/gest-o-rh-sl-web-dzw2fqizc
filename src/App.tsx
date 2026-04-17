@@ -20,6 +20,7 @@ import Reports from './pages/Reports'
 import Historico from './pages/Historico'
 import Ponto from './pages/Ponto'
 import ContraCheque from './pages/ContraCheque'
+import Profile from './pages/Profile'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -79,6 +80,7 @@ const App = () => (
                 <Route path="mural" element={<Mural />} />
                 <Route path="ponto" element={<Ponto />} />
                 <Route path="contracheque" element={<ContraCheque />} />
+                <Route path="perfil" element={<Profile />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

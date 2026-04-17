@@ -1,5 +1,5 @@
-import { Bell, LogOut, User as UserIcon } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Bell, LogOut, User as UserIcon, Settings } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
 import useAppStore from '@/stores/useAppStore'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,10 +11,27 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase/client'
 
 export default function AppHeader() {
   const { currentUser, logout } = useAppStore()
   const navigate = useNavigate()
+  const [avatarUrl, setAvatarUrl] = useState('')
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      supabase
+        .from('colaboradores')
+        .select('avatar_url')
+        .eq('user_id', currentUser.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.avatar_url) setAvatarUrl(data.avatar_url)
+        })
+    }
+  }, [currentUser])
 
   const handleLogout = () => {
     logout()
@@ -37,9 +54,12 @@ export default function AppHeader() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 px-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                {currentUser?.name.charAt(0)}
-              </div>
+              <Avatar className="w-8 h-8 border border-slate-200">
+                <AvatarImage src={avatarUrl} />
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {currentUser?.name?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
               <span className="hidden sm:inline-block text-sm font-medium">
                 {currentUser?.name}
               </span>
@@ -52,6 +72,13 @@ export default function AppHeader() {
                 <p className="text-xs leading-none text-muted-foreground">{currentUser?.email}</p>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to="/app/perfil" className="cursor-pointer flex items-center">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Meu Perfil</span>
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive cursor-pointer" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
