@@ -117,9 +117,17 @@
   }
 
   .print-area {
-    width: 100% !important;
-    min-width: 0 !important;
-    overflow: visible !important;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    margin: 0 auto !important;
+    overflow: hidden !important;
     border: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Força a renderização das bordas na impressão para evitar falhas visuais */
+  .border-black {
+    border-color: #000000 !important;
   }
 }

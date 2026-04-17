@@ -1100,205 +1100,213 @@ function ContraChequeDataModal({
           <DialogTitle>Demonstrativo</DialogTitle>
         </DialogHeader>
 
-        <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-2 flex relative overflow-x-auto min-w-[760px] w-full shadow-sm print-area print:min-w-0 print:w-full print:border-none print:shadow-none print:overflow-visible print:p-0">
-          <div className="flex-1 flex flex-col border border-black">
-            <div className="flex justify-between border-b border-black p-2">
-              <div>
-                <div className="font-bold uppercase tracking-tight">
-                  {mockData.empresa?.nome || 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA'}
-                </div>
-                <div>CNPJ:&nbsp;&nbsp;{mockData.empresa?.cnpj || '10.929.600/0001-92'}</div>
-              </div>
-              <div className="text-center px-4">
-                <div>CC: Centro de Custo</div>
-                <div>Mensalista</div>
-              </div>
-              <div className="text-right">
-                <div>Folha Mensal</div>
-                <div className="capitalize">
-                  {(() => {
-                    if (!data.mes_ano) return ''
-                    const [m, y] = data.mes_ano.split('/')
-                    if (m && y) {
-                      const date = new Date(parseInt(y), parseInt(m) - 1, 1)
-                      return new Intl.DateTimeFormat('pt-BR', {
-                        month: 'long',
-                        year: 'numeric',
-                      }).format(date)
-                    }
-                    return data.mes_ano
-                  })()}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex border-b border-black p-2">
-              <div className="w-16">
-                <div className="text-[10px]">Código</div>
-                <div className="font-bold">{mockData.cabecalho?.codigo || '00'}</div>
-              </div>
-              <div className="flex-1">
-                <div className="text-[10px]">Nome do Funcionário</div>
-                <div className="font-bold uppercase">
-                  {mockData.cabecalho?.nome_impresso || data.nome}
-                </div>
-                <div className="uppercase">{data.cargo || ''}</div>
-              </div>
-              <div className="w-24">
-                <div className="text-[10px]">CBO</div>
-                <div>{mockData.cabecalho?.cbo || '212420'}</div>
-                <div className="mt-1 text-[10px]">Admissão:</div>
-              </div>
-              <div className="w-24 text-center">
-                <div className="text-[10px]">Departamento</div>
-                <div>{mockData.cabecalho?.departamento || data.departamento || '1'}</div>
-                <div className="mt-1">{mockData.cabecalho?.admissao || '01/01/2023'}</div>
-              </div>
-              <div className="w-16 text-center">
-                <div className="text-[10px]">Filial</div>
-                <div>{mockData.cabecalho?.filial || '1'}</div>
-              </div>
-            </div>
-
-            <div className="flex border-b border-black font-bold bg-slate-50">
-              <div className="w-16 p-1 border-r border-black text-center">Código</div>
-              <div className="flex-1 p-1 border-r border-black text-center">Descrição</div>
-              <div className="w-24 p-1 border-r border-black text-center">Referência</div>
-              <div className="w-32 p-1 border-r border-black text-center">Vencimentos</div>
-              <div className="w-32 p-1 text-center">Descontos</div>
-            </div>
-
-            <div className="flex-1 min-h-[300px] flex text-[13px]">
-              <div className="w-16 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
-                {mockData.linhas?.map((l: any, i: number) => (
-                  <div key={i} className="min-h-[1.25rem]">
-                    {l.codigo}
+        <div className="w-full overflow-x-auto print:overflow-visible pb-4">
+          <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-2 flex relative min-w-[700px] w-full max-w-[850px] mx-auto shadow-sm print-area print:min-w-0 print:w-[190mm] print:max-w-[190mm] print:border-none print:shadow-none print:overflow-hidden print:p-0 print:m-0 print:mx-auto">
+            <div className="flex-1 flex flex-col border border-black box-border">
+              <div className="flex justify-between border-b border-black p-2 box-border">
+                <div>
+                  <div className="font-bold uppercase tracking-tight">
+                    {mockData.empresa?.nome || 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA'}
                   </div>
-                ))}
-              </div>
-              <div className="flex-1 border-r border-black p-1 flex flex-col px-2 space-y-1">
-                {mockData.linhas?.map((l: any, i: number) => (
-                  <div key={i} className="min-h-[1.25rem]">
-                    {l.descricao}
+                  <div>CNPJ:&nbsp;&nbsp;{mockData.empresa?.cnpj || '10.929.600/0001-92'}</div>
+                </div>
+                <div className="text-center px-4">
+                  <div>CC: Centro de Custo</div>
+                  <div>Mensalista</div>
+                </div>
+                <div className="text-right">
+                  <div>Folha Mensal</div>
+                  <div className="capitalize">
+                    {(() => {
+                      if (!data.mes_ano) return ''
+                      const [m, y] = data.mes_ano.split('/')
+                      if (m && y) {
+                        const date = new Date(parseInt(y), parseInt(m) - 1, 1)
+                        return new Intl.DateTimeFormat('pt-BR', {
+                          month: 'long',
+                          year: 'numeric',
+                        }).format(date)
+                      }
+                      return data.mes_ano
+                    })()}
                   </div>
-                ))}
+                </div>
               </div>
-              <div className="w-24 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
-                {mockData.linhas?.map((l: any, i: number) => (
-                  <div key={i} className="min-h-[1.25rem]">
-                    {l.referencia}
+
+              <div className="flex border-b border-black p-2 box-border">
+                <div className="w-[10%]">
+                  <div className="text-[10px]">Código</div>
+                  <div className="font-bold">{mockData.cabecalho?.codigo || '00'}</div>
+                </div>
+                <div className="w-[45%] pr-2">
+                  <div className="text-[10px]">Nome do Funcionário</div>
+                  <div className="font-bold uppercase truncate">
+                    {mockData.cabecalho?.nome_impresso || data.nome}
                   </div>
-                ))}
+                  <div className="uppercase truncate">{data.cargo || ''}</div>
+                </div>
+                <div className="w-[15%]">
+                  <div className="text-[10px]">CBO</div>
+                  <div>{mockData.cabecalho?.cbo || '212420'}</div>
+                  <div className="mt-1 text-[10px]">Admissão:</div>
+                </div>
+                <div className="w-[15%] text-center">
+                  <div className="text-[10px]">Departamento</div>
+                  <div>{mockData.cabecalho?.departamento || data.departamento || '1'}</div>
+                  <div className="mt-1">{mockData.cabecalho?.admissao || '01/01/2023'}</div>
+                </div>
+                <div className="w-[15%] text-center">
+                  <div className="text-[10px]">Filial</div>
+                  <div>{mockData.cabecalho?.filial || '1'}</div>
+                </div>
               </div>
-              <div className="w-32 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
-                {mockData.linhas?.map((l: any, i: number) => (
-                  <div key={i} className="min-h-[1.25rem]">
-                    {l.vencimento ? formatNumber(l.vencimento) : '\u00A0'}
-                  </div>
-                ))}
+
+              <div className="flex border-b border-black font-bold bg-slate-50 print:bg-transparent box-border">
+                <div className="w-[10%] p-1 border-r border-black text-center box-border">
+                  Código
+                </div>
+                <div className="w-[45%] p-1 border-r border-black text-center box-border">
+                  Descrição
+                </div>
+                <div className="w-[10%] p-1 border-r border-black text-center box-border">Ref.</div>
+                <div className="w-[17.5%] p-1 border-r border-black text-center box-border">
+                  Vencimentos
+                </div>
+                <div className="w-[17.5%] p-1 text-center box-border">Descontos</div>
               </div>
-              <div className="w-32 p-1 flex flex-col items-end px-2 space-y-1">
-                {mockData.linhas?.map((l: any, i: number) => (
-                  <div key={i} className="min-h-[1.25rem]">
-                    {l.desconto ? formatNumber(l.desconto) : '\u00A0'}
+
+              <div className="flex-1 min-h-[300px] flex text-[13px] print:text-[12px] box-border">
+                <div className="w-[10%] border-r border-black p-1 flex flex-col items-center px-1 space-y-1 box-border">
+                  {mockData.linhas?.map((l: any, i: number) => (
+                    <div key={i} className="min-h-[1.25rem]">
+                      {l.codigo}
+                    </div>
+                  ))}
+                </div>
+                <div className="w-[45%] border-r border-black p-1 flex flex-col px-2 space-y-1 box-border">
+                  {mockData.linhas?.map((l: any, i: number) => (
+                    <div key={i} className="min-h-[1.25rem] truncate">
+                      {l.descricao}
+                    </div>
+                  ))}
+                </div>
+                <div className="w-[10%] border-r border-black p-1 flex flex-col items-center px-1 space-y-1 box-border">
+                  {mockData.linhas?.map((l: any, i: number) => (
+                    <div key={i} className="min-h-[1.25rem]">
+                      {l.referencia}
+                    </div>
+                  ))}
+                </div>
+                <div className="w-[17.5%] border-r border-black p-1 flex flex-col items-end px-2 space-y-1 box-border">
+                  {mockData.linhas?.map((l: any, i: number) => (
+                    <div key={i} className="min-h-[1.25rem]">
+                      {l.vencimento ? formatNumber(l.vencimento) : '\u00A0'}
+                    </div>
+                  ))}
+                </div>
+                <div className="w-[17.5%] p-1 flex flex-col items-end px-2 space-y-1 box-border">
+                  {mockData.linhas?.map((l: any, i: number) => (
+                    <div key={i} className="min-h-[1.25rem]">
+                      {l.desconto ? formatNumber(l.desconto) : '\u00A0'}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex border-t border-black h-16 box-border">
+                <div className="w-[65%] border-r border-black box-border"></div>
+                <div className="w-[17.5%] border-r border-black flex flex-col justify-between box-border">
+                  <div className="text-[10px] p-1 border-b border-black text-center print:bg-transparent bg-slate-50 box-border">
+                    Total Vencimentos
                   </div>
-                ))}
+                  <div className="p-2 text-right font-bold text-sm">
+                    {formatNumber(mockData.totais?.vencimentos || 0)}
+                  </div>
+                </div>
+                <div className="w-[17.5%] flex flex-col justify-between box-border">
+                  <div className="text-[10px] p-1 border-b border-black text-center print:bg-transparent bg-slate-50 box-border">
+                    Total Descontos
+                  </div>
+                  <div className="p-2 text-right font-bold text-sm">
+                    {formatNumber(mockData.totais?.descontos || 0)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex border-t border-black h-12 box-border">
+                <div className="w-[65%] flex justify-end items-center pr-4 border-r border-black box-border">
+                  <span className="text-[10px] mr-4">Valor Líquido</span>
+                  <span className="text-xl leading-none translate-y-[-2px]">⇨</span>
+                </div>
+                <div className="w-[35%] flex items-center justify-end p-2 font-bold text-[15px] bg-slate-50 print:bg-transparent box-border">
+                  {formatNumber(mockData.totais?.liquido || 0)}
+                </div>
+              </div>
+
+              <div className="flex border-t border-black text-[10px] text-center bg-slate-50 print:bg-transparent box-border">
+                <div className="w-[16.66%] p-1 border-r border-black box-border">
+                  <div className="truncate">Salário Base</div>
+                  <div className="font-bold text-xs mt-1">
+                    {formatNumber(mockData.bases?.salario_base || 0)}
+                  </div>
+                </div>
+                <div className="w-[16.66%] p-1 border-r border-black box-border">
+                  <div className="truncate">Sal. Contr. INSS</div>
+                  <div className="font-bold text-xs mt-1">
+                    {formatNumber(mockData.bases?.sal_contr_inss || 0)}
+                  </div>
+                </div>
+                <div className="w-[16.66%] p-1 border-r border-black box-border">
+                  <div className="truncate">Base Cálc. FGTS</div>
+                  <div className="font-bold text-xs mt-1">
+                    {formatNumber(mockData.bases?.base_calc_fgts || 0)}
+                  </div>
+                </div>
+                <div className="w-[16.66%] p-1 border-r border-black box-border">
+                  <div className="truncate">F.G.T.S do Mês</div>
+                  <div className="font-bold text-xs mt-1">
+                    {formatNumber(mockData.bases?.fgts_mes || 0)}
+                  </div>
+                </div>
+                <div className="w-[16.66%] p-1 border-r border-black box-border">
+                  <div className="truncate">Base Cálc. IRRF</div>
+                  <div className="font-bold text-xs mt-1">
+                    {formatNumber(mockData.bases?.base_calc_irrf || 0)}
+                  </div>
+                </div>
+                <div className="w-[16.66%] p-1 box-border">
+                  <div className="truncate">Faixa IRRF</div>
+                  <div className="font-bold text-xs mt-1">
+                    {formatNumber(mockData.bases?.faixa_irrf || 0)}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex border-t border-black h-16">
-              <div className="flex-1 border-r border-black"></div>
-              <div className="w-32 border-r border-black flex flex-col justify-between">
-                <div className="text-[10px] p-1 border-b border-black text-center">
-                  Total de Vencimentos
+            <div className="w-[45px] sm:w-[50px] border-y border-r border-black ml-1 flex flex-col relative bg-white shrink-0 overflow-hidden box-border">
+              <div className="flex flex-row flex-1 justify-center items-center py-4 px-1 gap-1">
+                <div
+                  className="text-[9px] whitespace-nowrap transform rotate-180 text-slate-600 print:text-black"
+                  style={{ writingMode: 'vertical-rl' }}
+                >
+                  Declaro ter recebido a importância liquida discriminada neste recibo.
                 </div>
-                <div className="p-2 text-right font-bold text-sm">
-                  {formatNumber(mockData.totais?.vencimentos || 0)}
-                </div>
-              </div>
-              <div className="w-32 flex flex-col justify-between">
-                <div className="text-[10px] p-1 border-b border-black text-center">
-                  Total de Descontos
-                </div>
-                <div className="p-2 text-right font-bold text-sm">
-                  {formatNumber(mockData.totais?.descontos || 0)}
+                <div
+                  className="text-[10px] whitespace-nowrap transform rotate-180 font-bold"
+                  style={{ writingMode: 'vertical-rl' }}
+                >
+                  Assinatura do Funcionário
                 </div>
               </div>
-            </div>
-
-            <div className="flex border-t border-black h-12">
-              <div className="flex-1 flex justify-end items-center pr-4 border-r border-black">
-                <span className="text-[10px] mr-4">Valor Líquido</span>
-                <span className="text-xl leading-none translate-y-[-2px]">⇨</span>
-              </div>
-              <div className="w-64 flex items-center justify-end p-2 font-bold text-[15px] bg-slate-50">
-                {formatNumber(mockData.totais?.liquido || 0)}
-              </div>
-            </div>
-
-            <div className="flex border-t border-black text-[10px] text-center divide-x divide-black bg-slate-50">
-              <div className="flex-1 p-1">
-                <div>Salário Base</div>
-                <div className="font-bold text-sm">
-                  {formatNumber(mockData.bases?.salario_base || 0)}
+              <div className="w-full flex flex-col px-1 z-10 pb-6 gap-6">
+                <div className="flex items-end justify-between">
+                  <span className="text-[9px] transform -rotate-90 origin-bottom-left translate-y-3">
+                    Data
+                  </span>
+                  <span className="border-b border-black w-full translate-y-2 ml-1"></span>
                 </div>
+                <div className="border-b border-black w-full"></div>
               </div>
-              <div className="flex-1 p-1">
-                <div>Sal. Contr. INSS</div>
-                <div className="font-bold text-sm">
-                  {formatNumber(mockData.bases?.sal_contr_inss || 0)}
-                </div>
-              </div>
-              <div className="flex-1 p-1">
-                <div>Base Cálc. FGTS</div>
-                <div className="font-bold text-sm">
-                  {formatNumber(mockData.bases?.base_calc_fgts || 0)}
-                </div>
-              </div>
-              <div className="flex-1 p-1">
-                <div>F.G.T.S do Mês</div>
-                <div className="font-bold text-sm">
-                  {formatNumber(mockData.bases?.fgts_mes || 0)}
-                </div>
-              </div>
-              <div className="flex-1 p-1">
-                <div>Base Cálc. IRRF</div>
-                <div className="font-bold text-sm">
-                  {formatNumber(mockData.bases?.base_calc_irrf || 0)}
-                </div>
-              </div>
-              <div className="flex-1 p-1">
-                <div>Faixa IRRF</div>
-                <div className="font-bold text-sm">
-                  {formatNumber(mockData.bases?.faixa_irrf || 0)}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="w-16 border-y border-r border-black ml-1 flex flex-col relative bg-white shrink-0 overflow-hidden">
-            <div className="flex flex-row flex-1 justify-center items-center py-4 px-1 gap-2">
-              <div
-                className="text-[10px] whitespace-nowrap transform rotate-180 text-slate-600"
-                style={{ writingMode: 'vertical-rl' }}
-              >
-                Declaro ter recebido a importância liquida discriminada neste recibo.
-              </div>
-              <div
-                className="text-[11px] whitespace-nowrap transform rotate-180"
-                style={{ writingMode: 'vertical-rl' }}
-              >
-                Assinatura do Funcionário
-              </div>
-            </div>
-            <div className="w-full flex flex-col px-2 z-10 pb-6 gap-6">
-              <div className="flex items-end justify-between px-1">
-                <span className="text-[10px] transform -rotate-90 origin-bottom-left translate-y-3">
-                  Data
-                </span>
-                <span className="border-b border-black w-full translate-y-2 ml-1"></span>
-              </div>
-              <div className="border-b border-black w-full"></div>
             </div>
           </div>
         </div>
