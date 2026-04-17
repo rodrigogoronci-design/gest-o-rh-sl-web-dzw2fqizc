@@ -174,35 +174,109 @@ function AdminUpload() {
       if (!colabs) throw new Error('Erro ao buscar colaboradores no sistema')
 
       const sheetNames = Object.keys(parsedData)
-      const rows = parsedData[sheetNames[0]] || []
+      let rawRows: any[] = parsedData[sheetNames[0]] || []
 
-      const normalizedRows = rows.map((r: any) => {
-        const nr: any = {}
-        for (const k of Object.keys(r)) {
-          nr[k.trim()] = r[k]
+      if (rawRows.length > 0 && !Array.isArray(rawRows[0])) {
+        const keys = Object.keys(rawRows[0])
+        rawRows = [keys, ...rawRows.map((r) => keys.map((k) => r[k]))]
+      }
+
+      let headerRowIndex = -1
+      let nameColIdx = -1,
+        codeColIdx = -1,
+        descColIdx = -1,
+        refColIdx = -1,
+        vencColIdx = -1,
+        descntColIdx = -1
+
+      for (let i = 0; i < Math.min(rawRows.length, 50); i++) {
+        const row = rawRows[i] || []
+
+        const tempNameIdx = row.findIndex((c: any) => {
+          const s = String(c || '').toLowerCase()
+          return s.includes('nome') || s.includes('colaborador') || s.includes('funcion')
+        })
+        const tempCodeIdx = row.findIndex((c: any) => {
+          const s = String(c || '').toLowerCase()
+          return s.includes('cod') || s.includes('cód') || s.includes('rubrica')
+        })
+        const tempDescIdx = row.findIndex((c: any) => {
+          const s = String(c || '').toLowerCase()
+          return s.includes('descri') || s.includes('evento')
+        })
+        const tempRefIdx = row.findIndex((c: any) => {
+          const s = String(c || '').toLowerCase()
+          return s.includes('ref')
+        })
+        const tempVencIdx = row.findIndex((c: any) => {
+          const s = String(c || '').toLowerCase()
+          return (
+            (s.includes('venc') || s.includes('prov') || s.includes('valor')) && !s.includes('desc')
+          )
+        })
+        const tempDescntIdx = row.findIndex((c: any) => {
+          const s = String(c || '').toLowerCase()
+          return s.includes('desc') && !s.includes('descri')
+        })
+
+        if (tempNameIdx !== -1) nameColIdx = tempNameIdx
+        if (tempCodeIdx !== -1) codeColIdx = tempCodeIdx
+        if (tempDescIdx !== -1) descColIdx = tempDescIdx
+        if (tempRefIdx !== -1) refColIdx = tempRefIdx
+        if (tempVencIdx !== -1) vencColIdx = tempVencIdx
+        if (tempDescntIdx !== -1) descntColIdx = tempDescntIdx
+
+        if (nameColIdx !== -1 && (vencColIdx !== -1 || descntColIdx !== -1 || descColIdx !== -1)) {
+          headerRowIndex = i
+          if (vencColIdx !== -1 || descntColIdx !== -1) break
         }
-        return nr
-      })
+      }
+
+      if (headerRowIndex === -1 || nameColIdx === -1) {
+        if (rawRows.length > 1) {
+          nameColIdx = 0
+          vencColIdx = 1
+          descntColIdx = 2
+          headerRowIndex = 0
+        } else {
+          throw new Error(
+            'Não foi possível identificar as colunas (Nome, Vencimentos, Descontos) no arquivo.',
+          )
+        }
+      }
 
       const grouped: Record<string, any[]> = {}
-      const firstRowKeys = Object.keys(normalizedRows[0] || {})
+      let currentName = ''
 
-      let nameKey = firstRowKeys.find((k) => /nome|colaborador|funcion[aá]rio/i.test(k)) || 'Nome'
-      let codeKey = firstRowKeys.find((k) => /c[oó]d/i.test(k)) || 'Código'
-      let descKey = firstRowKeys.find((k) => /descri|evento/i.test(k)) || 'Descrição'
-      let refKey = firstRowKeys.find((k) => /ref/i.test(k)) || 'Referência'
-      let vencKey =
-        firstRowKeys.find((k) => /venc|prov|valor/i.test(k) && !/desc/i.test(k)) || 'Vencimentos'
-      let descntKey = firstRowKeys.find((k) => /desc/i.test(k) && !/descri/i.test(k)) || 'Descontos'
+      for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
+        const row = rawRows[i] || []
+        if (row.length === 0) continue
 
-      if (descntKey === descKey) descntKey = 'Descontos'
+        let name = nameColIdx !== -1 ? row[nameColIdx] : ''
+        if (name && String(name).trim() !== '') {
+          currentName = String(name).trim().toUpperCase()
+        }
 
-      for (const row of normalizedRows) {
-        const name = row[nameKey]
-        if (!name) continue
-        const n = String(name).trim().toUpperCase()
-        if (!grouped[n]) grouped[n] = []
-        grouped[n].push(row)
+        if (!currentName) continue
+
+        const desc = descColIdx !== -1 ? row[descColIdx] : ''
+        const venc = vencColIdx !== -1 ? row[vencColIdx] : null
+        const descnt = descntColIdx !== -1 ? row[descntColIdx] : null
+
+        if (!desc && !venc && !descnt) continue
+        if (String(desc).toLowerCase().includes('total')) continue
+
+        if (!grouped[currentName]) grouped[currentName] = []
+
+        const obj: any = {}
+        if (codeColIdx !== -1) obj['Código'] = row[codeColIdx]
+        if (descColIdx !== -1) obj['Descrição'] = desc
+        if (refColIdx !== -1) obj['Referência'] = row[refColIdx]
+        if (vencColIdx !== -1) obj['Vencimentos'] = venc
+        if (descntColIdx !== -1) obj['Descontos'] = descnt
+        obj['Nome'] = currentName
+
+        grouped[currentName].push(obj)
       }
 
       const extracted = []
@@ -229,18 +303,19 @@ function AdminUpload() {
 
         const linhas = empRows
           .map((r) => {
-            const v = r[vencKey] !== undefined && r[vencKey] !== null ? r[vencKey] : 0
-            const d = r[descntKey] !== undefined && r[descntKey] !== null ? r[descntKey] : 0
+            const v =
+              r['Vencimentos'] !== undefined && r['Vencimentos'] !== null ? r['Vencimentos'] : 0
+            const d = r['Descontos'] !== undefined && r['Descontos'] !== null ? r['Descontos'] : 0
 
             return {
-              codigo: r[codeKey] ? String(r[codeKey]) : '',
-              descricao: r[descKey] ? String(r[descKey]) : '',
-              referencia: r[refKey] ? String(r[refKey]) : '',
+              codigo: r['Código'] ? String(r['Código']) : '',
+              descricao: r['Descrição'] ? String(r['Descrição']) : '',
+              referencia: r['Referência'] ? String(r['Referência']) : '',
               vencimento: safeParseFloat(v),
               desconto: safeParseFloat(d),
             }
           })
-          .filter((l) => l.codigo || l.descricao)
+          .filter((l) => l.codigo || l.descricao || l.vencimento || l.desconto)
 
         const totalVenc = linhas.reduce((acc, curr) => acc + (curr.vencimento || 0), 0)
         const totalDesc = linhas.reduce((acc, curr) => acc + (curr.desconto || 0), 0)
@@ -261,7 +336,7 @@ function AdminUpload() {
             cnpj: '10.929.600/0001-92',
           },
           cabecalho: {
-            codigo: empRows[0][codeKey] || '00',
+            codigo: empRows[0]['Código'] || '00',
             cbo: '212420',
             nome_impresso: empName,
             departamento: colab?.departamento || '1',
