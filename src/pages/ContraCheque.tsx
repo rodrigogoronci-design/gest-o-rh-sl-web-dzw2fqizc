@@ -601,13 +601,18 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
     setPublishing(true)
     try {
-      const inserts = validData.map((e) => ({
-        colaborador_id: e.colaborador_id,
-        mes_ano: selectedMonth,
-        arquivo_url: e.arquivo_url,
-        valor_liquido: e.valor_liquido,
-        dados_extraidos: e.dados_extraidos,
-      }))
+      const insertsMap = new Map()
+      validData.forEach((e) => {
+        insertsMap.set(e.colaborador_id, {
+          colaborador_id: e.colaborador_id,
+          mes_ano: selectedMonth,
+          arquivo_url: e.arquivo_url,
+          valor_liquido: e.valor_liquido,
+          dados_extraidos: e.dados_extraidos,
+        })
+      })
+      const inserts = Array.from(insertsMap.values())
+
       const { error } = await supabase
         .from('contracheques')
         .upsert(inserts as any, { onConflict: 'colaborador_id, mes_ano' })
