@@ -226,99 +226,88 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
       for (const sheetName of sheetNames) {
         let rawRows: any[] = parsedData[sheetName] || []
+        if (rawRows.length === 0) continue
+
         if (rawRows.length > 0 && !Array.isArray(rawRows[0])) {
           const keys = Object.keys(rawRows[0])
           rawRows = [keys, ...rawRows.map((r) => keys.map((k) => r[k]))]
         }
 
         let h = getEmptyHolerite()
-        let state = 'SEARCHING'
+
+        const expandedRows: string[][] = []
+        for (const row of rawRows) {
+          if (!row) continue
+          const rowArr = Array.isArray(row) ? row : Object.values(row)
+          const cells = rowArr.map((c: any) => String(c || '').trim())
+          let maxLines = 1
+          const splitCells = cells.map((c) => {
+            const lines = c.split(/\r?\n/).map((l) => l.trim())
+            if (lines.length > maxLines) maxLines = lines.length
+            return lines
+          })
+          for (let i = 0; i < maxLines; i++) {
+            const newRow = splitCells.map((lines) => lines[i] || '')
+            if (newRow.some((c) => c !== '')) {
+              expandedRows.push(newRow)
+            }
+          }
+        }
+
+        let state = 'HEADER'
         let colMap = { codigo: -1, descricao: -1, referencia: -1, vencimentos: -1, descontos: -1 }
 
-        for (let i = 0; i < rawRows.length; i++) {
-          const row = rawRows[i] || []
-          const cells = row.map((c: any) => String(c || '').trim())
-          const rowTextUpper = cells.join(' ').toUpperCase()
+        for (let i = 0; i < expandedRows.length; i++) {
+          const row = expandedRows[i]
+          const rowTextUpper = row.join(' ').toUpperCase()
 
           if (!rowTextUpper.trim()) continue
 
-          if (
-            state === 'FOOTER' &&
-            (rowTextUpper.includes('NOME DO FUNCION') ||
-              rowTextUpper.includes('SERVICELOGIC') ||
-              rowTextUpper.includes('RECIBO DE PAGAMENTO'))
-          ) {
-            if (h.cabecalho.nome_impresso || h.linhas.length > 0) finalExtracted.push(h)
-            h = getEmptyHolerite()
-            state = 'SEARCHING'
-          }
-
-          if (state === 'SEARCHING') {
+          if (state === 'HEADER') {
             if (rowTextUpper.includes('CNPJ:')) {
               const match = rowTextUpper.match(/CNPJ:\s*([\d./-]+)/)
               if (match) h.empresa.cnpj = match[1]
-              if (i > 0) {
-                const prevRowText = rawRows[i - 1]
-                  .map((c: any) => String(c || '').trim())
-                  .filter((c: any) => c)
-                  .join(' ')
-                if (prevRowText.length > 5) h.empresa.nome = prevRowText
-              }
+              const empNameRow = expandedRows[Math.max(0, i - 1)].concat(row)
+              const longest = empNameRow.reduce((a, b) => (a.length > b.length ? a : b), '')
+              if (longest.length > 10 && !longest.includes('CNPJ')) h.empresa.nome = longest.trim()
             }
 
-            if (
-              rowTextUpper.includes('NOME DO FUNCION') ||
-              rowTextUpper.includes('FUNCIONÁRIO') ||
-              rowTextUpper.includes('COLABORADOR')
-            ) {
-              for (let j = 0; j < cells.length; j++) {
-                const upperCell = cells[j].toUpperCase()
-                if (
-                  upperCell.includes('FUNCION') ||
-                  upperCell.includes('NOME') ||
-                  upperCell.includes('COLABORADOR')
-                ) {
-                  const match = cells[j].match(
-                    /(?:NOME|FUNCION[A-ZÁÀÂÃÉÈÍÏÓÔÕÖÚÇ]*|COLABORADOR).*?:?\s*(?:(\d+)\s*[-|–]?\s*)?([A-ZÀ-Úa-zà-ú\s]{5,})/i,
-                  )
-                  if (match && match[2] && !match[2].toUpperCase().includes('CBO')) {
-                    if (match[1]) h.cabecalho.codigo = match[1]
-                    h.cabecalho.nome_impresso = match[2].trim()
-                  }
+            const nomeIdx = row.findIndex(
+              (c) => c.toUpperCase().includes('NOME DO FUNCION') || c.toUpperCase() === 'NOME',
+            )
+            const codIdx = row.findIndex(
+              (c) => c.toUpperCase() === 'CÓDIGO' || c.toUpperCase() === 'CODIGO',
+            )
 
-                  if (!h.cabecalho.nome_impresso && i + 1 < rawRows.length) {
-                    const val = String(rawRows[i + 1][j] || '').trim()
-                    const invalidVals = [
-                      'CÓDIGO',
-                      'CODIGO',
-                      'DESCRIÇÃO',
-                      'DESCRICAO',
-                      'REFERÊNCIA',
-                      'REFERENCIA',
-                      'VENCIMENTO',
-                      'DESCONTO',
-                    ]
-                    if (!invalidVals.includes(val.toUpperCase()) && val.length > 2) {
-                      const matchBelow = val.match(/^(\d+)\s*[-|–]?\s*(.+)$/)
-                      if (matchBelow) {
-                        h.cabecalho.codigo = matchBelow[1]
-                        h.cabecalho.nome_impresso = matchBelow[2].trim()
-                      } else if (val && !val.toUpperCase().includes('CBO')) {
-                        h.cabecalho.nome_impresso = val
-                        if (j > 0 && rawRows[i + 1][j - 1]) {
-                          h.cabecalho.codigo = String(rawRows[i + 1][j - 1]).trim()
-                        }
-                      }
-                    }
+            if (nomeIdx !== -1) {
+              let foundValues = false
+              if (
+                row.length > nomeIdx + 1 &&
+                row[nomeIdx + 1] &&
+                !row[nomeIdx + 1].toUpperCase().includes('CBO')
+              ) {
+                h.cabecalho.nome_impresso = row[nomeIdx + 1].trim()
+                if (codIdx !== -1 && row.length > codIdx + 1)
+                  h.cabecalho.codigo = row[codIdx + 1].trim()
+                foundValues = true
+              }
+              if (!foundValues) {
+                for (let j = i + 1; j <= i + 3 && j < expandedRows.length; j++) {
+                  const nextRow = expandedRows[j]
+                  if (nextRow[nomeIdx]) {
+                    h.cabecalho.nome_impresso = nextRow[nomeIdx].trim()
+                    if (codIdx !== -1 && nextRow[codIdx])
+                      h.cabecalho.codigo = nextRow[codIdx].trim()
+                    break
                   }
                 }
               }
             }
 
             if (!h.cabecalho.nome_impresso) {
-              for (let c of cells) {
+              for (const c of row) {
                 const m = c.match(/^(\d+)\s*[-|–]\s*([A-ZÀ-Ú\s]{5,})$/i)
-                if (m && !c.toUpperCase().includes('CBO')) {
+                if (m && !c.toUpperCase().includes('CBO') && !c.toUpperCase().includes('CNPJ')) {
                   h.cabecalho.codigo = m[1]
                   h.cabecalho.nome_impresso = m[2].trim()
                 }
@@ -326,109 +315,88 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
             }
 
             if (rowTextUpper.includes('DESCRIÇÃO') || rowTextUpper.includes('DESCRICAO')) {
-              colMap.codigo = cells.findIndex(
-                (c) => c.toUpperCase() === 'CÓDIGO' || c.toUpperCase() === 'CODIGO',
+              colMap.codigo = row.findIndex(
+                (c) => c.toUpperCase().includes('CÓDIGO') || c.toUpperCase().includes('CODIGO'),
               )
-              colMap.descricao = cells.findIndex(
+              colMap.descricao = row.findIndex(
                 (c) =>
                   c.toUpperCase().includes('DESCRIÇÃO') || c.toUpperCase().includes('DESCRICAO'),
               )
-              colMap.referencia = cells.findIndex(
+              colMap.referencia = row.findIndex(
                 (c) =>
                   c.toUpperCase().includes('REFERÊNCIA') || c.toUpperCase().includes('REFERENCIA'),
               )
-              colMap.vencimentos = cells.findIndex(
+              colMap.vencimentos = row.findIndex(
                 (c) =>
                   c.toUpperCase().includes('VENCIMENTO') || c.toUpperCase().includes('PROVENTO'),
               )
-              colMap.descontos = cells.findIndex((c) => c.toUpperCase().includes('DESCONTO'))
+              colMap.descontos = row.findIndex(
+                (c) =>
+                  c.toUpperCase().includes('DESCONTO') && !c.toUpperCase().includes('DESCRIÇÃO'),
+              )
+
+              if (colMap.codigo === -1) colMap.codigo = 0
+              if (colMap.descricao === -1) colMap.descricao = 1
+              if (colMap.referencia === -1) colMap.referencia = 2
+              if (colMap.vencimentos === -1) colMap.vencimentos = 3
+              if (colMap.descontos === -1) colMap.descontos = 4
+
               state = 'EVENTS'
               continue
             }
-          }
-
-          if (state === 'EVENTS') {
+          } else if (state === 'EVENTS') {
             if (
               rowTextUpper.includes('TOTAL DE VENCIMENTOS') ||
               rowTextUpper.includes('TOTAL DE DESCONTOS') ||
               rowTextUpper.includes('VALOR LÍQUIDO') ||
               rowTextUpper.includes('SALÁRIO BASE') ||
-              (rowTextUpper.includes('TOTAL') && !rowTextUpper.includes('VENCIMENTOS'))
+              rowTextUpper.includes('TOTAIS') ||
+              (rowTextUpper.includes('TOTAL') &&
+                !rowTextUpper.includes('VENCIMENTOS') &&
+                !rowTextUpper.includes('DESCONTOS'))
             ) {
               state = 'FOOTER'
-            } else {
-              let evtCode = colMap.codigo >= 0 ? cells[colMap.codigo] : ''
-              let desc = colMap.descricao >= 0 ? cells[colMap.descricao] : ''
-              let ref = colMap.referencia >= 0 ? cells[colMap.referencia] : ''
-              let venc = colMap.vencimentos >= 0 ? cells[colMap.vencimentos] : ''
-              let descVal = colMap.descontos >= 0 ? cells[colMap.descontos] : ''
-
-              if (!evtCode && desc) {
-                const m = desc.match(/^(\d+)\s+(.+)$/)
-                if (m) {
-                  evtCode = m[1]
-                  desc = m[2].trim()
-                }
-              }
-              if (!desc && evtCode) {
-                const m = evtCode.match(/^(\d+)\s+(.+)$/)
-                if (m) {
-                  evtCode = m[1]
-                  desc = m[2].trim()
-                }
-              }
-              if (!desc && !evtCode) {
-                for (let j = 0; j < cells.length; j++) {
-                  let c = cells[j]
-                  if (c && /[a-zA-Z]/.test(c) && !c.includes('R$')) {
-                    const m = c.match(/^(\d+)\s+(.+)$/)
-                    if (m) {
-                      evtCode = m[1]
-                      desc = m[2].trim()
-                    } else {
-                      desc = c
-                      if (j > 0 && /^\d+$/.test(cells[j - 1])) evtCode = cells[j - 1]
-                    }
-                    break
-                  }
-                }
-              }
-
-              if (desc) {
-                h.linhas.push({
-                  codigo: evtCode,
-                  descricao: desc,
-                  referencia: ref,
-                  vencimento: safeParseFloat(venc),
-                  desconto: safeParseFloat(descVal),
-                })
-              }
+              i--
+              continue
             }
-          }
 
-          if (state === 'FOOTER') {
-            if (
-              rowTextUpper.includes('TOTAL DE VENCIMENTOS') ||
-              rowTextUpper.includes('TOTAL DE DESCONTOS') ||
-              rowTextUpper.includes('TOTAIS') ||
-              rowTextUpper.includes('TOTAL')
-            ) {
-              const nums = extractNumbers(cells)
-              if (nums.length >= 2) {
-                h.totais.vencimentos = nums[nums.length - 2]
-                h.totais.descontos = nums[nums.length - 1]
-              } else if (colMap.vencimentos >= 0 && colMap.descontos >= 0) {
-                h.totais.vencimentos = safeParseFloat(cells[colMap.vencimentos])
-                h.totais.descontos = safeParseFloat(cells[colMap.descontos])
+            let cod = colMap.codigo >= 0 ? row[colMap.codigo] : ''
+            let desc = colMap.descricao >= 0 ? row[colMap.descricao] : ''
+            let ref = colMap.referencia >= 0 ? row[colMap.referencia] : ''
+            let venc = colMap.vencimentos >= 0 ? row[colMap.vencimentos] : ''
+            let descVal = colMap.descontos >= 0 ? row[colMap.descontos] : ''
+
+            if (!cod && desc) {
+              const m = desc.match(/^(\d+)\s+(.+)$/)
+              if (m) {
+                cod = m[1]
+                desc = m[2].trim()
               }
             }
 
+            if (cod || desc || venc || descVal) {
+              if (
+                cod.replace(/[-_]/g, '').trim() === '' &&
+                desc.replace(/[-_]/g, '').trim() === ''
+              ) {
+                continue
+              }
+
+              h.linhas.push({
+                codigo: cod || '',
+                descricao: desc || '',
+                referencia: ref || '',
+                vencimento: safeParseFloat(venc),
+                desconto: safeParseFloat(descVal),
+              })
+            }
+          } else if (state === 'FOOTER') {
             if (rowTextUpper.includes('VALOR LÍQUIDO') || rowTextUpper.includes('LIQUIDO')) {
               const match = rowTextUpper.match(/L[ÍI]QUIDO.*?R?\$?\s*([-]?[\d.,]+)/i)
               if (match) {
                 h.totais.liquido = safeParseFloat(match[1])
               } else {
-                const nums = extractNumbers(cells)
+                const nums = extractNumbers(row)
                 if (nums.length > 0) h.totais.liquido = nums[nums.length - 1]
               }
             }
@@ -437,9 +405,9 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
               rowTextUpper.includes('SALÁRIO BASE') ||
               rowTextUpper.includes('SAL. CONTR. INSS')
             ) {
-              if (i + 1 < rawRows.length) {
-                const baseHeaders = cells.map((c) => c.toUpperCase())
-                const baseVals = rawRows[i + 1].map((c: any) => String(c || '').trim())
+              if (i + 1 < expandedRows.length) {
+                const baseHeaders = row.map((c) => c.toUpperCase())
+                const baseVals = expandedRows[i + 1]
                 let foundBases = false
                 for (let j = 0; j < baseHeaders.length; j++) {
                   if (baseHeaders[j].includes('SALÁRIO BASE')) {
@@ -468,7 +436,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                   }
                 }
                 if (!foundBases) {
-                  const nums = extractNumbers(rawRows[i + 1])
+                  const nums = extractNumbers(expandedRows[i + 1])
                   if (nums.length >= 6) {
                     h.bases.salario_base = nums[0]
                     h.bases.sal_contr_inss = nums[1]
@@ -481,6 +449,25 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
               }
             }
           }
+        }
+
+        h.totais.vencimentos = h.linhas.reduce(
+          (acc: number, l: any) => acc + (l.vencimento || 0),
+          0,
+        )
+        h.totais.descontos = h.linhas.reduce((acc: number, l: any) => acc + (l.desconto || 0), 0)
+
+        if (!h.totais.liquido && h.totais.vencimentos > 0) {
+          h.totais.liquido = h.totais.vencimentos - h.totais.descontos
+        }
+
+        if (
+          !h.cabecalho.nome_impresso &&
+          sheetName.length > 3 &&
+          sheetName.toUpperCase() !== 'SHEET1' &&
+          sheetName.toUpperCase() !== 'PLAN1'
+        ) {
+          h.cabecalho.nome_impresso = sheetName
         }
 
         if (h.cabecalho.nome_impresso || h.linhas.length > 0) {
@@ -1178,27 +1165,37 @@ function ContraChequeDataModal({
             <div className="flex-1 min-h-[300px] flex text-[13px]">
               <div className="w-16 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
                 {mockData.linhas?.map((l: any, i: number) => (
-                  <div key={i}>{l.codigo}</div>
+                  <div key={i} className="min-h-[1.25rem]">
+                    {l.codigo}
+                  </div>
                 ))}
               </div>
               <div className="flex-1 border-r border-black p-1 flex flex-col px-2 space-y-1">
                 {mockData.linhas?.map((l: any, i: number) => (
-                  <div key={i}>{l.descricao}</div>
+                  <div key={i} className="min-h-[1.25rem]">
+                    {l.descricao}
+                  </div>
                 ))}
               </div>
               <div className="w-24 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
                 {mockData.linhas?.map((l: any, i: number) => (
-                  <div key={i}>{l.referencia}</div>
+                  <div key={i} className="min-h-[1.25rem]">
+                    {l.referencia}
+                  </div>
                 ))}
               </div>
               <div className="w-32 border-r border-black p-1 flex flex-col items-end px-2 space-y-1">
                 {mockData.linhas?.map((l: any, i: number) => (
-                  <div key={i}>{l.vencimento ? formatNumber(l.vencimento) : '\u00A0'}</div>
+                  <div key={i} className="min-h-[1.25rem]">
+                    {l.vencimento ? formatNumber(l.vencimento) : '\u00A0'}
+                  </div>
                 ))}
               </div>
               <div className="w-32 p-1 flex flex-col items-end px-2 space-y-1">
                 {mockData.linhas?.map((l: any, i: number) => (
-                  <div key={i}>{l.desconto ? formatNumber(l.desconto) : '\u00A0'}</div>
+                  <div key={i} className="min-h-[1.25rem]">
+                    {l.desconto ? formatNumber(l.desconto) : '\u00A0'}
+                  </div>
                 ))}
               </div>
             </div>
