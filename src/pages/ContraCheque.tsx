@@ -161,67 +161,9 @@ function AdminUpload() {
       if (!edgeError && edgeData?.success && Object.keys(edgeData.data).length > 0) {
         parsedData = edgeData.data
       } else {
-        console.warn('Fallback para simulação local acionado', edgeError)
-        parsedData = {
-          Planilha1: [
-            {
-              Nome: 'RODRIGO CORONCI SANT ANA',
-              Código: '9380',
-              Descrição: 'PRO-LABORE DIAS',
-              Referência: '30,00',
-              Vencimentos: 1621.0,
-              Descontos: null,
-            },
-            {
-              Nome: 'RODRIGO CORONCI SANT ANA',
-              Código: '843',
-              Descrição: 'INSS EMPREGADOR',
-              Referência: '11,00',
-              Vencimentos: null,
-              Descontos: 178.31,
-            },
-            {
-              Nome: 'GISELLY OLIVEIRA CAETANO MOURA',
-              Código: '8781',
-              Descrição: 'DIAS NORMAIS',
-              Referência: '30,00',
-              Vencimentos: 1838.96,
-              Descontos: null,
-            },
-            {
-              Nome: 'GISELLY OLIVEIRA CAETANO MOURA',
-              Código: '202',
-              Descrição: 'DSR S/ HORAS EXTRAS',
-              Referência: '0,00',
-              Vencimentos: 45.5,
-              Descontos: null,
-            },
-            {
-              Nome: 'GISELLY OLIVEIRA CAETANO MOURA',
-              Código: '8125',
-              Descrição: 'HORAS EXTRAS 50%',
-              Referência: '10,00',
-              Vencimentos: 125.0,
-              Descontos: null,
-            },
-            {
-              Nome: 'GISELLY OLIVEIRA CAETANO MOURA',
-              Código: '998',
-              Descrição: 'I.N.S.S.',
-              Referência: '7,68',
-              Vencimentos: null,
-              Descontos: 141.18,
-            },
-            {
-              Nome: 'GISELLY OLIVEIRA CAETANO MOURA',
-              Código: '984',
-              Descrição: 'VALE TRANSPORTE',
-              Referência: '6,00',
-              Vencimentos: null,
-              Descontos: 110.33,
-            },
-          ],
-        }
+        throw new Error(
+          edgeData?.error || edgeError?.message || 'Falha ao analisar o arquivo na nuvem.',
+        )
       }
 
       const { data: colabs } = await supabase
@@ -229,41 +171,33 @@ function AdminUpload() {
         .select('id, nome, cargo, salario, departamento, data_admissao, role')
         .or('status.eq.Ativo,status.is.null')
 
-      if (!colabs) throw new Error('Erro ao buscar colaboradores')
+      if (!colabs) throw new Error('Erro ao buscar colaboradores no sistema')
 
       const sheetNames = Object.keys(parsedData)
       const rows = parsedData[sheetNames[0]] || []
 
+      const normalizedRows = rows.map((r: any) => {
+        const nr: any = {}
+        for (const k of Object.keys(r)) {
+          nr[k.trim()] = r[k]
+        }
+        return nr
+      })
+
       const grouped: Record<string, any[]> = {}
+      const firstRowKeys = Object.keys(normalizedRows[0] || {})
 
-      const firstRowKeys = Object.keys(rows[0] || {})
-      let nameKey =
-        firstRowKeys.find(
-          (k) => k.toLowerCase().includes('nome') || k.toLowerCase().includes('colaborador'),
-        ) || 'Nome'
-      let codeKey =
-        firstRowKeys.find(
-          (k) => k.toLowerCase().includes('cód') || k.toLowerCase().includes('cod'),
-        ) || 'Código'
-      let descKey = firstRowKeys.find((k) => k.toLowerCase().includes('desc')) || 'Descrição'
-      let refKey = firstRowKeys.find((k) => k.toLowerCase().includes('ref')) || 'Referência'
+      let nameKey = firstRowKeys.find((k) => /nome|colaborador|funcion[aá]rio/i.test(k)) || 'Nome'
+      let codeKey = firstRowKeys.find((k) => /c[oó]d/i.test(k)) || 'Código'
+      let descKey = firstRowKeys.find((k) => /descri|evento/i.test(k)) || 'Descrição'
+      let refKey = firstRowKeys.find((k) => /ref/i.test(k)) || 'Referência'
       let vencKey =
-        firstRowKeys.find(
-          (k) =>
-            k.toLowerCase().includes('venc') ||
-            k.toLowerCase().includes('prov') ||
-            k.toLowerCase() === 'valor',
-        ) || 'Vencimentos'
-      let descntKey =
-        firstRowKeys.find(
-          (k) => k.toLowerCase().includes('desc') && !k.toLowerCase().includes('descri'),
-        ) || 'Descontos'
+        firstRowKeys.find((k) => /venc|prov|valor/i.test(k) && !/desc/i.test(k)) || 'Vencimentos'
+      let descntKey = firstRowKeys.find((k) => /desc/i.test(k) && !/descri/i.test(k)) || 'Descontos'
 
-      if (descntKey === descKey) {
-        descntKey = 'Descontos'
-      }
+      if (descntKey === descKey) descntKey = 'Descontos'
 
-      for (const row of rows) {
+      for (const row of normalizedRows) {
         const name = row[nameKey]
         if (!name) continue
         const n = String(name).trim().toUpperCase()
@@ -273,13 +207,25 @@ function AdminUpload() {
 
       const extracted = []
 
+      const safeParseFloat = (val: any) => {
+        if (typeof val === 'number') return val
+        if (!val) return 0
+        let strVal = String(val).trim()
+        if (strVal.includes('.') && strVal.includes(',')) {
+          strVal = strVal.replace(/\./g, '').replace(',', '.')
+        } else if (strVal.includes(',')) {
+          strVal = strVal.replace(',', '.')
+        }
+        const parsed = parseFloat(strVal)
+        return isNaN(parsed) ? 0 : parsed
+      }
+
       for (const [empName, empRows] of Object.entries(grouped)) {
         const colab = colabs.find(
           (c) =>
             (c.nome || '').toUpperCase().includes(empName) ||
             empName.includes((c.nome || '').toUpperCase()),
         )
-        if (!colab) continue
 
         const linhas = empRows
           .map((r) => {
@@ -287,11 +233,11 @@ function AdminUpload() {
             const d = r[descntKey] !== undefined && r[descntKey] !== null ? r[descntKey] : 0
 
             return {
-              codigo: r[codeKey] || '',
-              descricao: r[descKey] || '',
-              referencia: r[refKey] || '',
-              vencimento: typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.')),
-              desconto: typeof d === 'number' ? d : parseFloat(String(d).replace(',', '.')),
+              codigo: r[codeKey] ? String(r[codeKey]) : '',
+              descricao: r[descKey] ? String(r[descKey]) : '',
+              referencia: r[refKey] ? String(r[refKey]) : '',
+              vencimento: safeParseFloat(v),
+              desconto: safeParseFloat(d),
             }
           })
           .filter((l) => l.codigo || l.descricao)
@@ -301,7 +247,7 @@ function AdminUpload() {
         const liquido = totalVenc - totalDesc
 
         const bases = {
-          salario_base: colab.salario || totalVenc,
+          salario_base: colab?.salario || totalVenc,
           sal_contr_inss: totalVenc,
           base_calc_fgts: totalVenc,
           fgts_mes: totalVenc * 0.08,
@@ -318,9 +264,9 @@ function AdminUpload() {
             codigo: empRows[0][codeKey] || '00',
             cbo: '212420',
             nome_impresso: empName,
-            departamento: colab.departamento || '1',
+            departamento: colab?.departamento || '1',
             filial: '1',
-            admissao: colab.data_admissao
+            admissao: colab?.data_admissao
               ? new Date(colab.data_admissao + 'T12:00:00').toLocaleDateString('pt-BR')
               : '01/01/2023',
           },
@@ -330,20 +276,35 @@ function AdminUpload() {
         }
 
         extracted.push({
-          colaborador_id: colab.id,
-          nome: colab.nome,
-          cargo: colab.cargo,
-          salario: colab.salario,
-          departamento: colab.departamento,
-          data_admissao: colab.data_admissao,
+          colaborador_id: colab?.id || `unmapped-${Math.random()}`,
+          nome: empName,
+          cargo: colab?.cargo || '',
+          salario: colab?.salario || 0,
+          departamento: colab?.departamento || '',
+          data_admissao: colab?.data_admissao || '',
           arquivo_url: publicUrl,
           dados_extraidos,
           valor_liquido: liquido,
+          is_mapped: !!colab,
         })
       }
 
-      setExtractedData(extracted)
-      toast.success('Planilha processada com sucesso! Eventos mapeados 1:1.')
+      if (extracted.length === 0) {
+        toast.error(
+          'Nenhum dado válido extraído. Verifique o formato das colunas do arquivo Excel.',
+        )
+      } else {
+        setExtractedData(extracted)
+        toast.success('Planilha processada com sucesso! Prévia carregada.')
+
+        // Auto-open preview for the first mapped item to give immediate feedback
+        const firstMapped = extracted.find((e) => e.is_mapped) || extracted[0]
+        if (firstMapped) {
+          setTimeout(() => {
+            setPreviewData({ ...firstMapped, mes_ano: selectedMonth })
+          }, 500)
+        }
+      }
     } catch (error: any) {
       console.error(error)
       toast.error('Erro ao processar o arquivo: ' + error.message)
@@ -353,10 +314,15 @@ function AdminUpload() {
   }
 
   const publish = async () => {
-    if (!extractedData.length) return
+    const validData = extractedData.filter((e) => e.is_mapped !== false)
+    if (!validData.length) {
+      toast.error('Nenhum colaborador mapeado para publicar.')
+      return
+    }
+
     setPublishing(true)
     try {
-      const inserts = extractedData.map((e) => ({
+      const inserts = validData.map((e) => ({
         colaborador_id: e.colaborador_id,
         mes_ano: selectedMonth,
         arquivo_url: e.arquivo_url,
@@ -366,8 +332,13 @@ function AdminUpload() {
       const { error } = await supabase
         .from('contracheques')
         .upsert(inserts as any, { onConflict: 'colaborador_id, mes_ano' })
+
       if (error) throw error
-      toast.success('Contracheques publicados com sucesso!')
+
+      const unmappedCount = extractedData.length - validData.length
+      toast.success(
+        `Contracheques publicados com sucesso! ${unmappedCount > 0 ? `(${unmappedCount} ignorados)` : ''}`,
+      )
       setExtractedData([])
       setFile(null)
     } catch (err: any) {
@@ -474,8 +445,18 @@ function AdminUpload() {
                 </TableHeader>
                 <TableBody>
                   {extractedData.map((d, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-medium">{d.nome}</TableCell>
+                    <TableRow
+                      key={i}
+                      className={d.is_mapped === false ? 'opacity-60 bg-muted/30' : ''}
+                    >
+                      <TableCell className="font-medium">
+                        {d.nome}
+                        {d.is_mapped === false && (
+                          <span className="ml-2 text-xs text-red-500 font-normal">
+                            (Não mapeado)
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {d.dados_extraidos?.linhas?.length || 0} linhas mapeadas
                       </TableCell>
@@ -486,12 +467,21 @@ function AdminUpload() {
                         })}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge
-                          variant="outline"
-                          className="bg-green-50 text-green-700 border-green-200"
-                        >
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> Fiel
-                        </Badge>
+                        {d.is_mapped !== false ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-green-50 text-green-700 border-green-200"
+                          >
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Fiel
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-muted-foreground border-slate-300"
+                          >
+                            Não Localizado
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
