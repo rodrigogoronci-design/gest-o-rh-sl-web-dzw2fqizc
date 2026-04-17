@@ -181,110 +181,11 @@ function AdminUpload() {
         rawRows = [keys, ...rawRows.map((r) => keys.map((k) => r[k]))]
       }
 
-      let headerRowIndex = -1
-      let nameColIdx = -1,
-        codeColIdx = -1,
-        descColIdx = -1,
-        refColIdx = -1,
-        vencColIdx = -1,
-        descntColIdx = -1
-
-      for (let i = 0; i < Math.min(rawRows.length, 50); i++) {
-        const row = rawRows[i] || []
-
-        const tempNameIdx = row.findIndex((c: any) => {
-          const s = String(c || '').toLowerCase()
-          return s.includes('nome') || s.includes('colaborador') || s.includes('funcion')
-        })
-        const tempCodeIdx = row.findIndex((c: any) => {
-          const s = String(c || '').toLowerCase()
-          return s.includes('cod') || s.includes('cód') || s.includes('rubrica')
-        })
-        const tempDescIdx = row.findIndex((c: any) => {
-          const s = String(c || '').toLowerCase()
-          return s.includes('descri') || s.includes('evento')
-        })
-        const tempRefIdx = row.findIndex((c: any) => {
-          const s = String(c || '').toLowerCase()
-          return s.includes('ref')
-        })
-        const tempVencIdx = row.findIndex((c: any) => {
-          const s = String(c || '').toLowerCase()
-          return (
-            (s.includes('venc') || s.includes('prov') || s.includes('valor')) && !s.includes('desc')
-          )
-        })
-        const tempDescntIdx = row.findIndex((c: any) => {
-          const s = String(c || '').toLowerCase()
-          return s.includes('desc') && !s.includes('descri')
-        })
-
-        if (tempNameIdx !== -1) nameColIdx = tempNameIdx
-        if (tempCodeIdx !== -1) codeColIdx = tempCodeIdx
-        if (tempDescIdx !== -1) descColIdx = tempDescIdx
-        if (tempRefIdx !== -1) refColIdx = tempRefIdx
-        if (tempVencIdx !== -1) vencColIdx = tempVencIdx
-        if (tempDescntIdx !== -1) descntColIdx = tempDescntIdx
-
-        if (nameColIdx !== -1 && (vencColIdx !== -1 || descntColIdx !== -1 || descColIdx !== -1)) {
-          headerRowIndex = i
-          if (vencColIdx !== -1 || descntColIdx !== -1) break
-        }
-      }
-
-      if (headerRowIndex === -1 || nameColIdx === -1) {
-        if (rawRows.length > 1) {
-          nameColIdx = 0
-          vencColIdx = 1
-          descntColIdx = 2
-          headerRowIndex = 0
-        } else {
-          throw new Error(
-            'Não foi possível identificar as colunas (Nome, Vencimentos, Descontos) no arquivo.',
-          )
-        }
-      }
-
-      const grouped: Record<string, any[]> = {}
-      let currentName = ''
-
-      for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
-        const row = rawRows[i] || []
-        if (row.length === 0) continue
-
-        let name = nameColIdx !== -1 ? row[nameColIdx] : ''
-        if (name && String(name).trim() !== '') {
-          currentName = String(name).trim().toUpperCase()
-        }
-
-        if (!currentName) continue
-
-        const desc = descColIdx !== -1 ? row[descColIdx] : ''
-        const venc = vencColIdx !== -1 ? row[vencColIdx] : null
-        const descnt = descntColIdx !== -1 ? row[descntColIdx] : null
-
-        if (!desc && !venc && !descnt) continue
-        if (String(desc).toLowerCase().includes('total')) continue
-
-        if (!grouped[currentName]) grouped[currentName] = []
-
-        const obj: any = {}
-        if (codeColIdx !== -1) obj['Código'] = row[codeColIdx]
-        if (descColIdx !== -1) obj['Descrição'] = desc
-        if (refColIdx !== -1) obj['Referência'] = row[refColIdx]
-        if (vencColIdx !== -1) obj['Vencimentos'] = venc
-        if (descntColIdx !== -1) obj['Descontos'] = descnt
-        obj['Nome'] = currentName
-
-        grouped[currentName].push(obj)
-      }
-
-      const extracted = []
-
       const safeParseFloat = (val: any) => {
         if (typeof val === 'number') return val
         if (!val) return 0
         let strVal = String(val).trim()
+        strVal = strVal.replace(/R\$\s*/gi, '').replace(/\s/g, '')
         if (strVal.includes('.') && strVal.includes(',')) {
           strVal = strVal.replace(/\./g, '').replace(',', '.')
         } else if (strVal.includes(',')) {
@@ -294,39 +195,290 @@ function AdminUpload() {
         return isNaN(parsed) ? 0 : parsed
       }
 
-      for (const [empName, empRows] of Object.entries(grouped)) {
-        const colab = colabs.find(
-          (c) =>
-            (c.nome || '').toUpperCase().includes(empName) ||
-            empName.includes((c.nome || '').toUpperCase()),
-        )
+      const extractedMap = new Map<string, any>()
+      let currentContextName = ''
+      let currentContextCode = ''
 
-        const linhas = empRows
-          .map((r) => {
-            const v =
-              r['Vencimentos'] !== undefined && r['Vencimentos'] !== null ? r['Vencimentos'] : 0
-            const d = r['Descontos'] !== undefined && r['Descontos'] !== null ? r['Descontos'] : 0
+      for (let i = 0; i < rawRows.length; i++) {
+        const row = rawRows[i] || []
+        if (row.length === 0 || row.every((c: any) => !String(c).trim())) continue
 
-            return {
-              codigo: r['Código'] ? String(r['Código']) : '',
-              descricao: r['Descrição'] ? String(r['Descrição']) : '',
-              referencia: r['Referência'] ? String(r['Referência']) : '',
-              vencimento: safeParseFloat(v),
-              desconto: safeParseFloat(d),
+        const rowText = row.join(' ').toUpperCase()
+
+        let foundNameInRow = false
+        for (let j = 0; j < row.length; j++) {
+          let cell = String(row[j] || '').trim()
+          if (!cell) continue
+
+          const match = cell.match(/^(\d+)\s*[-|–]?\s*([A-ZÀ-Ú\s]{4,})$/i)
+          if (
+            match &&
+            !cell.toUpperCase().includes('CBO') &&
+            !cell.toUpperCase().includes('TOTAL')
+          ) {
+            currentContextCode = match[1]
+            currentContextName = match[2].trim()
+            foundNameInRow = true
+            break
+          }
+
+          const nameMatch = cell.match(/(?:NOME|FUNCION[ÁA]RIO)[:\s]+([A-ZÀ-Ú\s]{4,})/i)
+          if (nameMatch && !nameMatch[1].includes('CBO')) {
+            currentContextName = nameMatch[1].trim()
+            foundNameInRow = true
+            break
+          }
+
+          if (i > 0 && /^[A-ZÀ-Ú\s]{5,}$/.test(cell)) {
+            const prevRowText = rawRows[i - 1].join(' ').toUpperCase()
+            if (
+              prevRowText.includes('NOME') &&
+              !['EMPRESA', 'TOTAL', 'LÍQUIDO', 'DESCONTO', 'VENCIMENTO'].includes(
+                cell.toUpperCase(),
+              )
+            ) {
+              currentContextName = cell
+              foundNameInRow = true
+              break
             }
-          })
-          .filter((l) => l.codigo || l.descricao || l.vencimento || l.desconto)
+          }
+        }
 
-        const totalVenc = linhas.reduce((acc, curr) => acc + (curr.vencimento || 0), 0)
-        const totalDesc = linhas.reduce((acc, curr) => acc + (curr.desconto || 0), 0)
-        const liquido = totalVenc - totalDesc
+        if (!foundNameInRow && i > 0) {
+          const prevRowText = rawRows[i - 1].join(' ').toUpperCase()
+          if (prevRowText.includes('CÓDIGO') && prevRowText.includes('NOME')) {
+            const val = String(row[0] || '').trim()
+            const val2 = String(row[1] || '').trim()
+            if (val && val2 && val === val2) {
+              currentContextName = val
+              currentContextCode = val
+              foundNameInRow = true
+            } else if (val2 && /^[A-ZÀ-Ú\s]{4,}$/.test(val2)) {
+              currentContextCode = val
+              currentContextName = val2
+              foundNameInRow = true
+            }
+          }
+        }
+
+        if (!currentContextName) continue
+
+        const contextKey = `${currentContextCode}-${currentContextName}`
+        if (!extractedMap.has(contextKey)) {
+          extractedMap.set(contextKey, {
+            codigo: currentContextCode,
+            nome: currentContextName,
+            linhas: [],
+            totais: { vencimentos: 0, descontos: 0, liquido: 0 },
+            bases: {},
+          })
+        }
+
+        const holerite = extractedMap.get(contextKey)
+        const isHeader = [
+          'CÓDIGO',
+          'DESCRIÇÃO',
+          'VENCIMENTO',
+          'DESCONTO',
+          'REFERÊNCIA',
+          'TOTAL',
+          'LÍQUIDO',
+          'SALÁRIO',
+          'BASE',
+          'INSS',
+          'FGTS',
+          'IRRF',
+          'EMPRESA',
+          'CNPJ',
+          'NOME',
+          'FUNCION',
+        ].some((w) => rowText.includes(w) && !rowText.includes('SALÁRIO BASE'))
+
+        if (!isHeader && row.length >= 2) {
+          let descStr = ''
+          let descCol = -1
+          let evtCode = ''
+
+          for (let j = 0; j < row.length; j++) {
+            let cell = String(row[j] || '').trim()
+            if (
+              cell.length > 3 &&
+              /[a-zA-Z]/.test(cell) &&
+              !cell.includes('/') &&
+              !cell.includes(':')
+            ) {
+              descStr = cell
+              descCol = j
+
+              const match = cell.match(/^(\d+)\s+(.+)$/)
+              if (match) {
+                evtCode = match[1]
+                descStr = match[2]
+              } else if (j > 0 && /^\d+$/.test(String(row[j - 1]).trim())) {
+                evtCode = String(row[j - 1]).trim()
+              }
+              break
+            }
+          }
+
+          if (descStr) {
+            const numbers = []
+            let ref = ''
+            for (let j = descCol + 1; j < row.length; j++) {
+              let cell = String(row[j] || '').trim()
+              if (!cell) continue
+              cell = cell.replace(/R\$\s*/gi, '')
+              if (/^[-]?[\d.,]+$/.test(cell)) {
+                const val = safeParseFloat(cell)
+                numbers.push(val)
+                if (!ref && numbers.length === 1 && !cell.includes('-') && Math.abs(val) < 1000) {
+                  ref = cell
+                }
+              }
+            }
+
+            if (numbers.length > 0) {
+              let v = 0
+              let d = 0
+              const isDesc =
+                descStr.toUpperCase().includes('DESC') ||
+                descStr.toUpperCase().includes('INSS') ||
+                descStr.toUpperCase().includes('IRRF') ||
+                descStr.toUpperCase().includes('FALTA') ||
+                descStr.toUpperCase().includes('ATRASO')
+
+              if (numbers.length >= 3) {
+                v = numbers[1]
+                d = numbers[2]
+              } else if (numbers.length === 2) {
+                if (numbers[1] < 0) d = Math.abs(numbers[1])
+                else if (isDesc) d = Math.abs(numbers[1])
+                else v = Math.abs(numbers[1])
+              } else if (numbers.length === 1) {
+                if (numbers[0] < 0) d = Math.abs(numbers[0])
+                else if (isDesc) d = Math.abs(numbers[0])
+                else v = Math.abs(numbers[0])
+              }
+
+              holerite.linhas.push({
+                codigo: evtCode,
+                descricao: descStr,
+                referencia: ref !== String(v) && ref !== String(d) ? ref : '',
+                vencimento: v,
+                desconto: d,
+              })
+            }
+          }
+        }
+
+        if (!isHeader) {
+          for (let j = 0; j < row.length; j++) {
+            let cell = String(row[j] || '').trim()
+            const mergedMatch = cell.match(/^([A-ZÀ-Ú\s]+)\s+R?\$?\s*([-]?[\d.,]+)$/i)
+            if (
+              mergedMatch &&
+              mergedMatch[1].trim().length > 4 &&
+              !['TOTAL DE VENCIMENTOS', 'TOTAL DE DESCONTOS', 'VALOR LÍQUIDO'].includes(
+                mergedMatch[1].trim().toUpperCase(),
+              )
+            ) {
+              let desc = mergedMatch[1].trim()
+              let val = safeParseFloat(mergedMatch[2])
+
+              if (
+                !holerite.linhas.some(
+                  (l: any) =>
+                    l.descricao === desc &&
+                    (l.vencimento === Math.abs(val) || l.desconto === Math.abs(val)),
+                )
+              ) {
+                let isDesc =
+                  desc.toUpperCase().includes('DESC') ||
+                  desc.toUpperCase().includes('INSS') ||
+                  desc.toUpperCase().includes('IRRF') ||
+                  desc.toUpperCase().includes('FALTA')
+
+                holerite.linhas.push({
+                  codigo: '',
+                  descricao: desc,
+                  referencia: '',
+                  vencimento: isDesc || val < 0 ? 0 : Math.abs(val),
+                  desconto: isDesc || val < 0 ? Math.abs(val) : 0,
+                })
+              }
+            }
+          }
+        }
+
+        if (rowText.includes('TOTAL') || rowText.includes('TOTAIS')) {
+          const numbers = row.map((c) => safeParseFloat(c)).filter((n) => n !== 0)
+          if (numbers.length >= 2) {
+            holerite.totais.vencimentos = Math.abs(numbers[numbers.length - 2])
+            holerite.totais.descontos = Math.abs(numbers[numbers.length - 1])
+          } else if (numbers.length === 1) {
+            if (rowText.includes('VENC')) holerite.totais.vencimentos = Math.abs(numbers[0])
+            if (rowText.includes('DESC')) holerite.totais.descontos = Math.abs(numbers[0])
+          }
+        }
+
+        if (rowText.includes('LÍQUIDO') || rowText.includes('LIQUIDO')) {
+          const match = rowText.match(/L[ÍI]QUIDO.*?([-]?[\d.,]+)/i)
+          if (match && safeParseFloat(match[1]) !== 0) {
+            holerite.totais.liquido = safeParseFloat(match[1])
+          } else {
+            const numbers = row
+              .map((c) => safeParseFloat(String(c).replace(/R\$\s*/gi, '')))
+              .filter((n) => n !== 0)
+            if (numbers.length > 0) {
+              holerite.totais.liquido = numbers[numbers.length - 1]
+            }
+          }
+        }
+      }
+
+      const finalExtracted = Array.from(extractedMap.values())
+        .map((h) => {
+          const calcV = h.linhas.reduce((acc: number, curr: any) => acc + curr.vencimento, 0)
+          const calcD = h.linhas.reduce((acc: number, curr: any) => acc + curr.desconto, 0)
+
+          if (h.totais.vencimentos === 0) h.totais.vencimentos = calcV
+          if (h.totais.descontos === 0) h.totais.descontos = calcD
+          if (h.totais.liquido === 0) h.totais.liquido = h.totais.vencimentos - h.totais.descontos
+
+          return h
+        })
+        .filter((h) => h.linhas.length > 0)
+
+      const extracted = []
+
+      for (const empData of finalExtracted) {
+        const empName = empData.nome
+        const empCode = empData.codigo
+
+        // Find match in DB
+        const colab = colabs.find((c) => {
+          const nameMatches =
+            (c.nome || '').toUpperCase().includes(empName) ||
+            empName.includes((c.nome || '').toUpperCase())
+          const codeMatches =
+            empCode &&
+            (String(c.id).includes(empCode) ||
+              String(c.cpf).includes(empCode) ||
+              String(c.rg).includes(empCode))
+
+          // If the name in excel is just "8111" (same as code), we must match by code if possible
+          if (empName === empCode) {
+            return codeMatches || nameMatches
+          }
+          return nameMatches || codeMatches
+        })
 
         const bases = {
-          salario_base: colab?.salario || totalVenc,
-          sal_contr_inss: totalVenc,
-          base_calc_fgts: totalVenc,
-          fgts_mes: totalVenc * 0.08,
-          base_calc_irrf: liquido,
+          salario_base: colab?.salario || empData.totais.vencimentos,
+          sal_contr_inss: empData.totais.vencimentos,
+          base_calc_fgts: empData.totais.vencimentos,
+          fgts_mes: empData.totais.vencimentos * 0.08,
+          base_calc_irrf: empData.totais.liquido,
           faixa_irrf: 0.0,
         }
 
@@ -336,7 +488,7 @@ function AdminUpload() {
             cnpj: '10.929.600/0001-92',
           },
           cabecalho: {
-            codigo: empRows[0]['Código'] || '00',
+            codigo: empCode || '00',
             cbo: '212420',
             nome_impresso: empName,
             departamento: colab?.departamento || '1',
@@ -345,8 +497,8 @@ function AdminUpload() {
               ? new Date(colab.data_admissao + 'T12:00:00').toLocaleDateString('pt-BR')
               : '01/01/2023',
           },
-          linhas,
-          totais: { vencimentos: totalVenc, descontos: totalDesc, liquido },
+          linhas: empData.linhas,
+          totais: empData.totais,
           bases,
         }
 
@@ -359,7 +511,7 @@ function AdminUpload() {
           data_admissao: colab?.data_admissao || '',
           arquivo_url: publicUrl,
           dados_extraidos,
-          valor_liquido: liquido,
+          valor_liquido: empData.totais.liquido,
           is_mapped: !!colab,
         })
       }
@@ -525,6 +677,11 @@ function AdminUpload() {
                       className={d.is_mapped === false ? 'opacity-60 bg-muted/30' : ''}
                     >
                       <TableCell className="font-medium">
+                        {d.dados_extraidos?.cabecalho?.codigo &&
+                        d.dados_extraidos.cabecalho.codigo !== '00' &&
+                        d.dados_extraidos.cabecalho.codigo !== d.nome
+                          ? `${d.dados_extraidos.cabecalho.codigo} - `
+                          : ''}
                         {d.nome}
                         {d.is_mapped === false && (
                           <span className="ml-2 text-xs text-red-500 font-normal">
