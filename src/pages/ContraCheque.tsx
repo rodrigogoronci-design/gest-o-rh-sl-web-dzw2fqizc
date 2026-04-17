@@ -168,12 +168,21 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         )
       }
 
-      const { data: colabs } = await supabase
+      const { data: allColabs } = await supabase
         .from('colaboradores')
         .select('id, nome, cargo, salario, departamento, data_admissao, role')
         .or('status.eq.Ativo,status.is.null')
 
-      if (!colabs) throw new Error('Erro ao buscar colaboradores no sistema')
+      if (!allColabs) throw new Error('Erro ao buscar colaboradores no sistema')
+
+      // Ignorar administradores/gerentes, exceto o Rodrigo
+      const colabs = allColabs.filter((c) => {
+        const role = (c.role || '').toLowerCase()
+        const isAdmin = role === 'admin' || role === 'gerente'
+        const isRodrigo = (c.nome || '').toLowerCase().includes('rodrigo')
+        if (isAdmin && !isRodrigo) return false
+        return true
+      })
 
       const sheetNames = Object.keys(parsedData)
       const finalExtracted: any[] = []
@@ -519,7 +528,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         let colab = null
 
         if (empName) {
-          const normEmpName = empName.toUpperCase()
+          const normEmpName = empName.toUpperCase().replace(/\s+/g, ' ').trim()
 
           // 1. Exact match
           colab = colabs.find(
@@ -537,14 +546,36 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
             )
           }
 
-          // 3. Includes match
+          // 3. Includes & Token Match (Robustez para nomes parciais como Lucas)
           if (!colab) {
             colab = colabs.find((c) => {
               if (mappedColabIds.has(c.id)) return false
-              const normColabName = (c.nome || '').toUpperCase().trim()
+              const normColabName = (c.nome || '').toUpperCase().replace(/\s+/g, ' ').trim()
+
               if (normEmpName.length > 3 && normColabName.length > 3) {
-                return normColabName.includes(normEmpName) || normEmpName.includes(normColabName)
+                if (normColabName.includes(normEmpName) || normEmpName.includes(normColabName)) {
+                  return true
+                }
               }
+
+              const empTokens = normEmpName.split(' ').filter((t) => t.length > 2)
+              const colabTokens = normColabName.split(' ').filter((t) => t.length > 2)
+
+              if (empTokens.length > 0 && colabTokens.length > 0) {
+                const matchCount = empTokens.filter((t) => colabTokens.includes(t)).length
+
+                if (
+                  empTokens[0] === colabTokens[0] &&
+                  (matchCount >= 2 || (empTokens.length === 1 && colabTokens.length === 1))
+                ) {
+                  return true
+                }
+
+                if (matchCount >= 2) {
+                  return true
+                }
+              }
+
               return false
             })
           }
@@ -638,11 +669,16 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       })
       const inserts = Array.from(insertsMap.values())
 
-      const { error } = await supabase
-        .from('contracheques')
-        .upsert(inserts as any, { onConflict: 'colaborador_id, mes_ano' })
+      // Processar em lotes para evitar problemas de limite de requisição e timeout
+      const batchSize = 50
+      for (let i = 0; i < inserts.length; i += batchSize) {
+        const batch = inserts.slice(i, i + batchSize)
+        const { error } = await supabase
+          .from('contracheques')
+          .upsert(batch as any, { onConflict: 'colaborador_id, mes_ano' })
 
-      if (error) throw error
+        if (error) throw error
+      }
 
       const unmappedCount = extractedData.length - validData.length
       toast.success(
@@ -846,7 +882,21 @@ function AdminHistorico() {
       .select('*, colaboradores!inner(nome, cargo, salario, role, departamento, data_admissao)')
       .eq('mes_ano', selectedMonth)
       .then(({ data }) => {
-        if (data) setRegistros(data)
+        if (data) {
+          const validRecords = data.filter((r) => {
+            const colab = r.colaboradores
+            if (!colab) return false
+
+            const role = (colab.role || '').toLowerCase()
+            const isAdmin = role === 'admin' || role === 'gerente'
+            const isRodrigo = (colab.nome || '').toLowerCase().includes('rodrigo')
+
+            if (isAdmin && !isRodrigo) return false
+            return true
+          })
+
+          setRegistros(validRecords)
+        }
       })
   }, [selectedMonth])
 
