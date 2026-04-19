@@ -3,6 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 
@@ -154,8 +161,22 @@ export function AdmissaoFormModal({
               <Input name="cargo" value={formData.cargo} onChange={handleChange} required />
             </div>
             <div className="space-y-2">
-              <Label>Departamento</Label>
-              <Input name="departamento" value={formData.departamento} onChange={handleChange} />
+              <Label>Setor / Departamento *</Label>
+              <Select
+                value={formData.departamento}
+                onValueChange={(val) => setFormData((p) => ({ ...p, departamento: val }))}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o setor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ADMINISTRAÇÃO">ADMINISTRAÇÃO</SelectItem>
+                  <SelectItem value="DESENVOLVIMENTO">DESENVOLVIMENTO</SelectItem>
+                  <SelectItem value="IMPLANTAÇÃO">IMPLANTAÇÃO</SelectItem>
+                  <SelectItem value="SUPORTE">SUPORTE</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Salário Base (R$)</Label>

@@ -1,0 +1,6 @@
+ALTER TABLE public.contracheques 
+ADD COLUMN IF NOT EXISTS data_assinatura TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS assinado BOOLEAN DEFAULT false;
+
+ALTER TABLE public.plantoes
+ADD COLUMN IF NOT EXISTS periodo TEXT DEFAULT 'Integral';

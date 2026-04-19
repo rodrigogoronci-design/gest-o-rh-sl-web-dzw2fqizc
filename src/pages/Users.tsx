@@ -58,6 +58,7 @@ export default function Users() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('colaborador')
+  const [setor, setSetor] = useState('')
   const [password, setPassword] = useState('')
   const [recebeTransporte, setRecebeTransporte] = useState(true)
   const [sendInvite, setSendInvite] = useState(false)
@@ -70,6 +71,7 @@ export default function Users() {
   const [editName, setEditName] = useState('')
   const [editEmail, setEditEmail] = useState('')
   const [editRole, setEditRole] = useState<Role>('colaborador')
+  const [editSetor, setEditSetor] = useState('')
   const [editPassword, setEditPassword] = useState('')
   const [editRecebeTransporte, setEditRecebeTransporte] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -104,6 +106,7 @@ export default function Users() {
         name,
         email,
         role,
+        departamento: setor,
         recebe_transporte: recebeTransporte,
         sendInvite,
         avatar_url: uploadedAvatarUrl,
@@ -119,6 +122,7 @@ export default function Users() {
       setName('')
       setEmail('')
       setRole('colaborador')
+      setSetor('')
       setPassword('')
       setRecebeTransporte(true)
       setSendInvite(false)
@@ -145,6 +149,7 @@ export default function Users() {
     setEditName(u.name || u.nome)
     setEditEmail(u.email)
     setEditRole(u.role?.toLowerCase() === 'admin' ? 'admin' : 'colaborador')
+    setEditSetor(u.departamento || '')
     setEditPassword('')
     setEditRecebeTransporte(u.recebe_transporte ?? true)
     setEditAvatarUrl(u.avatar_url || '')
@@ -177,6 +182,7 @@ export default function Users() {
         name: editName,
         email: editEmail,
         role: editRole,
+        departamento: editSetor,
         password: editPassword || undefined,
         recebe_transporte: editRecebeTransporte === true,
         avatar_url: finalAvatarUrl,
@@ -317,6 +323,20 @@ export default function Users() {
                 />
               </div>
               <div className="space-y-2">
+                <Label>Setor</Label>
+                <Select value={setor} onValueChange={setSetor}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o setor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ADMINISTRAÇÃO">ADMINISTRAÇÃO</SelectItem>
+                    <SelectItem value="DESENVOLVIMENTO">DESENVOLVIMENTO</SelectItem>
+                    <SelectItem value="IMPLANTAÇÃO">IMPLANTAÇÃO</SelectItem>
+                    <SelectItem value="SUPORTE">SUPORTE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>Senha (Opcional)</Label>
                 <Input
                   type="password"
@@ -412,6 +432,20 @@ export default function Users() {
               />
             </div>
             <div className="space-y-2">
+              <Label>Setor</Label>
+              <Select value={editSetor} onValueChange={setEditSetor}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o setor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ADMINISTRAÇÃO">ADMINISTRAÇÃO</SelectItem>
+                  <SelectItem value="DESENVOLVIMENTO">DESENVOLVIMENTO</SelectItem>
+                  <SelectItem value="IMPLANTAÇÃO">IMPLANTAÇÃO</SelectItem>
+                  <SelectItem value="SUPORTE">SUPORTE</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Nova Senha</Label>
               <Input
                 type="password"
@@ -455,6 +489,7 @@ export default function Users() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>E-mail</TableHead>
+                <TableHead>Setor</TableHead>
                 <TableHead>Perfil</TableHead>
                 <TableHead>Vale-Transporte</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
@@ -463,13 +498,13 @@ export default function Users() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     Carregando usuários...
                   </TableCell>
                 </TableRow>
               ) : colaboradores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     Nenhum usuário encontrado.
                   </TableCell>
                 </TableRow>
@@ -488,6 +523,11 @@ export default function Users() {
                       </div>
                     </TableCell>
                     <TableCell>{u.email}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        {u.departamento || 'Não definido'}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={u.role?.toLowerCase() === 'admin' ? 'default' : 'secondary'}>
                         {u.role?.toLowerCase() === 'admin' ? 'Administrador' : 'Funcionário'}

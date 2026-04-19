@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, subMonths } from 'date-fns'
 import { supabase } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -12,6 +12,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Printer,
   FileSpreadsheet,
@@ -24,9 +31,11 @@ import {
   Banknote,
   Star,
   TrendingDown,
+  TrendingUp,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import useAppStore from '@/stores/useAppStore'
+import { ptBR } from 'date-fns/locale'
 
 export default function Reports() {
   const { users } = useAppStore()
@@ -34,6 +43,7 @@ export default function Reports() {
 
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [isLoading, setIsLoading] = useState(false)
+  const [evolutivoUserId, setEvolutivoUserId] = useState<string>('all')
 
   const [data, setData] = useState({
     tickets: [] as any[],
@@ -44,6 +54,7 @@ export default function Reports() {
     feriados: [] as any[],
     contracheques: [] as any[],
     avaliacoes: [] as any[],
+    evolutivo: [] as any[],
   })
 
   const ticketValue = parseFloat(localStorage.getItem('ticketValue') || '31.59')
@@ -53,6 +64,10 @@ export default function Reports() {
   const month = parseInt(selectedMonth.split('-')[1]) - 1
   const pStart = format(new Date(year, month - 1, 25), 'yyyy-MM-dd')
   const pEnd = format(new Date(year, month, 24), 'yyyy-MM-dd')
+
+  const evolutivoMeses = Array.from({ length: 6 })
+    .map((_, i) => format(subMonths(parseISO(`${selectedMonth}-01`), i), 'yyyy-MM'))
+    .reverse()
 
   useEffect(() => {
     const loadData = async () => {
@@ -66,6 +81,7 @@ export default function Reports() {
         { data: feriados },
         { data: contracheques },
         { data: avaliacoes },
+        { data: evolutivo },
       ] = await Promise.all([
         supabase.from('beneficios_ticket').select('*').eq('mes_ano', selectedMonth),
         supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
@@ -80,6 +96,7 @@ export default function Reports() {
         supabase.from('feriados').select('*').gte('data', pStart).lte('data', pEnd).order('data'),
         supabase.from('contracheques').select('*').eq('mes_ano', selectedMonth),
         supabase.from('avaliacoes').select('*').eq('periodo', selectedMonth),
+        supabase.from('contracheques').select('*').in('mes_ano', evolutivoMeses),
       ])
 
       setData({
@@ -91,6 +108,7 @@ export default function Reports() {
         feriados: feriados || [],
         contracheques: contracheques || [],
         avaliacoes: avaliacoes || [],
+        evolutivo: evolutivo || [],
       })
       setIsLoading(false)
     }
@@ -143,6 +161,39 @@ export default function Reports() {
         (avaliacoesCount * 3)
       : 0
 
+  // Construir mapa evolutivo
+  const eventsMap: Record<
+    string,
+    { descricao: string; type: 'vencimento' | 'desconto'; values: Record<string, number> }
+  > = {}
+
+  data.evolutivo.forEach((cc) => {
+    if (evolutivoUserId !== 'all' && cc.colaborador_id !== evolutivoUserId) return
+
+    const linhas = cc.dados_extraidos?.linhas || []
+    linhas.forEach((l: any) => {
+      const key = l.codigo || l.descricao
+      if (!key) return
+      if (!eventsMap[key]) {
+        eventsMap[key] = {
+          descricao: l.descricao || `Cód. ${l.codigo}`,
+          type: l.vencimento > 0 ? 'vencimento' : 'desconto',
+          values: {},
+        }
+      }
+      const val = (l.vencimento || 0) + (l.desconto || 0)
+      eventsMap[key].values[cc.mes_ano] = (eventsMap[key].values[cc.mes_ano] || 0) + val
+    })
+  })
+
+  const evolutivoList = Object.keys(eventsMap).map((k) => ({ key: k, ...eventsMap[k] }))
+  const evolutivoVencimentos = evolutivoList
+    .filter((e) => e.type === 'vencimento')
+    .sort((a, b) => b.values[selectedMonth] - a.values[selectedMonth])
+  const evolutivoDescontos = evolutivoList
+    .filter((e) => e.type === 'desconto')
+    .sort((a, b) => b.values[selectedMonth] - a.values[selectedMonth])
+
   const handleExportCsv = () => {
     const rows = []
     rows.push([
@@ -166,8 +217,32 @@ export default function Reports() {
     rows.push(['Média de Meritocracia', avgAvaliacoes.toFixed(1).replace('.', ',')])
     rows.push([])
 
+    rows.push(['ACOMPANHAMENTO FUNCIONAL EVOLUTIVO (PROVENTOS)'])
+    rows.push(['Evento', ...evolutivoMeses])
+    evolutivoVencimentos.forEach((e) => {
+      const row = [e.descricao]
+      evolutivoMeses.forEach((m) => row.push((e.values[m] || 0).toFixed(2).replace('.', ',')))
+      rows.push(row)
+    })
+    rows.push([])
+
+    rows.push(['ACOMPANHAMENTO FUNCIONAL EVOLUTIVO (DESCONTOS)'])
+    rows.push(['Evento', ...evolutivoMeses])
+    evolutivoDescontos.forEach((e) => {
+      const row = [e.descricao]
+      evolutivoMeses.forEach((m) => row.push((e.values[m] || 0).toFixed(2).replace('.', ',')))
+      rows.push(row)
+    })
+    rows.push([])
+
     rows.push(['CONTRACHEQUES (FOLHA DE PAGAMENTO)'])
-    rows.push(['Colaborador', 'Total Bruto (R$)', 'Total Descontos (R$)', 'Valor Líquido (R$)'])
+    rows.push([
+      'Colaborador',
+      'Total Bruto (R$)',
+      'Total Descontos (R$)',
+      'Valor Líquido (R$)',
+      'Assinado',
+    ])
     data.contracheques.forEach((c) => {
       const ext = c.dados_extraidos
       const bruto = ext?.totais?.vencimentos || 0
@@ -178,6 +253,7 @@ export default function Reports() {
         bruto.toFixed(2).replace('.', ','),
         desc.toFixed(2).replace('.', ','),
         liq.toFixed(2).replace('.', ','),
+        c.assinado ? 'Sim' : 'Não',
       ])
     })
     rows.push([])
@@ -199,34 +275,15 @@ export default function Reports() {
     rows.push([])
 
     rows.push(['PLANTÕES'])
-    rows.push(['Colaborador', 'Data'])
+    rows.push(['Colaborador', 'Data', 'Período'])
     data.plantoes.forEach((p) =>
-      rows.push([getUserName(p.colaborador_id), format(parseISO(p.data), 'dd/MM/yyyy')]),
-    )
-    rows.push([])
-
-    rows.push(['FALTAS'])
-    rows.push(['Colaborador', 'Data'])
-    data.faltas.forEach((f) =>
-      rows.push([getUserName(f.colaborador_id), format(parseISO(f.data), 'dd/MM/yyyy')]),
-    )
-    rows.push([])
-
-    rows.push(['ATESTADOS'])
-    rows.push(['Colaborador', 'Início', 'Fim', 'Dias'])
-    data.atestados.forEach((a) =>
       rows.push([
-        getUserName(a.colaborador_id),
-        format(parseISO(a.data_inicio), 'dd/MM/yyyy'),
-        format(parseISO(a.data_fim), 'dd/MM/yyyy'),
-        a.quantidade_dias,
+        getUserName(p.colaborador_id),
+        format(parseISO(p.data), 'dd/MM/yyyy'),
+        p.periodo || 'Integral',
       ]),
     )
     rows.push([])
-
-    rows.push(['FERIADOS'])
-    rows.push(['Data', 'Descrição'])
-    data.feriados.forEach((f) => rows.push([format(parseISO(f.data), 'dd/MM/yyyy'), f.descricao]))
 
     const csvContent = '\uFEFF' + rows.map((e) => e.join(';')).join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -247,6 +304,9 @@ export default function Reports() {
   const handlePrint = () => {
     window.print()
   }
+
+  const formatNumber = (val: number) =>
+    val ? val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'
 
   return (
     <div className="space-y-6 flex flex-col h-full pb-10 print:pb-0">
@@ -410,7 +470,117 @@ export default function Reports() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-2 print:gap-4 mt-4">
+          <Card className="border-slate-200 shadow-sm mt-6 print:shadow-none print:border print:break-inside-avoid">
+            <CardHeader className="pb-4 border-b bg-slate-50/50 print:bg-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-indigo-600" />
+                  Acompanhamento Funcional (Evolutivo)
+                </CardTitle>
+                <CardDescription>
+                  Análise mês a mês detalhada por eventos importados da folha
+                </CardDescription>
+              </div>
+              <div className="print:hidden w-full sm:w-[250px]">
+                <Select value={evolutivoUserId} onValueChange={setEvolutivoUserId}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Selecione o colaborador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Visão Consolidada (Empresa)</SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0 overflow-x-auto print:overflow-visible">
+              <Table>
+                <TableHeader className="bg-slate-50 print:bg-transparent">
+                  <TableRow>
+                    <TableHead className="min-w-[200px]">Evento (Proventos)</TableHead>
+                    {evolutivoMeses.map((m) => (
+                      <TableHead key={`prov-m-${m}`} className="text-right min-w-[100px] text-xs">
+                        {format(parseISO(`${m}-01`), 'MMM/yy', { locale: ptBR })}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {evolutivoVencimentos.length > 0 ? (
+                    evolutivoVencimentos.map((e, idx) => (
+                      <TableRow key={`prov-${idx}`} className="hover:bg-slate-50/50">
+                        <TableCell className="font-medium text-slate-700 text-xs">
+                          {e.descricao}
+                        </TableCell>
+                        {evolutivoMeses.map((m) => (
+                          <TableCell
+                            key={`v-${m}`}
+                            className="text-right text-green-600 font-medium text-xs"
+                          >
+                            {formatNumber(e.values[m])}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={evolutivoMeses.length + 1}
+                        className="text-center py-4 text-muted-foreground text-sm"
+                      >
+                        Nenhum provento registrado no período.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+
+                <TableHeader className="bg-slate-50 print:bg-transparent border-t-[20px] border-transparent">
+                  <TableRow>
+                    <TableHead className="min-w-[200px]">Evento (Descontos)</TableHead>
+                    {evolutivoMeses.map((m) => (
+                      <TableHead key={`desc-m-${m}`} className="text-right min-w-[100px] text-xs">
+                        {format(parseISO(`${m}-01`), 'MMM/yy', { locale: ptBR })}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {evolutivoDescontos.length > 0 ? (
+                    evolutivoDescontos.map((e, idx) => (
+                      <TableRow key={`desc-${idx}`} className="hover:bg-slate-50/50">
+                        <TableCell className="font-medium text-slate-700 text-xs">
+                          {e.descricao}
+                        </TableCell>
+                        {evolutivoMeses.map((m) => (
+                          <TableCell
+                            key={`d-${m}`}
+                            className="text-right text-red-600 font-medium text-xs"
+                          >
+                            {formatNumber(e.values[m])}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={evolutivoMeses.length + 1}
+                        className="text-center py-4 text-muted-foreground text-sm"
+                      >
+                        Nenhum desconto registrado no período.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-2 print:gap-4 mt-6">
             <Card className="border-slate-200 shadow-sm print:shadow-none print:border print:break-inside-avoid">
               <CardHeader className="pb-2 border-b bg-slate-50/50 print:bg-transparent">
                 <div className="flex items-center gap-2">
@@ -425,6 +595,7 @@ export default function Reports() {
                   <TableHeader className="bg-slate-50 sticky top-0 print:static print:bg-transparent">
                     <TableRow className="[&>th]:py-2">
                       <TableHead className="text-xs">Colaborador</TableHead>
+                      <TableHead className="text-xs text-center">Assinado</TableHead>
                       <TableHead className="text-xs text-right">Líquido (R$)</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -438,6 +609,13 @@ export default function Reports() {
                             <TableCell className="text-xs font-medium text-slate-700">
                               {getUserName(c.colaborador_id)}
                             </TableCell>
+                            <TableCell className="text-xs text-center">
+                              {c.assinado ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-600 inline-block" />
+                              ) : (
+                                <Clock className="w-4 h-4 text-amber-500 inline-block opacity-50" />
+                              )}
+                            </TableCell>
                             <TableCell className="text-xs text-right font-medium">
                               {liq.toLocaleString('pt-BR', {
                                 minimumFractionDigits: 2,
@@ -449,7 +627,7 @@ export default function Reports() {
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-center text-xs text-slate-500 py-4">
+                        <TableCell colSpan={3} className="text-center text-xs text-slate-500 py-4">
                           Nenhum contracheque processado
                         </TableCell>
                       </TableRow>
@@ -518,6 +696,7 @@ export default function Reports() {
                   <TableHeader className="bg-slate-50 sticky top-0 print:static print:bg-transparent">
                     <TableRow className="[&>th]:py-2">
                       <TableHead className="text-xs">Colaborador</TableHead>
+                      <TableHead className="text-xs">Período</TableHead>
                       <TableHead className="text-xs text-right w-[100px]">Data</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -528,6 +707,9 @@ export default function Reports() {
                           <TableCell className="text-xs font-medium text-slate-700">
                             {getUserName(p.colaborador_id)}
                           </TableCell>
+                          <TableCell className="text-xs text-slate-500">
+                            {p.periodo || 'Integral'}
+                          </TableCell>
                           <TableCell className="text-xs text-right text-slate-500">
                             {format(parseISO(p.data), 'dd/MM/yyyy')}
                           </TableCell>
@@ -535,7 +717,7 @@ export default function Reports() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-center text-xs text-slate-500 py-4">
+                        <TableCell colSpan={3} className="text-center text-xs text-slate-500 py-4">
                           Nenhum plantão no período
                         </TableCell>
                       </TableRow>
@@ -578,91 +760,6 @@ export default function Reports() {
                       <TableRow>
                         <TableCell colSpan={2} className="text-center text-xs text-slate-500 py-4">
                           Nenhuma falta no período
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border print:break-inside-avoid">
-              <CardHeader className="pb-2 border-b bg-slate-50/50 print:bg-transparent">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-orange-500" />
-                  <CardTitle className="text-sm font-semibold">
-                    Atestados Médicos ({data.atestados.length})
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 max-h-[300px] overflow-auto print:max-h-none print:overflow-visible">
-                <Table>
-                  <TableHeader className="bg-slate-50 sticky top-0 print:static print:bg-transparent">
-                    <TableRow className="[&>th]:py-2">
-                      <TableHead className="text-xs">Colaborador</TableHead>
-                      <TableHead className="text-xs text-center w-[160px]">Período</TableHead>
-                      <TableHead className="text-xs text-right w-[60px]">Dias</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.atestados.length > 0 ? (
-                      data.atestados.map((a) => (
-                        <TableRow key={a.id} className="[&>td]:py-2">
-                          <TableCell className="text-xs font-medium text-slate-700">
-                            {getUserName(a.colaborador_id)}
-                          </TableCell>
-                          <TableCell className="text-xs text-center text-slate-500">
-                            {format(parseISO(a.data_inicio), 'dd/MM')} a{' '}
-                            {format(parseISO(a.data_fim), 'dd/MM')}
-                          </TableCell>
-                          <TableCell className="text-xs text-right font-medium">
-                            {a.quantidade_dias}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-xs text-slate-500 py-4">
-                          Nenhum atestado no período
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border print:break-inside-avoid">
-              <CardHeader className="pb-2 border-b bg-slate-50/50 print:bg-transparent">
-                <div className="flex items-center gap-2">
-                  <CalendarOff className="w-4 h-4 text-purple-500" />
-                  <CardTitle className="text-sm font-semibold">
-                    Feriados no Período ({data.feriados.length})
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 max-h-[300px] overflow-auto print:max-h-none print:overflow-visible">
-                <Table>
-                  <TableHeader className="bg-slate-50 sticky top-0 print:static print:bg-transparent">
-                    <TableRow className="[&>th]:py-2">
-                      <TableHead className="text-xs w-[100px]">Data</TableHead>
-                      <TableHead className="text-xs">Descrição</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.feriados.length > 0 ? (
-                      data.feriados.map((f) => (
-                        <TableRow key={f.id} className="[&>td]:py-2">
-                          <TableCell className="text-xs font-medium text-slate-700">
-                            {format(parseISO(f.data), 'dd/MM/yyyy')}
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-500">{f.descricao}</TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={2} className="text-center text-xs text-slate-500 py-4">
-                          Nenhum feriado no período
                         </TableCell>
                       </TableRow>
                     )}

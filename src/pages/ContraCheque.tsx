@@ -38,6 +38,7 @@ import {
   Eye,
   Search,
   Table as TableIcon,
+  PenTool,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -189,8 +190,9 @@ function AdminMemoriaCalculo() {
     }
   })
 
-  const COLORS_PROVENTOS = ['#10b981', '#059669', '#34d399', '#047857', '#6ee7b7']
-  const COLORS_DESCONTOS = ['#ef4444', '#dc2626', '#f87171', '#b91c1c', '#fca5a5']
+  // Cores distintas conforme solicitado
+  const COLORS_PROVENTOS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4']
+  const COLORS_DESCONTOS = ['#ef4444', '#ec4899', '#f97316', '#6366f1', '#14b8a6']
 
   const topDescontos = Object.values(eventos)
     .filter((e) => e.desconto > 0)
@@ -388,7 +390,7 @@ function AdminMemoriaCalculo() {
                   <TableHeader className="bg-muted/50">
                     <TableRow>
                       <TableHead>Colaborador</TableHead>
-                      <TableHead>Cargo</TableHead>
+                      <TableHead className="text-center">Assinatura</TableHead>
                       <TableHead className="text-right">Proventos</TableHead>
                       <TableHead className="text-right">Descontos</TableHead>
                       <TableHead className="text-right">Valor Líquido</TableHead>
@@ -404,9 +406,30 @@ function AdminMemoriaCalculo() {
 
                       return (
                         <TableRow key={r.id}>
-                          <TableCell className="font-medium">{r.colaboradores?.nome}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {r.colaboradores?.cargo}
+                          <TableCell className="font-medium">
+                            <div className="flex flex-col">
+                              <span>{r.colaboradores?.nome}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {r.colaboradores?.cargo}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {r.assinado ? (
+                              <Badge
+                                variant="outline"
+                                className="bg-green-50 text-green-700 border-green-200"
+                              >
+                                <CheckCircle2 className="w-3 h-3 mr-1" /> Assinado
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="bg-amber-50 text-amber-700 border-amber-200"
+                              >
+                                Pendente
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-right text-green-600 font-medium">
                             {formatCurrency(prov)}
@@ -431,6 +454,8 @@ function AdminMemoriaCalculo() {
                                   data_admissao: r.colaboradores?.data_admissao,
                                   arquivo_url: r.arquivo_url,
                                   dados_extraidos: r.dados_extraidos,
+                                  assinado: r.assinado,
+                                  data_assinatura: r.data_assinatura,
                                 })
                               }
                             >
@@ -529,12 +554,13 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
       const { data: allColabs } = await supabase
         .from('colaboradores')
-        .select('id, nome, cargo, salario, departamento, data_admissao, role')
+        .select(
+          'id, nome, cargo, salario, departamento, data_admissao, role, codigo_funcionario, cpf, rg',
+        )
         .or('status.eq.Ativo,status.is.null')
 
       if (!allColabs) throw new Error('Erro ao buscar colaboradores no sistema')
 
-      // Ignorar administradores/gerentes, exceto o Rodrigo
       const colabs = allColabs.filter((c) => {
         const role = (c.role || '').toLowerCase()
         const isAdmin = role === 'admin' || role === 'gerente'
@@ -551,6 +577,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         cabecalho: {
           codigo: '',
           nome_impresso: '',
+          cargo: '',
           cbo: '',
           departamento: '',
           filial: '',
@@ -599,8 +626,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           rawRows = [keys, ...rawRows.map((r) => keys.map((k) => r[k]))]
         }
 
-        let h = getEmptyHolerite()
-
         const expandedRows: string[][] = []
         for (const row of rawRows) {
           if (!row) continue
@@ -622,12 +647,38 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
         let state = 'HEADER'
         let colMap = { codigo: -1, descricao: -1, referencia: -1, vencimentos: -1, descontos: -1 }
+        let h = getEmptyHolerite()
 
         for (let i = 0; i < expandedRows.length; i++) {
           const row = expandedRows[i]
           const rowTextUpper = row.join(' ').toUpperCase()
 
           if (!rowTextUpper.trim()) continue
+
+          // Detect new employee block in the same sheet
+          if (
+            (rowTextUpper.includes('CNPJ:') ||
+              rowTextUpper.includes('NOME DO FUNCION') ||
+              rowTextUpper.includes('CÓDIGO')) &&
+            h.cabecalho.nome_impresso &&
+            h.linhas.length > 0
+          ) {
+            h.totais.vencimentos = h.linhas.reduce(
+              (acc: number, l: any) => acc + (l.vencimento || 0),
+              0,
+            )
+            h.totais.descontos = h.linhas.reduce(
+              (acc: number, l: any) => acc + (l.desconto || 0),
+              0,
+            )
+            if (!h.totais.liquido && h.totais.vencimentos > 0) {
+              h.totais.liquido = h.totais.vencimentos - h.totais.descontos
+            }
+            finalExtracted.push(h)
+            h = getEmptyHolerite()
+            state = 'HEADER'
+            colMap = { codigo: -1, descricao: -1, referencia: -1, vencimentos: -1, descontos: -1 }
+          }
 
           if (state === 'HEADER') {
             if (rowTextUpper.includes('CNPJ:')) {
@@ -649,12 +700,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                   const m = c.match(/([\d]{2}\/[\d]{2}\/[\d]{4})/)
                   if (m) h.cabecalho.admissao = m[1]
                 }
-                if (!h.cabecalho.admissao && i + 1 < expandedRows.length) {
-                  for (const c of expandedRows[i + 1]) {
-                    const m = c.match(/([\d]{2}\/[\d]{2}\/[\d]{4})/)
-                    if (m) h.cabecalho.admissao = m[1]
-                  }
-                }
               }
             }
 
@@ -675,6 +720,14 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                 h.cabecalho.nome_impresso = row[nomeIdx + 1].trim()
                 if (codIdx !== -1 && row.length > codIdx + 1)
                   h.cabecalho.codigo = row[codIdx + 1].trim()
+
+                // try to capture the role from the next line
+                if (i + 1 < expandedRows.length && expandedRows[i + 1][nomeIdx + 1]) {
+                  const possibleCargo = expandedRows[i + 1][nomeIdx + 1].trim()
+                  if (possibleCargo && !possibleCargo.toUpperCase().includes('CBO')) {
+                    h.cabecalho.cargo = possibleCargo
+                  }
+                }
                 foundValues = true
               }
               if (!foundValues) {
@@ -684,6 +737,13 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                     h.cabecalho.nome_impresso = nextRow[nomeIdx].trim()
                     if (codIdx !== -1 && nextRow[codIdx])
                       h.cabecalho.codigo = nextRow[codIdx].trim()
+
+                    if (j + 1 < expandedRows.length && expandedRows[j + 1][nomeIdx]) {
+                      const possibleCargo = expandedRows[j + 1][nomeIdx].trim()
+                      if (possibleCargo && !possibleCargo.toUpperCase().includes('CBO')) {
+                        h.cabecalho.cargo = possibleCargo
+                      }
+                    }
                     break
                   }
                 }
@@ -702,7 +762,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
             if (rowTextUpper.includes('DESCRIÇÃO') || rowTextUpper.includes('DESCRICAO')) {
               colMap.codigo = row.findIndex(
-                (c) => c.toUpperCase().includes('CÓDIGO') || c.toUpperCase().includes('CODIGO'),
+                (c) => c.toUpperCase() === 'CÓDIGO' || c.toUpperCase() === 'CODIGO',
               )
               colMap.descricao = row.findIndex(
                 (c) =>
@@ -847,31 +907,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           h.totais.liquido = h.totais.vencimentos - h.totais.descontos
         }
 
-        if (
-          !h.cabecalho.nome_impresso &&
-          sheetName.length > 3 &&
-          sheetName.toUpperCase() !== 'SHEET1' &&
-          sheetName.toUpperCase() !== 'PLAN1'
-        ) {
-          h.cabecalho.nome_impresso = sheetName
-        }
-
-        if (h.cabecalho.nome_impresso) {
-          const dashMatch = h.cabecalho.nome_impresso.match(/^(\d+)\s*[-|–]\s*(.+)$/)
-          const nameMatch = h.cabecalho.nome_impresso.match(/^(\d+)\s+(.+)$/)
-          if (dashMatch) {
-            if (!h.cabecalho.codigo || h.cabecalho.codigo === '00') {
-              h.cabecalho.codigo = dashMatch[1]
-            }
-            h.cabecalho.nome_impresso = dashMatch[2].trim()
-          } else if (nameMatch) {
-            if (!h.cabecalho.codigo || h.cabecalho.codigo === '00') {
-              h.cabecalho.codigo = nameMatch[1]
-            }
-            h.cabecalho.nome_impresso = nameMatch[2].trim()
-          }
-        }
-
         if (h.cabecalho.nome_impresso || h.linhas.length > 0) {
           finalExtracted.push(h)
         }
@@ -883,63 +918,54 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       for (const empData of finalExtracted) {
         const empName = (empData.cabecalho.nome_impresso || '').trim()
         const empCode = (empData.cabecalho.codigo || '').trim()
+        const empCargo = (empData.cabecalho.cargo || '').trim()
 
         let colab = null
 
-        // 0. Primary strict code match
+        // 0. Primary strict code match + name check
         if (empCode && empCode !== '00') {
-          colab = colabs.find((c) => !mappedColabIds.has(c.id) && c.codigo_funcionario === empCode)
+          const possibleColab = colabs.find((c) => c.codigo_funcionario === empCode)
+          if (possibleColab) {
+            const normEmpName = empName.toUpperCase().replace(/\s+/g, ' ').trim()
+            const normColabName = (possibleColab.nome || '')
+              .toUpperCase()
+              .replace(/\s+/g, ' ')
+              .trim()
+
+            // Very basic safety check to avoid wrong code mapping
+            const empTokens = normEmpName.split(' ').filter((t) => t.length > 2)
+            const colabTokens = normColabName.split(' ').filter((t) => t.length > 2)
+            const hasNameOverlap = empTokens.some((t) => colabTokens.includes(t))
+
+            if (hasNameOverlap || normEmpName === normColabName) {
+              colab = possibleColab
+            }
+          }
         }
 
         if (!colab && empName) {
           const normEmpName = empName.toUpperCase().replace(/\s+/g, ' ').trim()
 
-          // 1. Exact name match
           colab = colabs.find(
             (c) => !mappedColabIds.has(c.id) && (c.nome || '').toUpperCase().trim() === normEmpName,
           )
 
-          // 2. Fallback Code match
-          if (!colab && empCode && empCode !== '00') {
-            colab = colabs.find(
-              (c) =>
-                !mappedColabIds.has(c.id) &&
-                (String(c.id).includes(empCode) ||
-                  String(c.cpf).includes(empCode) ||
-                  String(c.rg).includes(empCode)),
-            )
-          }
-
-          // 3. Includes & Token Match (Robustez para nomes parciais como Lucas)
           if (!colab) {
             colab = colabs.find((c) => {
               if (mappedColabIds.has(c.id)) return false
               const normColabName = (c.nome || '').toUpperCase().replace(/\s+/g, ' ').trim()
-
-              if (normEmpName.length > 3 && normColabName.length > 3) {
-                if (normColabName.includes(normEmpName) || normEmpName.includes(normColabName)) {
-                  return true
-                }
-              }
-
               const empTokens = normEmpName.split(' ').filter((t) => t.length > 2)
               const colabTokens = normColabName.split(' ').filter((t) => t.length > 2)
 
               if (empTokens.length > 0 && colabTokens.length > 0) {
                 const matchCount = empTokens.filter((t) => colabTokens.includes(t)).length
-
                 if (
                   empTokens[0] === colabTokens[0] &&
                   (matchCount >= 2 || (empTokens.length === 1 && colabTokens.length === 1))
                 ) {
                   return true
                 }
-
-                if (matchCount >= 2) {
-                  return true
-                }
               }
-
               return false
             })
           }
@@ -956,7 +982,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
             colab.codigo_funcionario !== empCode
           ) {
             has_error = true
-            error_msg = `Código divergente: Planilha (${empCode}) vs Sistema (${colab.codigo_funcionario}). Resolva para importar.`
+            error_msg = `Divergência de segurança: Planilha (Cód: ${empCode}) vs Sistema (Cód: ${colab.codigo_funcionario} / Nome: ${colab.nome}). Corrija para importar.`
           }
           mappedColabIds.add(colab.id)
         }
@@ -970,6 +996,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
             codigo: empCode || '00',
             cbo: empData.cabecalho.cbo || '212420',
             nome_impresso: empName || 'FUNCIONÁRIO NÃO IDENTIFICADO',
+            cargo: empCargo || colab?.cargo || '',
             departamento: colab?.departamento || empData.cabecalho.departamento || '1',
             filial: empData.cabecalho.filial || '1',
             admissao:
@@ -986,7 +1013,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         extracted.push({
           colaborador_id: colab?.id || `unmapped-${Math.random()}`,
           nome: empName,
-          cargo: colab?.cargo || '',
+          cargo: empCargo || colab?.cargo || '',
           salario: colab?.salario || 0,
           departamento: colab?.departamento || '',
           data_admissao: colab?.data_admissao || '',
@@ -1008,7 +1035,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         setExtractedData(extracted)
         toast.success('Planilha processada com sucesso! Prévia carregada.')
 
-        // Auto-open preview for the first mapped item to give immediate feedback
         const firstMapped = extracted.find((e) => e.is_mapped) || extracted[0]
         if (firstMapped) {
           setTimeout(() => {
@@ -1028,7 +1054,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
     const errorCount = extractedData.filter((e) => e.has_error).length
     if (errorCount > 0) {
       toast.error(
-        'Não é possível publicar: Há divergências de código de funcionário. Corrija o cadastro ou a planilha.',
+        'Não é possível publicar: Há divergências de segurança entre código e nome do funcionário. Corrija o cadastro ou a planilha.',
       )
       return
     }
@@ -1050,12 +1076,13 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
             arquivo_url: e.arquivo_url,
             valor_liquido: e.valor_liquido,
             dados_extraidos: e.dados_extraidos,
+            assinado: false,
+            data_assinatura: null,
           })
         }
       })
       const inserts = Array.from(insertsMap.values())
 
-      // Processar em lotes para evitar problemas de limite de requisição e timeout
       const batchSize = 50
       for (let i = 0; i < inserts.length; i += batchSize) {
         const batch = inserts.slice(i, i + batchSize)
@@ -1093,9 +1120,9 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         <div className="bg-blue-50/50 text-blue-800 text-sm p-4 rounded-lg flex items-start gap-3 border border-blue-100">
           <div className="mt-0.5">💡</div>
           <div>
-            <strong>Leitura Fiel e Estruturada:</strong> O sistema agora processa planilhas Excel
-            (XLSX/XLS). Cada evento listado para o funcionário será importado exatamente como consta
-            no arquivo, sem criar valores automáticos ou omitir códigos (ex: 202, 8125, 998).
+            <strong>Leitura Fiel e Estruturada:</strong> O sistema agora suporta a importação de
+            planilhas de tabela única. Ele irá varrer automaticamente os blocos de funcionários,
+            associar códigos e funções, garantindo total integridade de dados.
           </div>
         </div>
 
@@ -1183,19 +1210,26 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                       }
                     >
                       <TableCell className="font-medium">
-                        {d.dados_extraidos?.cabecalho?.codigo &&
-                        d.dados_extraidos.cabecalho.codigo !== '00' &&
-                        d.dados_extraidos.cabecalho.codigo !== d.nome
-                          ? `${d.dados_extraidos.cabecalho.codigo} - `
-                          : ''}
-                        {d.nome}
+                        <div className="flex flex-col">
+                          <span>
+                            {d.dados_extraidos?.cabecalho?.codigo &&
+                            d.dados_extraidos.cabecalho.codigo !== '00' &&
+                            d.dados_extraidos.cabecalho.codigo !== d.nome
+                              ? `${d.dados_extraidos.cabecalho.codigo} - `
+                              : ''}
+                            {d.nome}
+                          </span>
+                          <span className="text-xs text-muted-foreground font-normal">
+                            {d.cargo}
+                          </span>
+                        </div>
                         {d.is_mapped === false && !d.has_error && (
-                          <span className="ml-2 text-xs text-muted-foreground font-normal">
+                          <span className="text-xs text-muted-foreground font-normal mt-1 block">
                             (Não mapeado)
                           </span>
                         )}
                         {d.has_error && (
-                          <span className="ml-2 text-xs text-red-600 font-semibold block mt-1">
+                          <span className="text-xs text-red-600 font-semibold block mt-1">
                             ⚠️ {d.error_msg}
                           </span>
                         )}
@@ -1212,7 +1246,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                             variant="outline"
                             className="bg-red-50 text-red-700 border-red-200"
                           >
-                            Divergência
+                            Divergência Crítica
                           </Badge>
                         ) : d.is_mapped !== false ? (
                           <Badge
@@ -1276,7 +1310,7 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
   const [contracheque, setContracheque] = useState<any>(null)
   const [previewData, setPreviewData] = useState<any>(null)
 
-  useEffect(() => {
+  const fetchData = () => {
     if (colaborador) {
       supabase
         .from('contracheques')
@@ -1286,7 +1320,28 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
         .single()
         .then(({ data }) => setContracheque(data))
     }
+  }
+
+  useEffect(() => {
+    fetchData()
   }, [colaborador, selectedMonth])
+
+  const handleSign = async () => {
+    if (!contracheque) return
+    try {
+      const { error } = await supabase
+        .from('contracheques')
+        .update({ assinado: true, data_assinatura: new Date().toISOString() })
+        .eq('id', contracheque.id)
+
+      if (error) throw error
+      toast.success('Assinatura registrada com sucesso!')
+      fetchData()
+      setPreviewData(null)
+    } catch (err: any) {
+      toast.error('Erro ao assinar: ' + err.message)
+    }
+  }
 
   return (
     <Card className="max-w-2xl mx-auto">
@@ -1318,6 +1373,22 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
             <p className="text-muted-foreground mb-6 text-center max-w-sm">
               As informações do seu demonstrativo estão disponíveis para visualização.
             </p>
+            {contracheque.assinado ? (
+              <div className="flex flex-col items-center gap-2 mb-6">
+                <Badge
+                  variant="outline"
+                  className="bg-green-50 text-green-700 border-green-200 px-4 py-1.5 text-sm"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Assinado em {new Date(contracheque.data_assinatura).toLocaleDateString('pt-BR')}
+                </Badge>
+              </div>
+            ) : (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm max-w-sm text-center">
+                <strong>Ação Necessária:</strong> Seu holerite requer confirmação de recebimento.
+                Por favor, visualize e assine.
+              </div>
+            )}
             <div className="flex gap-4">
               <Button
                 onClick={() =>
@@ -1330,6 +1401,9 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
                     mes_ano: selectedMonth,
                     arquivo_url: contracheque.arquivo_url,
                     dados_extraidos: contracheque.dados_extraidos,
+                    assinado: contracheque.assinado,
+                    data_assinatura: contracheque.data_assinatura,
+                    id: contracheque.id,
                   })
                 }
               >
@@ -1355,6 +1429,8 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
         data={previewData}
         isOpen={!!previewData}
         onClose={() => setPreviewData(null)}
+        onSign={handleSign}
+        isEmployeeView={true}
       />
     </Card>
   )
@@ -1364,10 +1440,14 @@ function ContraChequeDataModal({
   data,
   isOpen,
   onClose,
+  onSign,
+  isEmployeeView = false,
 }: {
   data: any
   isOpen: boolean
   onClose: () => void
+  onSign?: () => void
+  isEmployeeView?: boolean
 }) {
   if (!data) return null
 
@@ -1393,9 +1473,31 @@ function ContraChequeDataModal({
           <DialogTitle>Demonstrativo</DialogTitle>
         </DialogHeader>
 
+        {isEmployeeView && !data.assinado && (
+          <Alert className="bg-blue-50 border-blue-200 text-blue-800 mb-4 print:hidden shrink-0">
+            <PenTool className="h-4 w-4 text-blue-600" />
+            <AlertTitle>Assinatura Digital Necessária</AlertTitle>
+            <AlertDescription>
+              Declaro ter recebido a importância líquida discriminada neste recibo e confirmo a
+              veracidade das informações apresentadas para a competência selecionada.
+            </AlertDescription>
+            <Button className="mt-3 bg-blue-600 hover:bg-blue-700" onClick={onSign}>
+              Confirmar Recebimento e Assinar
+            </Button>
+          </Alert>
+        )}
+
         <div className="w-full overflow-x-auto print:overflow-visible pb-4">
           <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-2 flex relative min-w-[700px] w-full max-w-[850px] mx-auto shadow-sm print-area print:min-w-0 print:w-full print:max-w-[180mm] print:border-none print:shadow-none print:overflow-hidden print:p-0 print:m-0 print:mx-auto">
-            <div className="flex-1 flex flex-col border border-black box-border">
+            <div className="flex-1 flex flex-col border border-black box-border relative">
+              {data.assinado && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50 opacity-10">
+                  <div className="border-[6px] border-green-600 text-green-600 text-6xl font-bold uppercase py-4 px-8 rotate-[-30deg] rounded-xl tracking-widest print:opacity-[0.15]">
+                    Assinado Digitalmente
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between border-b border-black p-2 box-border">
                 <div>
                   <div className="font-bold uppercase tracking-tight">
@@ -1436,7 +1538,9 @@ function ContraChequeDataModal({
                   <div className="font-bold uppercase truncate">
                     {mockData.cabecalho?.nome_impresso || data.nome}
                   </div>
-                  <div className="uppercase truncate">{data.cargo || ''}</div>
+                  <div className="uppercase truncate text-[10px] mt-0.5">
+                    {mockData.cabecalho?.cargo || data.cargo || ''}
+                  </div>
                 </div>
                 <div className="w-[15%]">
                   <div className="text-[10px]">CBO</div>
@@ -1596,9 +1700,21 @@ function ContraChequeDataModal({
                   <span className="text-[9px] transform -rotate-90 origin-bottom-left translate-y-3">
                     Data
                   </span>
-                  <span className="border-b border-black w-full translate-y-2 ml-1"></span>
+                  <span className="border-b border-black w-full translate-y-2 ml-1">
+                    {data.assinado && (
+                      <span className="absolute bottom-1 right-0 text-[8px] font-bold text-green-700 leading-none">
+                        {new Date(data.data_assinatura).toLocaleDateString('pt-BR')}
+                      </span>
+                    )}
+                  </span>
                 </div>
-                <div className="border-b border-black w-full"></div>
+                <div className="border-b border-black w-full relative">
+                  {data.assinado && (
+                    <span className="absolute bottom-1 w-full text-center text-[9px] font-bold text-green-700 leading-none truncate block">
+                      ASSINADO DIGITALMENTE
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

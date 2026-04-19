@@ -41,11 +41,24 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Users as UsersIcon,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { FeriasDialog } from '@/components/FeriasDialog'
 import { syncAllUsersBeneficios } from '@/services/beneficios'
+import { Calendar } from '@/components/ui/calendar'
+
+const SUPPORT_TEAM = [
+  'Lorrayne',
+  'Eduardo',
+  'Lucas',
+  'Giselly',
+  'Guilherme',
+  'Felipe Borges',
+  'Fabricio',
+  'Rafaela',
+]
 
 export default function Mural() {
   const { currentUser, users, shifts, toggleShift, isLoading } = useAppStore()
@@ -59,13 +72,20 @@ export default function Mural() {
   const [escalaStatus, setEscalaStatus] = useState<'Rascunho' | 'Pendente' | 'Aprovada'>('Rascunho')
   const [feriasList, setFeriasList] = useState<any[]>([])
   const [faltas, setFaltas] = useState<Record<string, string[]>>({})
+  const [plantoesPeriodo, setPlantoesPeriodo] = useState<Record<string, Record<string, string>>>({})
   const [reloadKey, setReloadKey] = useState(0)
+
+  // Lançamento em lote
+  const [isLoteOpen, setIsLoteOpen] = useState(false)
+  const [loteUser, setLoteUser] = useState('')
+  const [lotePeriodo, setLotePeriodo] = useState('Integral')
+  const [loteDays, setLoteDays] = useState<Date[]>([])
+  const [isLoteSaving, setIsLoteSaving] = useState(false)
 
   const mesAno = format(selectedDate, 'yyyy-MM')
 
   useEffect(() => {
     const fetchMonthData = async () => {
-      // Escala Status
       const { data: escala } = await supabase
         .from('escala_mes')
         .select('*')
@@ -74,17 +94,24 @@ export default function Mural() {
 
       setEscalaStatus((escala?.status as any) || 'Rascunho')
 
-      // Feriados & Férias & Faltas period
       const periodEnd = setDate(selectedDate, 24)
       const periodStart = setDate(subMonths(selectedDate, 1), 25)
       const start = format(periodStart, 'yyyy-MM-dd')
       const end = format(periodEnd, 'yyyy-MM-dd')
 
-      const { data: feriadosData } = await supabase
-        .from('feriados')
-        .select('data')
-        .gte('data', start)
-        .lte('data', end)
+      const [
+        { data: feriadosData },
+        { data: hoData },
+        { data: feriasData },
+        { data: faltasData },
+        { data: plantoesData },
+      ] = await Promise.all([
+        supabase.from('feriados').select('data').gte('data', start).lte('data', end),
+        supabase.from('dias_home_office').select('data').gte('data', start).lte('data', end),
+        supabase.from('ferias').select('*').lte('data_inicio', end).gte('data_fim', start),
+        supabase.from('faltas').select('*').gte('data', start).lte('data', end),
+        supabase.from('plantoes').select('*').gte('data', start).lte('data', end),
+      ])
 
       if (feriadosData) {
         const fMap: Record<string, boolean> = {}
@@ -92,15 +119,7 @@ export default function Mural() {
           fMap[f.data] = true
         })
         setFeriados(fMap)
-      } else {
-        setFeriados({})
-      }
-
-      const { data: hoData } = await supabase
-        .from('dias_home_office')
-        .select('data')
-        .gte('data', start)
-        .lte('data', end)
+      } else setFeriados({})
 
       if (hoData) {
         const hoMap: Record<string, boolean> = {}
@@ -108,29 +127,9 @@ export default function Mural() {
           hoMap[h.data] = true
         })
         setHomeOfficeDays(hoMap)
-      } else {
-        setHomeOfficeDays({})
-      }
+      } else setHomeOfficeDays({})
 
-      // Férias
-      const { data: feriasData } = await supabase
-        .from('ferias')
-        .select('*')
-        .lte('data_inicio', end)
-        .gte('data_fim', start)
-
-      if (feriasData) {
-        setFeriasList(feriasData)
-      } else {
-        setFeriasList([])
-      }
-
-      // Faltas
-      const { data: faltasData } = await supabase
-        .from('faltas')
-        .select('*')
-        .gte('data', start)
-        .lte('data', end)
+      setFeriasList(feriasData || [])
 
       if (faltasData) {
         const faltasMap: Record<string, string[]> = {}
@@ -139,9 +138,16 @@ export default function Mural() {
           faltasMap[f.data].push(f.colaborador_id)
         })
         setFaltas(faltasMap)
-      } else {
-        setFaltas({})
-      }
+      } else setFaltas({})
+
+      if (plantoesData) {
+        const pMap: Record<string, Record<string, string>> = {}
+        plantoesData.forEach((p) => {
+          if (!pMap[p.data]) pMap[p.data] = {}
+          pMap[p.data][p.colaborador_id] = p.periodo || 'Integral'
+        })
+        setPlantoesPeriodo(pMap)
+      } else setPlantoesPeriodo({})
     }
     fetchMonthData()
   }, [mesAno, reloadKey])
@@ -200,8 +206,6 @@ export default function Mural() {
         [dateStr]: [...(prev[dateStr] || []), userId],
       }))
     }
-
-    // Sincronizar com benefícios após registrar/remover falta
     await syncAllUsersBeneficios(mesAno)
   }
 
@@ -225,13 +229,46 @@ export default function Mural() {
 
   const handleFeriasAdded = async () => {
     setReloadKey((prev) => prev + 1)
-
     const nextMesAno = format(addMonths(selectedDate, 1), 'yyyy-MM')
     const prevMesAno = format(subMonths(selectedDate, 1), 'yyyy-MM')
     await syncAllUsersBeneficios(prevMesAno)
     await syncAllUsersBeneficios(mesAno)
     await syncAllUsersBeneficios(nextMesAno)
   }
+
+  const handleLoteSubmit = async () => {
+    if (!loteUser || loteDays.length === 0) return
+    setIsLoteSaving(true)
+    try {
+      for (const date of loteDays) {
+        const dateStr = format(date, 'yyyy-MM-dd')
+        await supabase.from('plantoes').upsert(
+          {
+            colaborador_id: loteUser,
+            data: dateStr,
+            periodo: lotePeriodo,
+          },
+          { onConflict: 'colaborador_id, data' },
+        )
+      }
+      toast({ title: 'Escala em lote lançada com sucesso!' })
+      setIsLoteOpen(false)
+      setLoteDays([])
+      setLoteUser('')
+      setLotePeriodo('Integral')
+      setReloadKey((p) => p + 1) // reload data
+    } catch (err: any) {
+      toast({ title: 'Erro ao lançar', description: err.message, variant: 'destructive' })
+    } finally {
+      setIsLoteSaving(false)
+    }
+  }
+
+  const supportOptions = users.filter(
+    (u) =>
+      SUPPORT_TEAM.some((name) => u.name.toLowerCase().includes(name.toLowerCase())) ||
+      (u.departamento && u.departamento.toUpperCase() === 'SUPORTE'),
+  )
 
   return (
     <div className="space-y-6">
@@ -279,7 +316,7 @@ export default function Mural() {
             </Button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge
               variant={
                 escalaStatus === 'Aprovada'
@@ -300,6 +337,72 @@ export default function Mural() {
               {escalaStatus === 'Pendente' && <Clock className="w-4 h-4 mr-1" />}
               {escalaStatus}
             </Badge>
+
+            {canEdit && (
+              <Dialog open={isLoteOpen} onOpenChange={setIsLoteOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="gap-2 border-primary text-primary hover:bg-primary/10"
+                  >
+                    <UsersIcon className="w-4 h-4" /> Lançamento de Escala
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle>Lançamento de Escala em Lote</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Colaborador do Suporte</Label>
+                        <Select value={loteUser} onValueChange={setLoteUser}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o colaborador" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {supportOptions.map((u) => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Período do Plantão</Label>
+                        <Select value={lotePeriodo} onValueChange={setLotePeriodo}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Manhã">Manhã</SelectItem>
+                            <SelectItem value="Tarde">Tarde</SelectItem>
+                            <SelectItem value="Integral">Integral</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        onClick={handleLoteSubmit}
+                        disabled={isLoteSaving || !loteUser || loteDays.length === 0}
+                        className="w-full"
+                      >
+                        {isLoteSaving ? 'Lançando...' : `Lançar para ${loteDays.length} dia(s)`}
+                      </Button>
+                    </div>
+                    <div className="space-y-2 flex flex-col items-center">
+                      <Label>Selecione os dias</Label>
+                      <Calendar
+                        mode="multiple"
+                        selected={loteDays}
+                        onSelect={setLoteDays as any}
+                        className="rounded-md border shadow"
+                      />
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
 
             {!isAdmin && escalaStatus === 'Rascunho' && (
               <Button
@@ -397,13 +500,19 @@ export default function Mural() {
                               {dayShifts.map((userId) => {
                                 const u = users.find((u) => u.id === userId)
                                 if (!u || u.role === 'admin') return null
+                                const periodo = plantoesPeriodo[dateStr]?.[userId] || 'Integral'
                                 return (
                                   <Badge
                                     key={`s-${userId}`}
                                     variant="secondary"
-                                    className="text-[10px] px-1.5 py-0 justify-start font-normal truncate bg-primary/10 text-primary hover:bg-primary/20"
+                                    className="text-[10px] px-1.5 py-0 justify-between font-normal truncate bg-primary/10 text-primary hover:bg-primary/20 w-full"
                                   >
-                                    {u.name.split(' ')[0]}
+                                    <span>{u.name.split(' ')[0]}</span>
+                                    {periodo !== 'Integral' && (
+                                      <span className="opacity-70 text-[9px]">
+                                        {periodo === 'Manhã' ? 'M' : 'T'}
+                                      </span>
+                                    )}
                                   </Badge>
                                 )
                               })}
@@ -449,7 +558,12 @@ export default function Mural() {
                           <ul className="list-disc pl-4 space-y-0.5">
                             {dayShifts.map((uid) => {
                               const u = users.find((u) => u.id === uid)
-                              return u && u.role !== 'admin' ? <li key={uid}>{u.name}</li> : null
+                              const p = plantoesPeriodo[dateStr]?.[uid] || 'Integral'
+                              return u && u.role !== 'admin' ? (
+                                <li key={uid}>
+                                  {u.name} ({p})
+                                </li>
+                              ) : null
                             })}
                           </ul>
                         </div>
@@ -532,17 +646,33 @@ export default function Mural() {
                             {dayShifts.map((userId) => {
                               const u = users.find((u) => u.id === userId)
                               if (!u || u.role === 'admin') return null
+                              const p = plantoesPeriodo[dateStr]?.[userId] || 'Integral'
                               return (
                                 <div
                                   key={userId}
                                   className="flex justify-between items-center p-2 rounded-md bg-white border shadow-sm"
                                 >
-                                  <span className="text-sm font-medium">{u.name}</span>
+                                  <span className="text-sm font-medium">
+                                    {u.name}{' '}
+                                    <span className="text-xs text-muted-foreground font-normal ml-2">
+                                      ({p})
+                                    </span>
+                                  </span>
                                   {canEdit && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => toggleShift(dateStr, userId)}
+                                      onClick={() => {
+                                        // Custom remove to also delete from DB if we use toggleShift
+                                        supabase
+                                          .from('plantoes')
+                                          .delete()
+                                          .match({ data: dateStr, colaborador_id: userId })
+                                          .then(() => {
+                                            toggleShift(dateStr, userId)
+                                            setReloadKey((k) => k + 1)
+                                          })
+                                      }}
                                       className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8"
                                     >
                                       Remover
@@ -559,38 +689,7 @@ export default function Mural() {
                         )}
                       </div>
 
-                      {canEdit && (
-                        <div className="space-y-3">
-                          <div className="flex gap-2">
-                            <Select value={assignUserId} onValueChange={setAssignUserId}>
-                              <SelectTrigger className="flex-1">
-                                <SelectValue placeholder="Adicionar Plantonista" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {users
-                                  .filter((u) => u.role === 'user' && !dayShifts.includes(u.id))
-                                  .map((u) => (
-                                    <SelectItem key={u.id} value={u.id}>
-                                      {u.name}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              onClick={() => {
-                                if (assignUserId) {
-                                  toggleShift(dateStr, assignUserId)
-                                  setAssignUserId('')
-                                }
-                              }}
-                            >
-                              Adicionar
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="space-y-4 mt-4">
+                      <div className="space-y-4 mt-4 pt-4 border-t">
                         <h4 className="font-semibold text-sm text-slate-700">Faltas neste dia</h4>
                         {dayFaltas.filter((uid) => {
                           const u = users.find((u) => u.id === uid)
