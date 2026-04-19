@@ -655,142 +655,97 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
           if (!rowTextUpper.trim()) continue
 
+          const isEmployeeHeaderRow =
+            (rowTextUpper.includes('NOME DO FUNCION') ||
+              rowTextUpper.includes('NOME DO FUNCIONARIO')) &&
+            rowTextUpper.includes('CBO')
+          const isEventsHeaderRow =
+            rowTextUpper.includes('CÓDIGO') &&
+            (rowTextUpper.includes('DESCRIÇÃO') || rowTextUpper.includes('DESCRICAO')) &&
+            rowTextUpper.includes('REFERÊNCIA')
+
           // Detect new employee block in the same sheet
-          if (
-            (rowTextUpper.includes('CNPJ:') ||
-              rowTextUpper.includes('NOME DO FUNCION') ||
-              rowTextUpper.includes('CÓDIGO')) &&
-            h.cabecalho.nome_impresso &&
-            h.linhas.length > 0
-          ) {
-            h.totais.vencimentos = h.linhas.reduce(
-              (acc: number, l: any) => acc + (l.vencimento || 0),
-              0,
-            )
-            h.totais.descontos = h.linhas.reduce(
-              (acc: number, l: any) => acc + (l.desconto || 0),
-              0,
-            )
-            if (!h.totais.liquido && h.totais.vencimentos > 0) {
-              h.totais.liquido = h.totais.vencimentos - h.totais.descontos
+          if (isEmployeeHeaderRow) {
+            if (h.cabecalho.nome_impresso) {
+              h.totais.vencimentos = h.linhas.reduce(
+                (acc: number, l: any) => acc + (l.vencimento || 0),
+                0,
+              )
+              h.totais.descontos = h.linhas.reduce(
+                (acc: number, l: any) => acc + (l.desconto || 0),
+                0,
+              )
+              if (!h.totais.liquido && h.totais.vencimentos > 0) {
+                h.totais.liquido = h.totais.vencimentos - h.totais.descontos
+              }
+              finalExtracted.push(h)
+              h = getEmptyHolerite()
             }
-            finalExtracted.push(h)
-            h = getEmptyHolerite()
             state = 'HEADER'
             colMap = { codigo: -1, descricao: -1, referencia: -1, vencimentos: -1, descontos: -1 }
+
+            if (i + 1 < expandedRows.length) {
+              const dataRow = expandedRows[i + 1]
+              const nonEmpty = dataRow.map((c) => c.trim()).filter((c) => c !== '')
+              if (nonEmpty.length >= 2) {
+                h.cabecalho.codigo = nonEmpty[0]
+                h.cabecalho.nome_impresso = nonEmpty[1]
+                if (nonEmpty.length >= 3) h.cabecalho.cbo = nonEmpty[2]
+              }
+            }
+            if (i + 2 < expandedRows.length) {
+              const roleRow = expandedRows[i + 2]
+              const nonEmptyRole = roleRow.map((c) => c.trim()).filter((c) => c !== '')
+              if (nonEmptyRole.length > 0) {
+                const roleStr = nonEmptyRole.find((c) => !c.toUpperCase().includes('ADMISS'))
+                if (roleStr) h.cabecalho.cargo = roleStr
+              }
+            }
+            if (!h.empresa.cnpj) {
+              for (let prev = Math.max(0, i - 5); prev <= i; prev++) {
+                const prevRowText = expandedRows[prev].join(' ').toUpperCase()
+                const match = prevRowText.match(/CNPJ:\s*([\d./-]+)/)
+                if (match) h.empresa.cnpj = match[1]
+                const empNameRow = expandedRows[Math.max(0, prev - 1)].concat(expandedRows[prev])
+                const longest = empNameRow.reduce((a, b) => (a.length > b.length ? a : b), '')
+                if (longest.length > 10 && !longest.includes('CNPJ'))
+                  h.empresa.nome = longest.trim()
+              }
+            }
+            continue
           }
 
-          if (state === 'HEADER') {
-            if (rowTextUpper.includes('CNPJ:')) {
-              const match = rowTextUpper.match(/CNPJ:\s*([\d./-]+)/)
-              if (match) h.empresa.cnpj = match[1]
-              const empNameRow = expandedRows[Math.max(0, i - 1)].concat(row)
-              const longest = empNameRow.reduce((a, b) => (a.length > b.length ? a : b), '')
-              if (longest.length > 10 && !longest.includes('CNPJ')) h.empresa.nome = longest.trim()
-            }
-
-            if (rowTextUpper.includes('ADMISSÃO') || rowTextUpper.includes('ADMISSAO')) {
-              const dateMatch = rowTextUpper.match(
-                /(?:ADMISSÃO|ADMISSAO)[\s:]*([\d]{2}\/[\d]{2}\/[\d]{4})/,
-              )
-              if (dateMatch) {
-                h.cabecalho.admissao = dateMatch[1]
-              } else {
-                for (const c of row) {
-                  const m = c.match(/([\d]{2}\/[\d]{2}\/[\d]{4})/)
-                  if (m) h.cabecalho.admissao = m[1]
-                }
-              }
-            }
-
-            const nomeIdx = row.findIndex(
-              (c) => c.toUpperCase().includes('NOME DO FUNCION') || c.toUpperCase() === 'NOME',
-            )
-            const codIdx = row.findIndex(
+          if (isEventsHeaderRow) {
+            state = 'EVENTS'
+            colMap.codigo = row.findIndex(
               (c) => c.toUpperCase() === 'CÓDIGO' || c.toUpperCase() === 'CODIGO',
             )
+            colMap.descricao = row.findIndex(
+              (c) => c.toUpperCase().includes('DESCRIÇÃO') || c.toUpperCase().includes('DESCRICAO'),
+            )
+            colMap.referencia = row.findIndex(
+              (c) =>
+                c.toUpperCase().includes('REFERÊNCIA') || c.toUpperCase().includes('REFERENCIA'),
+            )
+            colMap.vencimentos = row.findIndex(
+              (c) =>
+                c.toUpperCase().includes('VENCIMENTO') ||
+                c.toUpperCase().includes('PROVENTO') ||
+                c.toUpperCase().includes('VENCIMENTOS'),
+            )
+            colMap.descontos = row.findIndex(
+              (c) => c.toUpperCase().includes('DESCONTO') && !c.toUpperCase().includes('DESCRIÇÃO'),
+            )
 
-            if (nomeIdx !== -1) {
-              let foundValues = false
-              if (
-                row.length > nomeIdx + 1 &&
-                row[nomeIdx + 1] &&
-                !row[nomeIdx + 1].toUpperCase().includes('CBO')
-              ) {
-                h.cabecalho.nome_impresso = row[nomeIdx + 1].trim()
-                if (codIdx !== -1 && row.length > codIdx + 1)
-                  h.cabecalho.codigo = row[codIdx + 1].trim()
+            if (colMap.codigo === -1) colMap.codigo = 0
+            if (colMap.descricao === -1) colMap.descricao = 1
+            if (colMap.referencia === -1) colMap.referencia = 2
+            if (colMap.vencimentos === -1) colMap.vencimentos = 3
+            if (colMap.descontos === -1) colMap.descontos = 4
+            continue
+          }
 
-                // try to capture the role from the next line
-                if (i + 1 < expandedRows.length && expandedRows[i + 1][nomeIdx + 1]) {
-                  const possibleCargo = expandedRows[i + 1][nomeIdx + 1].trim()
-                  if (possibleCargo && !possibleCargo.toUpperCase().includes('CBO')) {
-                    h.cabecalho.cargo = possibleCargo
-                  }
-                }
-                foundValues = true
-              }
-              if (!foundValues) {
-                for (let j = i + 1; j <= i + 3 && j < expandedRows.length; j++) {
-                  const nextRow = expandedRows[j]
-                  if (nextRow[nomeIdx]) {
-                    h.cabecalho.nome_impresso = nextRow[nomeIdx].trim()
-                    if (codIdx !== -1 && nextRow[codIdx])
-                      h.cabecalho.codigo = nextRow[codIdx].trim()
-
-                    if (j + 1 < expandedRows.length && expandedRows[j + 1][nomeIdx]) {
-                      const possibleCargo = expandedRows[j + 1][nomeIdx].trim()
-                      if (possibleCargo && !possibleCargo.toUpperCase().includes('CBO')) {
-                        h.cabecalho.cargo = possibleCargo
-                      }
-                    }
-                    break
-                  }
-                }
-              }
-            }
-
-            if (!h.cabecalho.nome_impresso) {
-              for (const c of row) {
-                const m = c.match(/^(\d+)\s*[-|–]\s*([A-ZÀ-Ú\s]{5,})$/i)
-                if (m && !c.toUpperCase().includes('CBO') && !c.toUpperCase().includes('CNPJ')) {
-                  h.cabecalho.codigo = m[1]
-                  h.cabecalho.nome_impresso = m[2].trim()
-                }
-              }
-            }
-
-            if (rowTextUpper.includes('DESCRIÇÃO') || rowTextUpper.includes('DESCRICAO')) {
-              colMap.codigo = row.findIndex(
-                (c) => c.toUpperCase() === 'CÓDIGO' || c.toUpperCase() === 'CODIGO',
-              )
-              colMap.descricao = row.findIndex(
-                (c) =>
-                  c.toUpperCase().includes('DESCRIÇÃO') || c.toUpperCase().includes('DESCRICAO'),
-              )
-              colMap.referencia = row.findIndex(
-                (c) =>
-                  c.toUpperCase().includes('REFERÊNCIA') || c.toUpperCase().includes('REFERENCIA'),
-              )
-              colMap.vencimentos = row.findIndex(
-                (c) =>
-                  c.toUpperCase().includes('VENCIMENTO') || c.toUpperCase().includes('PROVENTO'),
-              )
-              colMap.descontos = row.findIndex(
-                (c) =>
-                  c.toUpperCase().includes('DESCONTO') && !c.toUpperCase().includes('DESCRIÇÃO'),
-              )
-
-              if (colMap.codigo === -1) colMap.codigo = 0
-              if (colMap.descricao === -1) colMap.descricao = 1
-              if (colMap.referencia === -1) colMap.referencia = 2
-              if (colMap.vencimentos === -1) colMap.vencimentos = 3
-              if (colMap.descontos === -1) colMap.descontos = 4
-
-              state = 'EVENTS'
-              continue
-            }
-          } else if (state === 'EVENTS') {
+          if (state === 'EVENTS') {
             if (
               rowTextUpper.includes('TOTAL DE VENCIMENTOS') ||
               rowTextUpper.includes('TOTAL DE DESCONTOS') ||
@@ -828,13 +783,15 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                 continue
               }
 
-              h.linhas.push({
-                codigo: cod || '',
-                descricao: desc || '',
-                referencia: ref || '',
-                vencimento: safeParseFloat(venc),
-                desconto: safeParseFloat(descVal),
-              })
+              if (cod.trim() || desc.trim()) {
+                h.linhas.push({
+                  codigo: cod.trim() || '',
+                  descricao: desc.trim() || '',
+                  referencia: ref.trim() || '',
+                  vencimento: safeParseFloat(venc),
+                  desconto: safeParseFloat(descVal),
+                })
+              }
             }
           } else if (state === 'FOOTER') {
             if (rowTextUpper.includes('VALOR LÍQUIDO') || rowTextUpper.includes('LIQUIDO')) {
@@ -849,30 +806,47 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
             if (
               rowTextUpper.includes('SALÁRIO BASE') ||
-              rowTextUpper.includes('SAL. CONTR. INSS')
+              rowTextUpper.includes('SAL. CONTR. INSS') ||
+              rowTextUpper.includes('SALARIO BASE') ||
+              rowTextUpper.includes('INSS')
             ) {
               if (i + 1 < expandedRows.length) {
                 const baseHeaders = row.map((c) => c.toUpperCase())
                 const baseVals = expandedRows[i + 1]
                 let foundBases = false
                 for (let j = 0; j < baseHeaders.length; j++) {
-                  if (baseHeaders[j].includes('SALÁRIO BASE')) {
+                  if (
+                    baseHeaders[j].includes('SALÁRIO BASE') ||
+                    baseHeaders[j].includes('SALARIO BASE')
+                  ) {
                     h.bases.salario_base = safeParseFloat(baseVals[j])
                     foundBases = true
                   }
-                  if (baseHeaders[j].includes('SAL. CONTR. INSS')) {
+                  if (
+                    baseHeaders[j].includes('SAL. CONTR. INSS') ||
+                    baseHeaders[j].includes('INSS')
+                  ) {
                     h.bases.sal_contr_inss = safeParseFloat(baseVals[j])
                     foundBases = true
                   }
-                  if (baseHeaders[j].includes('BASE CÁLC. FGTS')) {
+                  if (
+                    baseHeaders[j].includes('BASE CÁLC. FGTS') ||
+                    baseHeaders[j].includes('BASE CALC. FGTS')
+                  ) {
                     h.bases.base_calc_fgts = safeParseFloat(baseVals[j])
                     foundBases = true
                   }
-                  if (baseHeaders[j].includes('F.G.T.S DO MÊS')) {
+                  if (
+                    baseHeaders[j].includes('F.G.T.S DO MÊS') ||
+                    baseHeaders[j].includes('FGTS DO MES')
+                  ) {
                     h.bases.fgts_mes = safeParseFloat(baseVals[j])
                     foundBases = true
                   }
-                  if (baseHeaders[j].includes('BASE CÁLC. IRRF')) {
+                  if (
+                    baseHeaders[j].includes('BASE CÁLC. IRRF') ||
+                    baseHeaders[j].includes('BASE CALC. IRRF')
+                  ) {
                     h.bases.base_calc_irrf = safeParseFloat(baseVals[j])
                     foundBases = true
                   }
