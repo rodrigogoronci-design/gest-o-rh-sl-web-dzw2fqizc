@@ -28,13 +28,18 @@ import {
 } from '@/components/ui/select'
 import { TicketRecord } from '@/types'
 
-const generateMonths = () => {
+const buildMonthsList = (maxFutureDate?: Date) => {
   const months = []
   const start = new Date(2026, 0, 1) // Janeiro de 2026
-  const end = new Date()
-  end.setMonth(end.getMonth() + 3) // Até 3 meses no futuro
 
-  let current = new Date(end.getFullYear(), end.getMonth(), 1)
+  const now = new Date()
+  let maxMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1) // Mês seguinte
+
+  if (maxFutureDate && maxFutureDate > maxMonth) {
+    maxMonth = new Date(maxFutureDate.getFullYear(), maxFutureDate.getMonth(), 1)
+  }
+
+  let current = new Date(maxMonth.getFullYear(), maxMonth.getMonth(), 1)
 
   while (current >= start) {
     const m = (current.getMonth() + 1).toString().padStart(2, '0')
@@ -106,7 +111,7 @@ export default function Ticket() {
   const [ticketValue, setTicketValue] = useState(31.59)
   const [dbTicketValue, setDbTicketValue] = useState(31.59)
 
-  const months = generateMonths()
+  const [months, setMonths] = useState(() => buildMonthsList())
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [localData, setLocalData] = useState<Record<string, TicketRecord>>({})
   const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
@@ -135,6 +140,19 @@ export default function Ticket() {
           const val = Number(data.valor)
           setTicketValue(val)
           setDbTicketValue(val)
+        }
+      })
+
+    supabase
+      .from('plantoes')
+      .select('data')
+      .order('data', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && data.data) {
+          const shiftDate = parseISO(data.data)
+          setMonths(buildMonthsList(shiftDate))
         }
       })
   }, [])
