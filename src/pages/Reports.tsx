@@ -15,7 +15,6 @@ import {
   DollarSign,
   TrendingUp,
   Calculator,
-  FileText,
   Receipt,
   Star,
   Activity,
@@ -33,45 +32,26 @@ import {
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
 
-const buildMonthsList = (maxFutureDate?: Date) => {
-  const months = []
-  const start = new Date(2025, 0, 1)
-  const now = new Date()
-  let maxMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  if (maxFutureDate && maxFutureDate > maxMonth) {
-    maxMonth = new Date(maxFutureDate.getFullYear(), maxFutureDate.getMonth(), 1)
-  }
-  let current = new Date(maxMonth.getFullYear(), maxMonth.getMonth(), 1)
-  while (current >= start) {
-    const m = (current.getMonth() + 1).toString().padStart(2, '0')
-    const y = current.getFullYear()
-    months.push({
-      value: `${y}-${m}`,
-      label: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(current),
-    })
-    current.setMonth(current.getMonth() - 1)
-  }
-  return months
-}
-
 const getLast6Months = (endStr: string) => {
   const res = []
   const [y, m] = endStr.split('-').map(Number)
   for (let i = 5; i >= 0; i--) {
     const d = new Date(y, m - 1 - i, 1)
+    if (d.getFullYear() < 2026) continue
     res.push(format(d, 'yyyy-MM'))
   }
   return res
 }
 
 const formatMonthShort = (mesAno: string) => {
+  if (!mesAno) return ''
   const [y, m] = mesAno.split('-').map(Number)
   return format(new Date(y, m - 1, 1), 'MMM/yy', { locale: ptBR })
 }
 
 export default function Reports() {
   const { users } = useAppStore()
-  const [months, setMonths] = useState(() => buildMonthsList())
+  const [months, setMonths] = useState<{ value: string; label: string }[]>([])
   const [selectedMonth, setSelectedMonth] = useState('')
   const [closedMonth, setClosedMonth] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -91,25 +71,36 @@ export default function Reports() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: pData } = await supabase
-        .from('plantoes')
-        .select('data')
-        .order('data', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      let maxDate
-      if (pData?.data) maxDate = parseISO(pData.data)
-      setMonths(buildMonthsList(maxDate))
+      const { data: cData } = await supabase.from('contracheques').select('mes_ano')
 
-      const { data: cData } = await supabase
-        .from('contracheques')
-        .select('mes_ano')
-        .order('mes_ano', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      const latestClosed = cData?.mes_ano || format(new Date(), 'yyyy-MM')
-      setClosedMonth(latestClosed)
-      setSelectedMonth(latestClosed)
+      const unique = Array.from(new Set((cData || []).map((c) => c.mes_ano))).sort((a, b) =>
+        b.localeCompare(a),
+      )
+
+      if (unique.length > 0) {
+        const mapped = unique.map((m) => {
+          const [y, mo] = m.split('-').map(Number)
+          const d = new Date(y, mo - 1, 1)
+          return {
+            value: m,
+            label: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(d),
+          }
+        })
+        setMonths(mapped)
+        setClosedMonth(mapped[0].value)
+        setSelectedMonth(mapped[0].value)
+      } else {
+        const now = new Date()
+        const val = format(now, 'yyyy-MM')
+        setMonths([
+          {
+            value: val,
+            label: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(now),
+          },
+        ])
+        setClosedMonth(val)
+        setSelectedMonth(val)
+      }
     }
     init()
   }, [])
@@ -119,8 +110,10 @@ export default function Reports() {
     const loadData = async () => {
       setIsLoading(true)
       const [y, m] = selectedMonth.split('-').map(Number)
-      const startDate = `${selectedMonth}-01`
-      const endDate = format(new Date(y, m, 0), 'yyyy-MM-dd')
+
+      // Ajuste das datas para o fechamento da folha (dia 25 do mês anterior a dia 24 do mês selecionado)
+      const startDate = format(new Date(y, m - 1, 25), 'yyyy-MM-dd')
+      const endDate = format(new Date(y, m, 24), 'yyyy-MM-dd')
       const evoMonths = getLast6Months(selectedMonth)
 
       const [cRes, tRes, trRes, confRes, pRes, fRes, aRes, evoRes] = await Promise.all([
@@ -187,15 +180,18 @@ export default function Reports() {
         dMap: any = {}
       evoRes.data?.forEach((c) => {
         const mes = c.mes_ano
-        ;(c.dados_extraidos?.proventos || []).forEach((p: any) => {
-          if (!p.descricao) return
-          if (!pMap[p.descricao]) pMap[p.descricao] = {}
-          pMap[p.descricao][mes] = (pMap[p.descricao][mes] || 0) + Number(p.valor || 0)
-        })
-        ;(c.dados_extraidos?.descontos || []).forEach((d: any) => {
-          if (!d.descricao) return
-          if (!dMap[d.descricao]) dMap[d.descricao] = {}
-          dMap[d.descricao][mes] = (dMap[d.descricao][mes] || 0) + Number(d.valor || 0)
+        const linhas = c.dados_extraidos?.linhas || []
+        linhas.forEach((l: any) => {
+          if (!l.descricao) return
+          const desc = l.descricao.trim().toUpperCase()
+          if (l.vencimento) {
+            if (!pMap[desc]) pMap[desc] = {}
+            pMap[desc][mes] = (pMap[desc][mes] || 0) + Number(l.vencimento)
+          }
+          if (l.desconto) {
+            if (!dMap[desc]) dMap[desc] = {}
+            dMap[desc][mes] = (dMap[desc][mes] || 0) + Number(l.desconto)
+          }
         })
       })
       setEvolutivo({ proventos: pMap, descontos: dMap, months: evoMonths })
@@ -234,7 +230,10 @@ export default function Reports() {
           <TableBody>
             {events.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-slate-400">
+                <TableCell
+                  colSpan={evolutivo.months.length + 1}
+                  className="text-center py-8 text-slate-400"
+                >
                   Sem dados no período
                 </TableCell>
               </TableRow>
@@ -520,59 +519,6 @@ export default function Reports() {
               </Card>
             ))}
           </div>
-
-          <Card className="border-0 shadow-elevation overflow-hidden rounded-2xl">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100">
-              <CardTitle className="text-lg">Detalhamento Financeiro por Colaborador</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader className="bg-slate-50">
-                  <TableRow className="border-0">
-                    <TableHead className="font-semibold text-slate-600">Colaborador</TableHead>
-                    <TableHead className="text-right font-semibold text-slate-600">Bruto</TableHead>
-                    <TableHead className="text-right font-semibold text-slate-600">
-                      Descontos
-                    </TableHead>
-                    <TableHead className="text-right font-semibold text-slate-600">
-                      Líquido
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {contracheques.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-12 text-slate-500">
-                        Nenhum dado de folha disponível para este mês.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    contracheques.map((c) => {
-                      const bruto = c.dados_extraidos?.totais?.vencimentos || 0
-                      const descontos = c.dados_extraidos?.totais?.descontos || 0
-                      const liquido = c.valor_liquido || c.dados_extraidos?.totais?.liquido || 0
-                      return (
-                        <TableRow key={c.id} className="hover:bg-slate-50/50 border-slate-100">
-                          <TableCell className="font-medium text-slate-700">
-                            {getUserName(c.colaborador_id)}
-                          </TableCell>
-                          <TableCell className="text-right text-slate-600">
-                            {formatCurrency(Number(bruto))}
-                          </TableCell>
-                          <TableCell className="text-right text-red-600">
-                            {formatCurrency(Number(descontos))}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-emerald-600">
-                            {formatCurrency(Number(liquido))}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
         </div>
       )}
     </div>

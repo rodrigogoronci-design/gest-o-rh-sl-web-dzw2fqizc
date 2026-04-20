@@ -125,7 +125,7 @@ function AdminTabs() {
 }
 
 function AdminMemoriaCalculo() {
-  const months = generateMonths()
+  const [months, setMonths] = useState<{ value: string; label: string }[]>([])
   const [selectedMonth, setSelectedMonth] = useState<string>('')
   const [isMonthLoaded, setIsMonthLoaded] = useState(false)
   const [registros, setRegistros] = useState<any[]>([])
@@ -136,13 +136,22 @@ function AdminMemoriaCalculo() {
     supabase
       .from('contracheques')
       .select('mes_ano')
-      .order('mes_ano', { ascending: false })
-      .limit(1)
       .then(({ data }) => {
         if (data && data.length > 0) {
-          setSelectedMonth(data[0].mes_ano)
-        } else {
-          setSelectedMonth(months[0].value)
+          const unique = Array.from(new Set(data.map((d) => d.mes_ano))).sort((a, b) =>
+            b.localeCompare(a),
+          )
+          const mapped = unique.map((m) => {
+            const [y, mo] = m.split('-').map(Number)
+            return {
+              value: m,
+              label: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
+                new Date(y, mo - 1, 1),
+              ),
+            }
+          })
+          setMonths(mapped)
+          setSelectedMonth(mapped[0].value)
         }
         setIsMonthLoaded(true)
       })
@@ -265,7 +274,7 @@ function AdminMemoriaCalculo() {
         ) : registros.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg capitalize">
             Nenhuma memória de cálculo gerada para{' '}
-            {months.find((m) => m.value === selectedMonth)?.label}.
+            {months.find((m) => m.value === selectedMonth)?.label || selectedMonth}.
           </div>
         ) : (
           <>
