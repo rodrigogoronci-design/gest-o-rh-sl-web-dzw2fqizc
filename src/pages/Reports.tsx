@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react'
-import { format, parseISO, subMonths } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { supabase } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
+import { DollarSign, TrendingUp, Calculator, FileText } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -12,764 +21,352 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Printer,
-  FileSpreadsheet,
-  Calendar as CalendarIcon,
-  DollarSign,
-  Activity,
-  AlertTriangle,
-  FileText,
-  CalendarOff,
-  Banknote,
-  Star,
-  TrendingDown,
-  TrendingUp,
-} from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
 import useAppStore from '@/stores/useAppStore'
-import { ptBR } from 'date-fns/locale'
+
+const buildMonthsList = (maxFutureDate?: Date) => {
+  const months = []
+  const start = new Date(2026, 0, 1)
+
+  const now = new Date()
+  let maxMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+  if (maxFutureDate && maxFutureDate > maxMonth) {
+    maxMonth = new Date(maxFutureDate.getFullYear(), maxFutureDate.getMonth(), 1)
+  }
+
+  let current = new Date(maxMonth.getFullYear(), maxMonth.getMonth(), 1)
+
+  while (current >= start) {
+    const m = (current.getMonth() + 1).toString().padStart(2, '0')
+    const y = current.getFullYear()
+    months.push({
+      value: `${y}-${m}`,
+      label: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(current),
+    })
+    current.setMonth(current.getMonth() - 1)
+  }
+  return months
+}
 
 export default function Reports() {
   const { users } = useAppStore()
-  const { toast } = useToast()
+  const [months, setMonths] = useState(() => buildMonthsList())
+  const [selectedMonth, setSelectedMonth] = useState('')
+  const [closedMonth, setClosedMonth] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
 
-  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
-  const [isLoading, setIsLoading] = useState(false)
-  const [evolutivoUserId, setEvolutivoUserId] = useState<string>('all')
-
-  const [data, setData] = useState({
-    tickets: [] as any[],
-    transports: [] as any[],
-    plantoes: [] as any[],
-    faltas: [] as any[],
-    atestados: [] as any[],
-    feriados: [] as any[],
-    contracheques: [] as any[],
-    avaliacoes: [] as any[],
-    evolutivo: [] as any[],
-  })
-
-  const ticketValue = parseFloat(localStorage.getItem('ticketValue') || '31.59')
-  const transportValue = parseFloat(localStorage.getItem('transportValue') || '10.20')
-
-  const year = parseInt(selectedMonth.split('-')[0])
-  const month = parseInt(selectedMonth.split('-')[1]) - 1
-  const pStart = format(new Date(year, month - 1, 25), 'yyyy-MM-dd')
-  const pEnd = format(new Date(year, month, 24), 'yyyy-MM-dd')
-
-  const evolutivoMeses = Array.from({ length: 6 })
-    .map((_, i) => format(subMonths(parseISO(`${selectedMonth}-01`), i), 'yyyy-MM'))
-    .reverse()
+  const [summary, setSummary] = useState({ bruto: 0, descontos: 0, liquido: 0, beneficios: 0 })
+  const [contracheques, setContracheques] = useState<any[]>([])
 
   useEffect(() => {
+    const init = async () => {
+      const { data: pData } = await supabase
+        .from('plantoes')
+        .select('data')
+        .order('data', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      let maxDate
+      if (pData?.data) {
+        maxDate = parseISO(pData.data)
+      }
+
+      setMonths(buildMonthsList(maxDate))
+
+      const { data: cData } = await supabase
+        .from('contracheques')
+        .select('mes_ano')
+        .order('mes_ano', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const latestClosed = cData?.mes_ano || format(new Date(), 'yyyy-MM')
+      setClosedMonth(latestClosed)
+      setSelectedMonth(latestClosed)
+    }
+    init()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedMonth) return
+
     const loadData = async () => {
       setIsLoading(true)
-      const [
-        { data: tickets },
-        { data: transports },
-        { data: plantoes },
-        { data: faltas },
-        { data: atestados },
-        { data: feriados },
-        { data: contracheques },
-        { data: avaliacoes },
-        { data: evolutivo },
-      ] = await Promise.all([
+
+      const [cRes, tRes, trRes, confRes] = await Promise.all([
+        supabase.from('contracheques').select('*').eq('mes_ano', selectedMonth),
         supabase.from('beneficios_ticket').select('*').eq('mes_ano', selectedMonth),
         supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
-        supabase.from('plantoes').select('*').gte('data', pStart).lte('data', pEnd).order('data'),
-        supabase.from('faltas').select('*').gte('data', pStart).lte('data', pEnd).order('data'),
-        supabase
-          .from('atestados')
-          .select('*')
-          .lte('data_inicio', pEnd)
-          .gte('data_fim', pStart)
-          .order('data_inicio'),
-        supabase.from('feriados').select('*').gte('data', pStart).lte('data', pEnd).order('data'),
-        supabase.from('contracheques').select('*').eq('mes_ano', selectedMonth),
-        supabase.from('avaliacoes').select('*').eq('periodo', selectedMonth),
-        supabase.from('contracheques').select('*').in('mes_ano', evolutivoMeses),
+        supabase.from('configuracoes').select('*').in('chave', ['ticket_value', 'transport_value']),
       ])
 
-      setData({
-        tickets: tickets || [],
-        transports: transports || [],
-        plantoes: plantoes || [],
-        faltas: faltas || [],
-        atestados: atestados || [],
-        feriados: feriados || [],
-        contracheques: contracheques || [],
-        avaliacoes: avaliacoes || [],
-        evolutivo: evolutivo || [],
+      const data = cRes.data || []
+      setContracheques(data)
+
+      let bruto = 0
+      let descontos = 0
+      let liquido = 0
+
+      data.forEach((c) => {
+        const v = c.dados_extraidos?.totais?.vencimentos || 0
+        const d = c.dados_extraidos?.totais?.descontos || 0
+        const l = c.valor_liquido || c.dados_extraidos?.totais?.liquido || 0
+        bruto += Number(v)
+        descontos += Number(d)
+        liquido += Number(l)
       })
+
+      let ticketValue = 31.59
+      let transportValue = 10.2
+      confRes.data?.forEach((c) => {
+        if (c.chave === 'ticket_value') ticketValue = Number(c.valor)
+        if (c.chave === 'transport_value') transportValue = Number(c.valor)
+      })
+
+      let totalBeneficios = 0
+      tRes.data?.forEach((t) => {
+        const days = Math.max(
+          0,
+          (t.dias_uteis || 0) +
+            (t.plantoes || 0) -
+            (t.faltas || 0) -
+            (t.ferias || 0) -
+            (t.atestados || 0),
+        )
+        totalBeneficios += days * ticketValue
+      })
+      trRes.data?.forEach((t) => {
+        const days = Math.max(
+          0,
+          (t.dias_uteis || 0) -
+            (t.home_office || 0) -
+            (t.faltas || 0) -
+            (t.ferias || 0) -
+            (t.atestados || 0),
+        )
+        totalBeneficios += days * transportValue
+      })
+
+      setSummary({ bruto, descontos, liquido, beneficios: totalBeneficios })
       setIsLoading(false)
     }
+
     loadData()
-  }, [selectedMonth, pStart, pEnd])
+  }, [selectedMonth])
 
-  const getUserName = (id: string) => {
-    const u = users.find((u) => u.id === id)
-    return u ? u.nome || u.name : 'Desconhecido'
-  }
-
-  // Calculate totals
-  let totalTicket = 0
-  data.tickets.forEach((t) => {
-    const eligible = Math.max(0, t.dias_uteis + t.plantoes - (t.atestados + t.ferias + t.faltas))
-    totalTicket += eligible * ticketValue
-  })
-
-  let totalTransport = 0
-  data.transports.forEach((t) => {
-    const eligible = Math.max(
-      0,
-      t.dias_uteis - t.ferias - t.atestados - t.faltas - (t.home_office || 0),
-    )
-    totalTransport += eligible * transportValue
-  })
-
-  let totalBruto = 0
-  let totalLiquido = 0
-  let totalDescontos = 0
-
-  data.contracheques.forEach((c) => {
-    const ext = c.dados_extraidos
-    if (ext?.totais) {
-      totalBruto += ext.totais.vencimentos || 0
-      totalDescontos += ext.totais.descontos || 0
-      totalLiquido += ext.totais.liquido || c.valor_liquido || 0
-    } else {
-      totalLiquido += c.valor_liquido || 0
-    }
-  })
-
-  const avaliacoesCount = data.avaliacoes.length
-  const avgAvaliacoes =
-    avaliacoesCount > 0
-      ? data.avaliacoes.reduce(
-          (acc, a) => acc + a.nota_pontualidade + a.nota_qualidade + a.nota_trabalho_equipe,
-          0,
-        ) /
-        (avaliacoesCount * 3)
-      : 0
-
-  // Construir mapa evolutivo
-  const eventsMap: Record<
-    string,
-    { descricao: string; type: 'vencimento' | 'desconto'; values: Record<string, number> }
-  > = {}
-
-  data.evolutivo.forEach((cc) => {
-    if (evolutivoUserId !== 'all' && cc.colaborador_id !== evolutivoUserId) return
-
-    const linhas = cc.dados_extraidos?.linhas || []
-    linhas.forEach((l: any) => {
-      const key = l.codigo || l.descricao
-      if (!key) return
-      if (!eventsMap[key]) {
-        eventsMap[key] = {
-          descricao: l.descricao || `Cód. ${l.codigo}`,
-          type: l.vencimento > 0 ? 'vencimento' : 'desconto',
-          values: {},
-        }
-      }
-      const val = (l.vencimento || 0) + (l.desconto || 0)
-      eventsMap[key].values[cc.mes_ano] = (eventsMap[key].values[cc.mes_ano] || 0) + val
-    })
-  })
-
-  const evolutivoList = Object.keys(eventsMap).map((k) => ({ key: k, ...eventsMap[k] }))
-  const evolutivoVencimentos = evolutivoList
-    .filter((e) => e.type === 'vencimento')
-    .sort((a, b) => b.values[selectedMonth] - a.values[selectedMonth])
-  const evolutivoDescontos = evolutivoList
-    .filter((e) => e.type === 'desconto')
-    .sort((a, b) => b.values[selectedMonth] - a.values[selectedMonth])
-
-  const handleExportCsv = () => {
-    const rows = []
-    rows.push([
-      'Relatório do Período',
-      `${format(parseISO(pStart), 'dd/MM/yyyy')} a ${format(parseISO(pEnd), 'dd/MM/yyyy')}`,
-    ])
-    rows.push([])
-
-    rows.push(['RESUMO FINANCEIRO DE BENEFÍCIOS'])
-    rows.push(['Benefício', 'Valor Total (R$)'])
-    rows.push(['Ticket Alimentação', totalTicket.toFixed(2).replace('.', ',')])
-    rows.push(['Vale Transporte', totalTransport.toFixed(2).replace('.', ',')])
-    rows.push(['Total Geral', (totalTicket + totalTransport).toFixed(2).replace('.', ',')])
-    rows.push([])
-
-    rows.push(['RESUMO DA FOLHA DE PAGAMENTO E MERITOCRACIA'])
-    rows.push(['Métrica', 'Valor'])
-    rows.push(['Folha Bruta', totalBruto.toFixed(2).replace('.', ',')])
-    rows.push(['Total Descontos', totalDescontos.toFixed(2).replace('.', ',')])
-    rows.push(['Folha Líquida', totalLiquido.toFixed(2).replace('.', ',')])
-    rows.push(['Média de Meritocracia', avgAvaliacoes.toFixed(1).replace('.', ',')])
-    rows.push([])
-
-    rows.push(['ACOMPANHAMENTO FUNCIONAL EVOLUTIVO (PROVENTOS)'])
-    rows.push(['Evento', ...evolutivoMeses])
-    evolutivoVencimentos.forEach((e) => {
-      const row = [e.descricao]
-      evolutivoMeses.forEach((m) => row.push((e.values[m] || 0).toFixed(2).replace('.', ',')))
-      rows.push(row)
-    })
-    rows.push([])
-
-    rows.push(['ACOMPANHAMENTO FUNCIONAL EVOLUTIVO (DESCONTOS)'])
-    rows.push(['Evento', ...evolutivoMeses])
-    evolutivoDescontos.forEach((e) => {
-      const row = [e.descricao]
-      evolutivoMeses.forEach((m) => row.push((e.values[m] || 0).toFixed(2).replace('.', ',')))
-      rows.push(row)
-    })
-    rows.push([])
-
-    rows.push(['CONTRACHEQUES (FOLHA DE PAGAMENTO)'])
-    rows.push([
-      'Colaborador',
-      'Total Bruto (R$)',
-      'Total Descontos (R$)',
-      'Valor Líquido (R$)',
-      'Assinado',
-    ])
-    data.contracheques.forEach((c) => {
-      const ext = c.dados_extraidos
-      const bruto = ext?.totais?.vencimentos || 0
-      const desc = ext?.totais?.descontos || 0
-      const liq = ext?.totais?.liquido || c.valor_liquido || 0
-      rows.push([
-        getUserName(c.colaborador_id),
-        bruto.toFixed(2).replace('.', ','),
-        desc.toFixed(2).replace('.', ','),
-        liq.toFixed(2).replace('.', ','),
-        c.assinado ? 'Sim' : 'Não',
-      ])
-    })
-    rows.push([])
-
-    rows.push(['AVALIAÇÕES (MERITOCRACIA)'])
-    rows.push(['Colaborador', 'Pontualidade', 'Qualidade', 'Trabalho em Equipe', 'Média'])
-    data.avaliacoes.forEach((a) => {
-      const media = ((a.nota_pontualidade + a.nota_qualidade + a.nota_trabalho_equipe) / 3).toFixed(
-        1,
-      )
-      rows.push([
-        getUserName(a.colaborador_id),
-        a.nota_pontualidade,
-        a.nota_qualidade,
-        a.nota_trabalho_equipe,
-        media.replace('.', ','),
-      ])
-    })
-    rows.push([])
-
-    rows.push(['PLANTÕES'])
-    rows.push(['Colaborador', 'Data', 'Período'])
-    data.plantoes.forEach((p) =>
-      rows.push([
-        getUserName(p.colaborador_id),
-        format(parseISO(p.data), 'dd/MM/yyyy'),
-        p.periodo || 'Integral',
-      ]),
-    )
-    rows.push([])
-
-    const csvContent = '\uFEFF' + rows.map((e) => e.join(';')).join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.setAttribute('href', url)
-    link.setAttribute('download', `relatorio_${selectedMonth}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    toast({
-      title: 'Exportação concluída',
-      description: 'O arquivo Excel (CSV) foi gerado com sucesso.',
-    })
-  }
-
-  const handlePrint = () => {
-    window.print()
-  }
-
-  const formatNumber = (val: number) =>
-    val ? val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'
+  const formatCurrency = (v: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
 
   return (
-    <div className="space-y-6 flex flex-col h-full pb-10 print:pb-0">
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0 print:hidden">
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6 animate-fade-in-up flex flex-col h-full">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800">Relatórios e Análises</h1>
-          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-              <CalendarIcon className="w-3.5 h-3.5 text-slate-500" />
-              <span>Período analisado:</span>
-              <strong className="text-slate-700">
-                {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
-              </strong>
-            </div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+              Resumo da Folha e Meritocracia
+            </h1>
+            {selectedMonth > closedMonth && closedMonth !== '' && (
+              <div className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold border border-amber-200">
+                Previsão
+              </div>
+            )}
           </div>
+          <p className="text-slate-500">
+            Acompanhamento consolidado da folha de pagamento, benefícios e premiações.
+          </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="w-[140px] h-8 text-xs font-medium bg-white shadow-sm"
-          />
-          <Button
-            onClick={handleExportCsv}
-            variant="outline"
-            className="h-8 text-xs gap-1.5 bg-white"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Excel (CSV)
-          </Button>
-          <Button onClick={handlePrint} className="h-8 text-xs gap-1.5 shadow-sm">
-            <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
-          </Button>
+        <div className="w-full xl:w-64">
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-full bg-white h-12 shadow-sm border-slate-200 capitalize">
+              <SelectValue placeholder="Selecione o mês" />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((m) => (
+                <SelectItem key={m.value} value={m.value} className="capitalize">
+                  {m.label}{' '}
+                  {m.value > closedMonth && closedMonth !== '' && (
+                    <span className="text-amber-600 ml-1 text-xs font-medium">(Previsão)</span>
+                  )}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex-1 flex items-center justify-center print:hidden">
-          <div className="text-sm text-slate-500">Carregando dados do relatório...</div>
-        </div>
-      ) : (
-        <div className="grid gap-6 print:block print:space-y-6">
-          <div className="hidden print:block mb-6">
-            <h2 className="text-2xl font-bold">Relatório Mensal Consolidado</h2>
-            <p className="text-sm text-slate-600">
-              Período de Apuração: {format(parseISO(pStart), 'dd/MM/yyyy')} a{' '}
-              {format(parseISO(pEnd), 'dd/MM/yyyy')}
-            </p>
-          </div>
+      <Tabs defaultValue="resumo" className="flex-1 flex flex-col min-h-0">
+        <TabsList className="bg-slate-100/80 p-1 w-full justify-start overflow-x-auto shrink-0 border border-slate-200/60 rounded-xl">
+          <TabsTrigger
+            value="resumo"
+            className="flex gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <FileText className="w-4 h-4" /> Resumo da Folha
+          </TabsTrigger>
+          <TabsTrigger
+            value="meritocracia"
+            className="flex gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <TrendingUp className="w-4 h-4" /> Meritocracia
+          </TabsTrigger>
+        </TabsList>
 
-          <h3 className="text-lg font-semibold text-slate-800 mb-0">
-            Resumo da Folha e Meritocracia
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 print:grid-cols-4 print:gap-4 print:mb-6">
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">Total Bruto</CardTitle>
-                <Banknote className="w-4 h-4 text-emerald-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-emerald-600">
-                  R$ {totalBruto.toFixed(2).replace('.', ',')}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Folha bruta do mês</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">Descontos</CardTitle>
-                <TrendingDown className="w-4 h-4 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  R$ {totalDescontos.toFixed(2).replace('.', ',')}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Total de descontos</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">Total Líquido</CardTitle>
-                <Activity className="w-4 h-4 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-slate-800">
-                  R$ {totalLiquido.toFixed(2).replace('.', ',')}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Líquido a pagar</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border bg-amber-50/50">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">
-                  Média Meritocracia
-                </CardTitle>
-                <Star className="w-4 h-4 text-amber-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-amber-600">
-                  {avgAvaliacoes.toFixed(1)} / 5.0
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {avaliacoesCount} avaliações no período
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-0">Resumo de Benefícios</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-4 print:mb-6">
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">
-                  Ticket Alimentação
-                </CardTitle>
-                <DollarSign className="w-4 h-4 text-emerald-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-slate-800">
-                  R$ {totalTicket.toFixed(2).replace('.', ',')}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Base: R$ {ticketValue.toFixed(2).replace('.', ',')}/dia
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">
-                  Vale Transporte
-                </CardTitle>
-                <DollarSign className="w-4 h-4 text-emerald-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-slate-800">
-                  R$ {totalTransport.toFixed(2).replace('.', ',')}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Base: R$ {transportValue.toFixed(2).replace('.', ',')}/dia
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">
-                  Custo Total Benefícios
-                </CardTitle>
-                <Activity className="w-4 h-4 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
-                  R$ {(totalTicket + totalTransport).toFixed(2).replace('.', ',')}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Soma dos benefícios no período</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="border-slate-200 shadow-sm mt-6 print:shadow-none print:border print:break-inside-avoid">
-            <CardHeader className="pb-4 border-b bg-slate-50/50 print:bg-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-indigo-600" />
-                  Acompanhamento Funcional (Evolutivo)
-                </CardTitle>
-                <CardDescription>
-                  Análise mês a mês detalhada por eventos importados da folha
-                </CardDescription>
+        <TabsContent value="resumo" className="flex-1 mt-6">
+          {isLoading ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-32 rounded-2xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <Card className="border-0 shadow-elevation overflow-hidden relative rounded-2xl">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-slate-500" />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-slate-500">
+                      Total Bruto
+                    </CardTitle>
+                    <DollarSign className="w-5 h-5 text-slate-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-slate-900">
+                      {formatCurrency(summary.bruto)}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-elevation overflow-hidden relative rounded-2xl">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-slate-500">Descontos</CardTitle>
+                    <TrendingUp className="w-5 h-5 text-red-400 rotate-180" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-slate-900">
+                      {formatCurrency(summary.descontos)}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-elevation overflow-hidden relative rounded-2xl">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-slate-500">
+                      Total Líquido
+                    </CardTitle>
+                    <DollarSign className="w-5 h-5 text-emerald-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-slate-900">
+                      {formatCurrency(summary.liquido)}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-elevation overflow-hidden relative rounded-2xl">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-slate-500">
+                      Benefícios (Ticket+Vale)
+                    </CardTitle>
+                    <Calculator className="w-5 h-5 text-blue-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-slate-900">
+                      {formatCurrency(summary.beneficios)}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-              <div className="print:hidden w-full sm:w-[250px]">
-                <Select value={evolutivoUserId} onValueChange={setEvolutivoUserId}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Selecione o colaborador" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Visão Consolidada (Empresa)</SelectItem>
-                    {users.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+
+              <Card className="border-0 shadow-elevation overflow-hidden rounded-2xl">
+                <CardHeader className="bg-slate-50/50 border-b border-slate-100">
+                  <CardTitle className="text-lg">Detalhamento por Colaborador</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-slate-50">
+                      <TableRow className="border-0">
+                        <TableHead className="font-semibold text-slate-600">Colaborador</TableHead>
+                        <TableHead className="text-right font-semibold text-slate-600">
+                          Bruto
+                        </TableHead>
+                        <TableHead className="text-right font-semibold text-slate-600">
+                          Descontos
+                        </TableHead>
+                        <TableHead className="text-right font-semibold text-slate-600">
+                          Líquido
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {contracheques.map((c) => {
+                        const user = users?.find((u: any) => u.id === c.colaborador_id)
+                        const bruto = c.dados_extraidos?.totais?.vencimentos || 0
+                        const descontos = c.dados_extraidos?.totais?.descontos || 0
+                        const liquido = c.valor_liquido || c.dados_extraidos?.totais?.liquido || 0
+
+                        return (
+                          <TableRow key={c.id} className="hover:bg-slate-50/50 border-slate-100">
+                            <TableCell className="font-medium text-slate-700">
+                              {user?.nome || user?.name || 'Desconhecido'}
+                            </TableCell>
+                            <TableCell className="text-right text-slate-600">
+                              {formatCurrency(Number(bruto))}
+                            </TableCell>
+                            <TableCell className="text-right text-red-600">
+                              {formatCurrency(Number(descontos))}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-emerald-600">
+                              {formatCurrency(Number(liquido))}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                      {contracheques.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-12 text-slate-500">
+                            <FileText className="w-12 h-12 mx-auto text-slate-200 mb-3" />
+                            Nenhum dado de folha disponível para este mês.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="meritocracia" className="flex-1 mt-6">
+          <Card className="border-0 shadow-elevation h-full rounded-2xl">
+            <CardHeader className="bg-slate-50/50 border-b border-slate-100">
+              <CardTitle className="text-lg">
+                Meritocracia -{' '}
+                <span className="capitalize">
+                  {months.find((m) => m.value === selectedMonth)?.label}
+                </span>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 overflow-x-auto print:overflow-visible">
-              <Table>
-                <TableHeader className="bg-slate-50 print:bg-transparent">
-                  <TableRow>
-                    <TableHead className="min-w-[200px]">Evento (Proventos)</TableHead>
-                    {evolutivoMeses.map((m) => (
-                      <TableHead key={`prov-m-${m}`} className="text-right min-w-[100px] text-xs">
-                        {format(parseISO(`${m}-01`), 'MMM/yy', { locale: ptBR })}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {evolutivoVencimentos.length > 0 ? (
-                    evolutivoVencimentos.map((e, idx) => (
-                      <TableRow key={`prov-${idx}`} className="hover:bg-slate-50/50">
-                        <TableCell className="font-medium text-slate-700 text-xs">
-                          {e.descricao}
-                        </TableCell>
-                        {evolutivoMeses.map((m) => (
-                          <TableCell
-                            key={`v-${m}`}
-                            className="text-right text-green-600 font-medium text-xs"
-                          >
-                            {formatNumber(e.values[m])}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={evolutivoMeses.length + 1}
-                        className="text-center py-4 text-muted-foreground text-sm"
-                      >
-                        Nenhum provento registrado no período.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-
-                <TableHeader className="bg-slate-50 print:bg-transparent border-t-[20px] border-transparent">
-                  <TableRow>
-                    <TableHead className="min-w-[200px]">Evento (Descontos)</TableHead>
-                    {evolutivoMeses.map((m) => (
-                      <TableHead key={`desc-m-${m}`} className="text-right min-w-[100px] text-xs">
-                        {format(parseISO(`${m}-01`), 'MMM/yy', { locale: ptBR })}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {evolutivoDescontos.length > 0 ? (
-                    evolutivoDescontos.map((e, idx) => (
-                      <TableRow key={`desc-${idx}`} className="hover:bg-slate-50/50">
-                        <TableCell className="font-medium text-slate-700 text-xs">
-                          {e.descricao}
-                        </TableCell>
-                        {evolutivoMeses.map((m) => (
-                          <TableCell
-                            key={`d-${m}`}
-                            className="text-right text-red-600 font-medium text-xs"
-                          >
-                            {formatNumber(e.values[m])}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={evolutivoMeses.length + 1}
-                        className="text-center py-4 text-muted-foreground text-sm"
-                      >
-                        Nenhum desconto registrado no período.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-64 w-full mt-6" />
+              ) : (
+                <div className="text-center py-20 text-slate-500">
+                  <TrendingUp className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                  <h3 className="text-xl font-medium text-slate-700 mb-2">
+                    Cálculo de Meritocracia
+                  </h3>
+                  <p className="text-sm max-w-md mx-auto text-slate-500">
+                    Os dados de meritocracia para este período{' '}
+                    {selectedMonth > closedMonth ? 'ainda são uma previsão' : 'estão consolidados'}.
+                    O resumo detalhado das premiações será exibido aqui.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-2 print:gap-4 mt-6">
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border print:break-inside-avoid">
-              <CardHeader className="pb-2 border-b bg-slate-50/50 print:bg-transparent">
-                <div className="flex items-center gap-2">
-                  <Banknote className="w-4 h-4 text-blue-600" />
-                  <CardTitle className="text-sm font-semibold">
-                    Contracheques Processados ({data.contracheques.length})
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 max-h-[300px] overflow-auto print:max-h-none print:overflow-visible">
-                <Table>
-                  <TableHeader className="bg-slate-50 sticky top-0 print:static print:bg-transparent">
-                    <TableRow className="[&>th]:py-2">
-                      <TableHead className="text-xs">Colaborador</TableHead>
-                      <TableHead className="text-xs text-center">Assinado</TableHead>
-                      <TableHead className="text-xs text-right">Líquido (R$)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.contracheques.length > 0 ? (
-                      data.contracheques.map((c) => {
-                        const ext = c.dados_extraidos
-                        const liq = ext?.totais?.liquido || c.valor_liquido || 0
-                        return (
-                          <TableRow key={c.id} className="[&>td]:py-2">
-                            <TableCell className="text-xs font-medium text-slate-700">
-                              {getUserName(c.colaborador_id)}
-                            </TableCell>
-                            <TableCell className="text-xs text-center">
-                              {c.assinado ? (
-                                <CheckCircle2 className="w-4 h-4 text-green-600 inline-block" />
-                              ) : (
-                                <Clock className="w-4 h-4 text-amber-500 inline-block opacity-50" />
-                              )}
-                            </TableCell>
-                            <TableCell className="text-xs text-right font-medium">
-                              {liq.toLocaleString('pt-BR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-xs text-slate-500 py-4">
-                          Nenhum contracheque processado
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border print:break-inside-avoid">
-              <CardHeader className="pb-2 border-b bg-slate-50/50 print:bg-transparent">
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 text-amber-500" />
-                  <CardTitle className="text-sm font-semibold">
-                    Avaliações de Meritocracia ({data.avaliacoes.length})
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 max-h-[300px] overflow-auto print:max-h-none print:overflow-visible">
-                <Table>
-                  <TableHeader className="bg-slate-50 sticky top-0 print:static print:bg-transparent">
-                    <TableRow className="[&>th]:py-2">
-                      <TableHead className="text-xs">Colaborador</TableHead>
-                      <TableHead className="text-xs text-center w-[80px]">Média</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.avaliacoes.length > 0 ? (
-                      data.avaliacoes.map((a) => {
-                        const media =
-                          (a.nota_pontualidade + a.nota_qualidade + a.nota_trabalho_equipe) / 3
-                        return (
-                          <TableRow key={a.id} className="[&>td]:py-2">
-                            <TableCell className="text-xs font-medium text-slate-700">
-                              {getUserName(a.colaborador_id)}
-                            </TableCell>
-                            <TableCell className="text-xs text-center font-medium text-amber-600">
-                              {media.toFixed(1)}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={2} className="text-center text-xs text-slate-500 py-4">
-                          Nenhuma avaliação no período
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border print:break-inside-avoid">
-              <CardHeader className="pb-2 border-b bg-slate-50/50 print:bg-transparent">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-emerald-600" />
-                  <CardTitle className="text-sm font-semibold">
-                    Plantões Registrados ({data.plantoes.length})
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 max-h-[300px] overflow-auto print:max-h-none print:overflow-visible">
-                <Table>
-                  <TableHeader className="bg-slate-50 sticky top-0 print:static print:bg-transparent">
-                    <TableRow className="[&>th]:py-2">
-                      <TableHead className="text-xs">Colaborador</TableHead>
-                      <TableHead className="text-xs">Período</TableHead>
-                      <TableHead className="text-xs text-right w-[100px]">Data</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.plantoes.length > 0 ? (
-                      data.plantoes.map((p) => (
-                        <TableRow key={p.id} className="[&>td]:py-2">
-                          <TableCell className="text-xs font-medium text-slate-700">
-                            {getUserName(p.colaborador_id)}
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-500">
-                            {p.periodo || 'Integral'}
-                          </TableCell>
-                          <TableCell className="text-xs text-right text-slate-500">
-                            {format(parseISO(p.data), 'dd/MM/yyyy')}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-xs text-slate-500 py-4">
-                          Nenhum plantão no período
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 shadow-sm print:shadow-none print:border print:break-inside-avoid">
-              <CardHeader className="pb-2 border-b bg-slate-50/50 print:bg-transparent">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-500" />
-                  <CardTitle className="text-sm font-semibold">
-                    Faltas Inseridas ({data.faltas.length})
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 max-h-[300px] overflow-auto print:max-h-none print:overflow-visible">
-                <Table>
-                  <TableHeader className="bg-slate-50 sticky top-0 print:static print:bg-transparent">
-                    <TableRow className="[&>th]:py-2">
-                      <TableHead className="text-xs">Colaborador</TableHead>
-                      <TableHead className="text-xs text-right w-[100px]">Data</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.faltas.length > 0 ? (
-                      data.faltas.map((f) => (
-                        <TableRow key={f.id} className="[&>td]:py-2">
-                          <TableCell className="text-xs font-medium text-slate-700">
-                            {getUserName(f.colaborador_id)}
-                          </TableCell>
-                          <TableCell className="text-xs text-right text-slate-500 text-red-600">
-                            {format(parseISO(f.data), 'dd/MM/yyyy')}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={2} className="text-center text-xs text-slate-500 py-4">
-                          Nenhuma falta no período
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
