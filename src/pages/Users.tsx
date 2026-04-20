@@ -34,7 +34,7 @@ import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 
-type Role = 'admin' | 'colaborador'
+type Role = 'admin' | 'colaborador' | 'personalizado'
 
 export default function Users() {
   const { currentUser, removeUser } = useAppStore()
@@ -148,7 +148,13 @@ export default function Users() {
     setEditId(u.id)
     setEditName(u.name || u.nome)
     setEditEmail(u.email)
-    setEditRole(u.role?.toLowerCase() === 'admin' ? 'admin' : 'colaborador')
+    setEditRole(
+      u.role?.toLowerCase() === 'admin'
+        ? 'admin'
+        : u.role?.toLowerCase() === 'personalizado'
+          ? 'personalizado'
+          : 'colaborador',
+    )
     setEditSetor(u.departamento || '')
     setEditPassword('')
     setEditRecebeTransporte(u.recebe_transporte ?? true)
@@ -329,7 +335,7 @@ export default function Users() {
                     <SelectValue placeholder="Selecione o setor" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ADMINISTRAÇÃO">ADMINISTRAÇÃO</SelectItem>
+                    <SelectItem value="ADMINISTRATIVO">ADMINISTRATIVO</SelectItem>
                     <SelectItem value="DESENVOLVIMENTO">DESENVOLVIMENTO</SelectItem>
                     <SelectItem value="IMPLANTAÇÃO">IMPLANTAÇÃO</SelectItem>
                     <SelectItem value="SUPORTE">SUPORTE</SelectItem>
@@ -362,8 +368,9 @@ export default function Users() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="colaborador">Usuário Normal (Funcionário)</SelectItem>
-                    <SelectItem value="admin">Administrador (Gestor)</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="colaborador">Funcionário</SelectItem>
+                    <SelectItem value="personalizado">Personalizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -438,7 +445,7 @@ export default function Users() {
                   <SelectValue placeholder="Selecione o setor" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ADMINISTRAÇÃO">ADMINISTRAÇÃO</SelectItem>
+                  <SelectItem value="ADMINISTRATIVO">ADMINISTRATIVO</SelectItem>
                   <SelectItem value="DESENVOLVIMENTO">DESENVOLVIMENTO</SelectItem>
                   <SelectItem value="IMPLANTAÇÃO">IMPLANTAÇÃO</SelectItem>
                   <SelectItem value="SUPORTE">SUPORTE</SelectItem>
@@ -461,8 +468,9 @@ export default function Users() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="colaborador">Usuário Normal (Funcionário)</SelectItem>
-                  <SelectItem value="admin">Administrador (Gestor)</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="colaborador">Funcionário</SelectItem>
+                  <SelectItem value="personalizado">Personalizado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -529,8 +537,20 @@ export default function Users() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={u.role?.toLowerCase() === 'admin' ? 'default' : 'secondary'}>
-                        {u.role?.toLowerCase() === 'admin' ? 'Administrador' : 'Funcionário'}
+                      <Badge
+                        variant={
+                          u.role?.toLowerCase() === 'admin'
+                            ? 'default'
+                            : u.role?.toLowerCase() === 'personalizado'
+                              ? 'outline'
+                              : 'secondary'
+                        }
+                      >
+                        {u.role?.toLowerCase() === 'admin'
+                          ? 'Administrador'
+                          : u.role?.toLowerCase() === 'personalizado'
+                            ? 'Personalizado'
+                            : 'Funcionário'}
                       </Badge>
                     </TableCell>
                     <TableCell>

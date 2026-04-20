@@ -21,6 +21,7 @@ import Historico from './pages/Historico'
 import Ponto from './pages/Ponto'
 import ContraCheque from './pages/ContraCheque'
 import Profile from './pages/Profile'
+import Meritocracia from './pages/Meritocracia'
 import Admissao from './pages/Admissao'
 import Settings from './pages/Settings'
 
@@ -82,6 +83,7 @@ const App = () => (
                   <Route path="configuracoes" element={<Settings />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />
+                <Route path="meritocracia" element={<Meritocracia />} />
                 <Route path="ponto" element={<Ponto />} />
                 <Route path="contracheque" element={<ContraCheque />} />
                 <Route path="perfil" element={<Profile />} />

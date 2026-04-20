@@ -57,10 +57,16 @@ export default function AppSidebar() {
       roles: ['admin', 'Admin', 'Gerente'],
     },
     {
+      title: 'Meritocracia',
+      path: '/app/meritocracia',
+      icon: Star,
+      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
+    },
+    {
       title: 'Mural de Plantões',
       path: '/app/mural',
       icon: CalendarDays,
-      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador'],
+      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
     },
     {
       title: 'Admissão',
@@ -72,13 +78,13 @@ export default function AppSidebar() {
       title: 'Controle de Ponto',
       path: '/app/ponto',
       icon: Clock,
-      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador'],
+      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
     },
     {
       title: 'Contra Cheque',
       path: '/app/contracheque',
       icon: Wallet,
-      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador'],
+      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
     },
     {
       title: 'Atestados',
