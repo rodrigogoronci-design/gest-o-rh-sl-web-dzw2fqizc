@@ -113,6 +113,7 @@ export default function Ticket() {
 
   const [months, setMonths] = useState(() => buildMonthsList())
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
+  const [closedMonth, setClosedMonth] = useState('')
   const [localData, setLocalData] = useState<Record<string, TicketRecord>>({})
   const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
   const [preCalculatedAtestados, setPreCalculatedAtestados] = useState<Record<string, number>>({})
@@ -153,6 +154,18 @@ export default function Ticket() {
         if (data && data.data) {
           const shiftDate = parseISO(data.data)
           setMonths(buildMonthsList(shiftDate))
+        }
+      })
+
+    supabase
+      .from('contracheques')
+      .select('mes_ano')
+      .order('mes_ano', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setClosedMonth(data.mes_ano)
         }
       })
   }, [])
@@ -311,9 +324,16 @@ export default function Ticket() {
     <div className="space-y-4 flex flex-col h-full">
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800">
-            Controle de Ticket Alimentação
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold tracking-tight text-slate-800">
+              Controle de Ticket Alimentação
+            </h1>
+            {selectedMonth > closedMonth && closedMonth !== '' && (
+              <div className="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold tracking-wide uppercase border border-amber-200">
+                Previsão
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground font-medium">Valor base: R$</span>
@@ -353,7 +373,10 @@ export default function Ticket() {
             <SelectContent>
               {months.map((m) => (
                 <SelectItem key={m.value} value={m.value} className="capitalize text-xs">
-                  {m.label}
+                  {m.label}{' '}
+                  {m.value > closedMonth && closedMonth !== '' && (
+                    <span className="text-amber-600 ml-1 font-semibold">(Previsão)</span>
+                  )}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -9,11 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  getDashboardStats,
-  getDashboardChartData,
-  getLatestMonthWithData,
-} from '@/services/dashboard'
+import { getDashboardStats, getDashboardChartData } from '@/services/dashboard'
 import {
   Utensils,
   Bus,
@@ -63,6 +59,7 @@ const chartConfig = {
 
 export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState('')
+  const [closedMonth, setClosedMonth] = useState('')
   const [months, setMonths] = useState<{ value: string; label: string }[]>([])
   const [stats, setStats] = useState<any>(null)
   const [chartData, setChartData] = useState<any[]>([])
@@ -70,18 +67,42 @@ export default function Dashboard() {
 
   useEffect(() => {
     const init = async () => {
-      const latest = await getLatestMonthWithData()
+      const { supabase } = await import('@/lib/supabase/client')
+
+      const { data: cData } = await supabase
+        .from('contracheques')
+        .select('mes_ano')
+        .order('mes_ano', { ascending: false })
+        .limit(1)
+
+      const latestClosed = cData?.[0]?.mes_ano || format(new Date(), 'yyyy-MM')
+      setClosedMonth(latestClosed)
+
+      const { data: pData } = await supabase
+        .from('plantoes')
+        .select('data')
+        .order('data', { ascending: false })
+        .limit(1)
+
+      let maxFutureDate = new Date()
+      let maxMonth = new Date(maxFutureDate.getFullYear(), maxFutureDate.getMonth() + 1, 1)
+
+      if (pData?.[0]?.data) {
+        const shiftDate = parseISO(pData[0].data)
+        if (shiftDate > maxMonth) {
+          maxMonth = new Date(shiftDate.getFullYear(), shiftDate.getMonth(), 1)
+        }
+      }
 
       const mSet = new Set<string>()
       const start = new Date(2026, 0, 1)
-      let current = new Date()
-      current = new Date(current.getFullYear(), current.getMonth() + 2, 1)
+      let current = new Date(maxMonth.getFullYear(), maxMonth.getMonth(), 1)
 
       while (current >= start) {
         mSet.add(format(current, 'yyyy-MM'))
         current = subMonths(current, 1)
       }
-      mSet.add(latest)
+      mSet.add(latestClosed)
 
       const options = Array.from(mSet)
         .sort((a, b) => b.localeCompare(a))
@@ -91,7 +112,7 @@ export default function Dashboard() {
         }))
 
       setMonths(options)
-      setSelectedMonth(latest)
+      setSelectedMonth(latestClosed)
     }
     init()
   }, [])
@@ -128,7 +149,14 @@ export default function Dashboard() {
     <div className="p-6 max-w-[1600px] mx-auto space-y-6 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+            {selectedMonth > closedMonth && closedMonth !== '' && (
+              <div className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold border border-amber-200">
+                Previsão
+              </div>
+            )}
+          </div>
           <p className="text-slate-500">Visão consolidada dos custos com benefícios.</p>
         </div>
         <div className="w-full sm:w-64">
@@ -139,7 +167,10 @@ export default function Dashboard() {
             <SelectContent>
               {months.map((m) => (
                 <SelectItem key={m.value} value={m.value} className="capitalize">
-                  {m.label}
+                  {m.label}{' '}
+                  {m.value > closedMonth && closedMonth !== '' && (
+                    <span className="text-amber-600 ml-1 text-xs font-medium">(Previsão)</span>
+                  )}
                 </SelectItem>
               ))}
             </SelectContent>
