@@ -1569,9 +1569,7 @@ function ContraChequeDataModal({
                   <div className="flex w-full pt-1">
                     <div className="w-[60px] px-2 text-center">
                       <div className="text-[9px] font-medium">Código</div>
-                      <div className="font-medium mt-0.5">
-                        {mockData.cabecalho?.codigo || '00'}
-                      </div>
+                      <div className="font-medium mt-0.5">{mockData.cabecalho?.codigo || '00'}</div>
                     </div>
                     <div className="flex-1 px-2">
                       <div className="text-[9px] font-medium">Nome do Funcionário</div>
@@ -1612,149 +1610,151 @@ function ContraChequeDataModal({
                   </div>
                 </div>
 
-              <div className="grid grid-cols-[60px_1fr_80px_110px_110px] border-b-[1.5px] border-black font-medium text-[11px] bg-slate-50/50 print:bg-transparent">
-                <div className="border-r border-black p-1 text-center">Código</div>
-                <div className="border-r border-black p-1 pl-2 text-left">Descrição</div>
-                <div className="border-r border-black p-1 text-center">Referência</div>
-                <div className="border-r border-black p-1 text-center">Vencimentos</div>
-                <div className="p-1 text-center">Descontos</div>
-              </div>
+                <div className="grid grid-cols-[60px_1fr_80px_110px_110px] border-b-[1.5px] border-black font-medium text-[11px] bg-slate-50/50 print:bg-transparent">
+                  <div className="border-r border-black p-1 text-center">Código</div>
+                  <div className="border-r border-black p-1 pl-2 text-left">Descrição</div>
+                  <div className="border-r border-black p-1 text-center">Referência</div>
+                  <div className="border-r border-black p-1 text-center">Vencimentos</div>
+                  <div className="p-1 text-center">Descontos</div>
+                </div>
 
-              <div className="grid grid-cols-[60px_1fr_80px_110px_110px] flex-1 min-h-[300px] text-[11px] print:text-[11px]">
-                <div className="border-r border-black pt-1 pb-1 flex flex-col items-center">
-                  {mockData.linhas?.map((l: any, i: number) => (
-                    <div key={i} className="h-[1.1rem] leading-none">
-                      {l.codigo}
+                <div className="grid grid-cols-[60px_1fr_80px_110px_110px] flex-1 min-h-[300px] text-[11px] print:text-[11px]">
+                  <div className="border-r border-black pt-1 pb-1 flex flex-col items-center">
+                    {mockData.linhas?.map((l: any, i: number) => (
+                      <div key={i} className="h-[1.1rem] leading-none">
+                        {l.codigo}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-r border-black pt-1 pb-1 pl-2 flex flex-col items-start uppercase font-medium">
+                    {mockData.linhas?.map((l: any, i: number) => (
+                      <div key={i} className="h-[1.1rem] leading-none truncate w-full">
+                        {l.descricao}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-r border-black pt-1 pb-1 flex flex-col items-end pr-3 font-medium">
+                    {mockData.linhas?.map((l: any, i: number) => (
+                      <div key={i} className="h-[1.1rem] leading-none">
+                        {l.referencia}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-r border-black pt-1 pb-1 flex flex-col items-end pr-3 font-medium">
+                    {mockData.linhas?.map((l: any, i: number) => (
+                      <div key={i} className="h-[1.1rem] leading-none">
+                        {l.vencimento ? formatNumber(l.vencimento) : '\u00A0'}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-1 pb-1 flex flex-col items-end pr-3 font-medium">
+                    {mockData.linhas?.map((l: any, i: number) => (
+                      <div key={i} className="h-[1.1rem] leading-none">
+                        {l.desconto ? formatNumber(l.desconto) : '\u00A0'}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[1fr_110px_110px] border-t-[1.5px] border-black h-[50px]">
+                  <div className="border-r border-black"></div>
+                  <div className="border-r border-black flex flex-col">
+                    <div className="text-[9px] p-1 border-b border-black text-center font-medium bg-slate-50/50 print:bg-transparent">
+                      Total de Vencimentos
                     </div>
-                  ))}
-                </div>
-                <div className="border-r border-black pt-1 pb-1 pl-2 flex flex-col items-start uppercase font-medium">
-                  {mockData.linhas?.map((l: any, i: number) => (
-                    <div key={i} className="h-[1.1rem] leading-none truncate w-full">
-                      {l.descricao}
+                    <div className="flex-1 flex items-center justify-end pr-3 font-medium text-[12px]">
+                      {formatNumber(mockData.totais?.vencimentos || 0)}
                     </div>
-                  ))}
-                </div>
-                <div className="border-r border-black pt-1 pb-1 flex flex-col items-end pr-3 font-medium">
-                  {mockData.linhas?.map((l: any, i: number) => (
-                    <div key={i} className="h-[1.1rem] leading-none">
-                      {l.referencia}
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="text-[9px] p-1 border-b border-black text-center font-medium bg-slate-50/50 print:bg-transparent">
+                      Total de Descontos
                     </div>
-                  ))}
-                </div>
-                <div className="border-r border-black pt-1 pb-1 flex flex-col items-end pr-3 font-medium">
-                  {mockData.linhas?.map((l: any, i: number) => (
-                    <div key={i} className="h-[1.1rem] leading-none">
-                      {l.vencimento ? formatNumber(l.vencimento) : '\u00A0'}
+                    <div className="flex-1 flex items-center justify-end pr-3 font-medium text-[12px]">
+                      {formatNumber(mockData.totais?.descontos || 0)}
                     </div>
-                  ))}
+                  </div>
                 </div>
-                <div className="pt-1 pb-1 flex flex-col items-end pr-3 font-medium">
-                  {mockData.linhas?.map((l: any, i: number) => (
-                    <div key={i} className="h-[1.1rem] leading-none">
-                      {l.desconto ? formatNumber(l.desconto) : '\u00A0'}
+
+                <div className="grid grid-cols-[1fr_220px] border-t-[1.5px] border-black h-[40px]">
+                  <div className="border-r border-black flex justify-end items-center pr-4 gap-6">
+                    <span className="text-[10px] font-medium">Valor Líquido</span>
+                    <span className="text-xl leading-none font-light">⇨</span>
+                  </div>
+                  <div className="flex items-center justify-end pr-3 font-bold text-[14px] bg-slate-50/50 print:bg-transparent">
+                    {formatNumber(mockData.totais?.liquido || 0)}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-6 border-t-[1.5px] border-black text-center bg-slate-50/50 print:bg-transparent">
+                  <div className="border-r border-black p-1.5 px-2">
+                    <div className="text-[9px] font-medium mb-1">Salário Base</div>
+                    <div className="font-medium text-[11px]">
+                      {formatNumber(mockData.bases?.salario_base || 0)}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-[1fr_110px_110px] border-t-[1.5px] border-black h-[50px]">
-                <div className="border-r border-black"></div>
-                <div className="border-r border-black flex flex-col">
-                  <div className="text-[9px] p-1 border-b border-black text-center font-medium bg-slate-50/50 print:bg-transparent">
-                    Total de Vencimentos
                   </div>
-                  <div className="flex-1 flex items-center justify-end pr-3 font-medium text-[12px]">
-                    {formatNumber(mockData.totais?.vencimentos || 0)}
+                  <div className="border-r border-black p-1.5 px-2">
+                    <div className="text-[9px] font-medium mb-1">Sal. Contr. INSS</div>
+                    <div className="font-medium text-[11px]">
+                      {formatNumber(mockData.bases?.sal_contr_inss || 0)}
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-col">
-                  <div className="text-[9px] p-1 border-b border-black text-center font-medium bg-slate-50/50 print:bg-transparent">
-                    Total de Descontos
+                  <div className="border-r border-black p-1.5 px-2">
+                    <div className="text-[9px] font-medium mb-1">Base Cálc. FGTS</div>
+                    <div className="font-medium text-[11px]">
+                      {formatNumber(mockData.bases?.base_calc_fgts || 0)}
+                    </div>
                   </div>
-                  <div className="flex-1 flex items-center justify-end pr-3 font-medium text-[12px]">
-                    {formatNumber(mockData.totais?.descontos || 0)}
+                  <div className="border-r border-black p-1.5 px-2">
+                    <div className="text-[9px] font-medium mb-1">F.G.T.S do Mês</div>
+                    <div className="font-medium text-[11px]">
+                      {formatNumber(mockData.bases?.fgts_mes || 0)}
+                    </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-[1fr_220px] border-t-[1.5px] border-black h-[40px]">
-                <div className="border-r border-black flex justify-end items-center pr-4 gap-6">
-                  <span className="text-[10px] font-medium">Valor Líquido</span>
-                  <span className="text-xl leading-none font-light">⇨</span>
-                </div>
-                <div className="flex items-center justify-end pr-3 font-bold text-[14px] bg-slate-50/50 print:bg-transparent">
-                  {formatNumber(mockData.totais?.liquido || 0)}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-6 border-t-[1.5px] border-black text-center bg-slate-50/50 print:bg-transparent">
-                <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] font-medium mb-1">Salário Base</div>
-                  <div className="font-medium text-[11px]">
-                    {formatNumber(mockData.bases?.salario_base || 0)}
+                  <div className="border-r border-black p-1.5 px-2">
+                    <div className="text-[9px] font-medium mb-1">Base Cálc. IRRF</div>
+                    <div className="font-medium text-[11px]">
+                      {formatNumber(mockData.bases?.base_calc_irrf || 0)}
+                    </div>
                   </div>
-                </div>
-                <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] font-medium mb-1">Sal. Contr. INSS</div>
-                  <div className="font-medium text-[11px]">
-                    {formatNumber(mockData.bases?.sal_contr_inss || 0)}
-                  </div>
-                </div>
-                <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] font-medium mb-1">Base Cálc. FGTS</div>
-                  <div className="font-medium text-[11px]">
-                    {formatNumber(mockData.bases?.base_calc_fgts || 0)}
-                  </div>
-                </div>
-                <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] font-medium mb-1">F.G.T.S do Mês</div>
-                  <div className="font-medium text-[11px]">
-                    {formatNumber(mockData.bases?.fgts_mes || 0)}
-                  </div>
-                </div>
-                <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] font-medium mb-1">Base Cálc. IRRF</div>
-                  <div className="font-medium text-[11px]">
-                    {formatNumber(mockData.bases?.base_calc_irrf || 0)}
-                  </div>
-                </div>
-                <div className="p-1.5 px-2">
-                  <div className="text-[9px] font-medium mb-1">Faixa IRRF</div>
-                  <div className="font-medium text-[11px]">
-                    {formatNumber(mockData.bases?.faixa_irrf || 0)}
+                  <div className="p-1.5 px-2">
+                    <div className="text-[9px] font-medium mb-1">Faixa IRRF</div>
+                    <div className="font-medium text-[11px]">
+                      {formatNumber(mockData.bases?.faixa_irrf || 0)}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex flex-col mt-2">
-              <div className="text-[11px] font-medium tracking-tight mb-8">
-                Declaro ter recebido a importância líquida discriminada neste recibo.
-              </div>
+              <div className="w-[70px] shrink-0 ml-2 border-[1.5px] border-black box-border relative z-10 bg-white flex flex-col justify-between items-center py-6">
+                <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-medium tracking-tight text-center flex-1 w-full max-h-[300px]">
+                  Declaro ter recebido a importância líquida discriminada neste recibo.
+                </div>
 
-              <div className="flex items-end justify-around w-full px-4 sm:px-10">
-                <div className="flex flex-col items-center w-[120px]">
-                  <div className="border-b border-black w-full h-6 relative flex items-end justify-center pb-1">
-                    {!data.assinado && <span className="text-transparent">___/___/____</span>}
+                <div className="flex flex-col gap-6 w-full items-center">
+                  <div className="flex justify-center items-end relative h-[180px] w-full">
+                    <div className="w-px h-full bg-black absolute top-0 left-1/2"></div>
+                    <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-medium h-full flex items-center ml-4">
+                      Assinatura do Funcionário
+                    </div>
                     {data.assinado && (
-                      <span className="text-[11px] font-bold text-green-700 leading-none">
-                        {new Date(data.data_assinatura).toLocaleDateString('pt-BR')}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[11px] font-medium mt-1">Data</div>
-                </div>
-
-                <div className="flex flex-col items-center w-[300px] sm:w-[400px]">
-                  <div className="border-b border-black w-full h-6 relative flex items-end justify-center pb-1">
-                    {data.assinado && (
-                      <span className="text-[11px] font-bold text-green-700 leading-none truncate uppercase w-full text-center">
+                      <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-bold text-green-700 uppercase h-full flex items-center absolute left-1">
                         {data.assinatura_nome || 'ASSINADO DIGITALMENTE'}
-                      </span>
+                      </div>
                     )}
                   </div>
-                  <div className="text-[11px] font-medium mt-1">Assinatura do Funcionário</div>
+
+                  <div className="flex justify-center items-end relative h-[60px] w-full">
+                    <div className="w-px h-full bg-black absolute top-0 left-1/2"></div>
+                    <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-medium h-full flex items-center ml-4">
+                      Data
+                    </div>
+                    {data.assinado && (
+                      <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-bold text-green-700 h-full flex items-center absolute left-1">
+                        {new Date(data.data_assinatura).toLocaleDateString('pt-BR')}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
