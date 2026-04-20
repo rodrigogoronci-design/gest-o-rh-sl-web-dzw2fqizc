@@ -18,7 +18,29 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { Save, Calendar as CalendarIcon, Minus, Plus } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { TransportRecord } from '@/types'
+
+const generateMonths = () => {
+  const months = []
+  const today = new Date()
+  for (let i = -3; i < 24; i++) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+    const m = (d.getMonth() + 1).toString().padStart(2, '0')
+    const y = d.getFullYear()
+    months.push({
+      value: `${y}-${m}`,
+      label: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(d),
+    })
+  }
+  return months
+}
 
 const UnitInput = ({ value, onChange, className, readOnly, title }: any) => {
   const handleDecrement = () => {
@@ -78,6 +100,7 @@ export default function Transport() {
   const [transportValue, setTransportValue] = useState(10.2)
   const [dbTransportValue, setDbTransportValue] = useState(10.2)
 
+  const months = generateMonths()
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [localData, setLocalData] = useState<Record<string, TransportRecord>>({})
   const [isSaving, setIsSaving] = useState(false)
@@ -87,8 +110,8 @@ export default function Transport() {
   const month = parseInt(selectedMonth.split('-')[1]) - 1
 
   // Current period (Férias, Plantões, etc)
-  const pStart = format(new Date(year, month - 1, 25), 'yyyy-MM-dd')
-  const pEnd = format(new Date(year, month, 24), 'yyyy-MM-dd')
+  const pStart = format(new Date(year, month, 25), 'yyyy-MM-dd')
+  const pEnd = format(new Date(year, month + 1, 24), 'yyyy-MM-dd')
 
   const [activeUsers, setActiveUsers] = useState<any[]>([])
 
@@ -254,12 +277,18 @@ export default function Transport() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="w-[140px] h-8 text-xs font-medium bg-white shadow-sm"
-          />
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[160px] h-8 text-xs font-medium bg-white shadow-sm capitalize">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((m) => (
+                <SelectItem key={m.value} value={m.value} className="capitalize text-xs">
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             onClick={handleSave}
             disabled={isSaving || isLoading}

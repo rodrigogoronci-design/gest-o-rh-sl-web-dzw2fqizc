@@ -53,7 +53,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 const generateMonths = () => {
   const months = []
   const today = new Date()
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 24; i++) {
     const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
     const m = (d.getMonth() + 1).toString().padStart(2, '0')
     const y = d.getFullYear()
@@ -126,12 +126,30 @@ function AdminTabs() {
 
 function AdminMemoriaCalculo() {
   const months = generateMonths()
-  const [selectedMonth, setSelectedMonth] = useState(months[0].value)
+  const [selectedMonth, setSelectedMonth] = useState<string>('')
+  const [isMonthLoaded, setIsMonthLoaded] = useState(false)
   const [registros, setRegistros] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [previewData, setPreviewData] = useState<any>(null)
 
   useEffect(() => {
+    supabase
+      .from('contracheques')
+      .select('mes_ano')
+      .order('mes_ano', { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setSelectedMonth(data[0].mes_ano)
+        } else {
+          setSelectedMonth(months[0].value)
+        }
+        setIsMonthLoaded(true)
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!isMonthLoaded || !selectedMonth) return
     setLoading(true)
     supabase
       .from('contracheques')
@@ -152,7 +170,7 @@ function AdminMemoriaCalculo() {
         }
         setLoading(false)
       })
-  }, [selectedMonth])
+  }, [selectedMonth, isMonthLoaded])
 
   let totalVencimentos = 0
   let totalDescontos = 0
@@ -224,18 +242,20 @@ function AdminMemoriaCalculo() {
             Análise descritiva dos proventos, descontos e líquidos pagos na competência.
           </CardDescription>
         </div>
-        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="w-[180px] capitalize">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {months.map((m) => (
-              <SelectItem key={m.value} value={m.value} className="capitalize">
-                {m.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {isMonthLoaded && selectedMonth && (
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[180px] capitalize">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((m) => (
+                <SelectItem key={m.value} value={m.value} className="capitalize">
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </CardHeader>
       <CardContent className="space-y-8">
         {loading ? (
@@ -1342,12 +1362,32 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
 function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
   const months = generateMonths()
-  const [selectedMonth, setSelectedMonth] = useState(months[0].value)
+  const [selectedMonth, setSelectedMonth] = useState<string>('')
+  const [isMonthLoaded, setIsMonthLoaded] = useState(false)
   const [contracheque, setContracheque] = useState<any>(null)
   const [previewData, setPreviewData] = useState<any>(null)
 
-  const fetchData = () => {
+  useEffect(() => {
     if (colaborador) {
+      supabase
+        .from('contracheques')
+        .select('mes_ano')
+        .eq('colaborador_id', colaborador.id)
+        .order('mes_ano', { ascending: false })
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setSelectedMonth(data[0].mes_ano)
+          } else {
+            setSelectedMonth(months[0].value)
+          }
+          setIsMonthLoaded(true)
+        })
+    }
+  }, [colaborador])
+
+  const fetchData = () => {
+    if (colaborador && selectedMonth && isMonthLoaded) {
       supabase
         .from('contracheques')
         .select('*')
@@ -1360,7 +1400,7 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
 
   useEffect(() => {
     fetchData()
-  }, [colaborador, selectedMonth])
+  }, [colaborador, selectedMonth, isMonthLoaded])
 
   const handleSign = async (assinaturaNome: string) => {
     if (!contracheque) return
@@ -1391,18 +1431,20 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
           </CardTitle>
           <CardDescription>Consulte os dados do seu pagamento mensal.</CardDescription>
         </div>
-        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="w-[180px] capitalize">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {months.map((m) => (
-              <SelectItem key={m.value} value={m.value} className="capitalize">
-                {m.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {isMonthLoaded && selectedMonth && (
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[180px] capitalize">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((m) => (
+                <SelectItem key={m.value} value={m.value} className="capitalize">
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </CardHeader>
       <CardContent>
         {contracheque ? (

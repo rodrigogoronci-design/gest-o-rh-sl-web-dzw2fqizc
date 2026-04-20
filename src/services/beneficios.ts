@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
-import { eachDayOfInterval, format, subMonths, setDate } from 'date-fns'
+import { eachDayOfInterval, format, subMonths, addMonths, setDate } from 'date-fns'
 
 export const loadBeneficiosData = async (month: string) => {
   const [cols, plantoes, tickets, transports] = await Promise.all([
@@ -62,13 +62,13 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const [year, m] = month.split('-').map(Number)
   const selectedDate = new Date(year, m - 1, 1)
 
-  const periodEnd = setDate(selectedDate, 24)
-  const periodStart = setDate(subMonths(selectedDate, 1), 25)
+  const periodStart = setDate(selectedDate, 25)
+  const periodEnd = setDate(addMonths(selectedDate, 1), 24)
   const startStr = format(periodStart, 'yyyy-MM-dd')
   const endStr = format(periodEnd, 'yyyy-MM-dd')
 
-  const prevPeriodEnd = setDate(subMonths(selectedDate, 1), 24)
-  const prevPeriodStart = setDate(subMonths(selectedDate, 2), 25)
+  const prevPeriodStart = setDate(subMonths(selectedDate, 1), 25)
+  const prevPeriodEnd = setDate(selectedDate, 24)
   const prevStartStr = format(prevPeriodStart, 'yyyy-MM-dd')
   const prevEndStr = format(prevPeriodEnd, 'yyyy-MM-dd')
 
