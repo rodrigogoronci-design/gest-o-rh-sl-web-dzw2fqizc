@@ -1522,8 +1522,8 @@ function ContraChequeDataModal({
         )}
 
         <div className="w-full overflow-x-auto print:overflow-visible pb-4 flex justify-center">
-          <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-3 flex relative min-w-[750px] w-full max-w-[900px] shadow-sm print-area print:min-w-0 print:w-full print:max-w-[180mm] print:border-none print:shadow-none print:overflow-hidden print:p-0 print:m-0">
-            <div className="flex-1 flex flex-col border-[1.5px] border-black box-border relative z-10 bg-white">
+          <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-4 sm:p-6 flex flex-col gap-6 relative min-w-[750px] w-full max-w-[900px] shadow-sm print-area print:min-w-0 print:w-full print:max-w-[180mm] print:border-none print:shadow-none print:overflow-visible print:p-0 print:m-0">
+            <div className="flex flex-col border-[1.5px] border-black box-border relative z-10 bg-white">
               {data.assinado && (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50 opacity-15 mix-blend-multiply">
                   <div className="border-[8px] border-green-600 text-green-600 text-6xl font-black uppercase py-4 px-10 rotate-[-30deg] rounded-2xl tracking-widest print:opacity-[0.15]">
@@ -1564,46 +1564,49 @@ function ContraChequeDataModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-[60px_1fr_80px_100px_60px] border-b-[1.5px] border-black text-[11px]">
+              <div className="grid grid-cols-[60px_1fr_240px] border-b-[1.5px] border-black text-[11px]">
                 <div className="border-r border-black p-1 px-2">
                   <div className="text-[9px] font-medium">Código</div>
                   <div className="font-medium text-center mt-0.5">
                     {mockData.cabecalho?.codigo || '00'}
                   </div>
                 </div>
-                <div className="border-r border-black p-1 px-2">
-                  <div className="text-[9px] font-medium">Nome do Funcionário</div>
-                  <div className="font-medium uppercase tracking-tight mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                    {mockData.cabecalho?.nome_impresso || data.nome}
-                  </div>
-                  <div className="uppercase font-medium tracking-tight mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis flex justify-between">
-                    <span>{mockData.cabecalho?.cargo || data.cargo || ''}</span>
-                  </div>
-                </div>
                 <div className="border-r border-black p-1 px-2 flex flex-col justify-between">
                   <div>
-                    <div className="text-[9px] font-medium text-center">CBO</div>
-                    <div className="font-medium text-center mt-0.5">
-                      {mockData.cabecalho?.cbo || '212420'}
+                    <div className="text-[9px] font-medium">Nome do Funcionário</div>
+                    <div className="font-medium uppercase tracking-tight mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                      {mockData.cabecalho?.nome_impresso || data.nome}
                     </div>
                   </div>
-                  <div className="text-[10px] font-medium text-right mb-[1px]">Admissão:</div>
+                  <div className="uppercase font-medium tracking-tight mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                    {mockData.cabecalho?.cargo || data.cargo || ''}
+                  </div>
                 </div>
-                <div className="border-r border-black p-1 px-2 flex flex-col justify-between">
-                  <div>
-                    <div className="text-[9px] font-medium text-center">Departamento</div>
-                    <div className="font-medium text-center mt-0.5">
-                      {mockData.cabecalho?.departamento || data.departamento || '1'}
+                <div className="p-1 px-2 flex flex-col justify-between">
+                  <div className="grid grid-cols-3">
+                    <div className="text-center">
+                      <div className="text-[9px] font-medium">CBO</div>
+                      <div className="font-medium mt-0.5">
+                        {mockData.cabecalho?.cbo || '212420'}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-[9px] font-medium">Departamento</div>
+                      <div className="font-medium mt-0.5">
+                        {mockData.cabecalho?.departamento || data.departamento || '1'}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-[9px] font-medium">Filial</div>
+                      <div className="font-medium mt-0.5">{mockData.cabecalho?.filial || '1'}</div>
                     </div>
                   </div>
-                  <div className="text-[10px] font-medium text-left mb-[1px]">
-                    {mockData.cabecalho?.admissao || '01/01/2023'}
-                  </div>
-                </div>
-                <div className="p-1 px-2">
-                  <div className="text-[9px] font-medium text-center">Filial</div>
-                  <div className="font-medium text-center mt-0.5">
-                    {mockData.cabecalho?.filial || '1'}
+                  <div className="grid grid-cols-3 mt-2 mb-[1px]">
+                    <div className="text-[10px] font-medium text-right pr-2">Admissão:</div>
+                    <div className="text-[10px] font-medium text-center">
+                      {mockData.cabecalho?.admissao || '01/01/2023'}
+                    </div>
+                    <div></div>
                   </div>
                 </div>
               </div>
@@ -1724,40 +1727,33 @@ function ContraChequeDataModal({
               </div>
             </div>
 
-            <div className="w-[50px] sm:w-[60px] border-y-[1.5px] border-r-[1.5px] border-black flex flex-col relative bg-white shrink-0 box-border ml-[2px]">
-              <div className="flex flex-row flex-1 justify-center items-center py-6 px-1 gap-2">
-                <div
-                  className="text-[10px] whitespace-nowrap transform rotate-180 text-slate-800 print:text-black font-medium tracking-tight"
-                  style={{ writingMode: 'vertical-rl' }}
-                >
-                  Declaro ter recebido a importância liquida discriminada neste recibo.
-                </div>
-                <div
-                  className="text-[11px] whitespace-nowrap transform rotate-180 font-bold tracking-widest"
-                  style={{ writingMode: 'vertical-rl' }}
-                >
-                  Assinatura do Funcionário
-                </div>
+            <div className="flex flex-col mt-2">
+              <div className="text-[11px] font-medium tracking-tight mb-8">
+                Declaro ter recebido a importância líquida discriminada neste recibo.
               </div>
-              <div className="w-full flex flex-col px-2 z-10 pb-8 gap-8">
-                <div className="flex items-end justify-between">
-                  <span className="text-[10px] transform -rotate-90 origin-bottom-left translate-y-3 font-medium">
-                    Data
-                  </span>
-                  <span className="border-b border-black w-full translate-y-2 ml-1 relative">
+
+              <div className="flex items-end justify-around w-full px-4 sm:px-10">
+                <div className="flex flex-col items-center w-[120px]">
+                  <div className="border-b border-black w-full h-6 relative flex items-end justify-center pb-1">
+                    {!data.assinado && <span className="text-transparent">___/___/____</span>}
                     {data.assinado && (
-                      <span className="absolute bottom-1 right-0 text-[9px] font-bold text-green-700 leading-none">
+                      <span className="text-[11px] font-bold text-green-700 leading-none">
                         {new Date(data.data_assinatura).toLocaleDateString('pt-BR')}
                       </span>
                     )}
-                  </span>
+                  </div>
+                  <div className="text-[11px] font-medium mt-1">Data</div>
                 </div>
-                <div className="border-b border-black w-full relative h-4">
-                  {data.assinado && (
-                    <span className="absolute bottom-1 w-full text-center text-[9px] font-bold text-green-700 leading-none truncate block uppercase">
-                      {data.assinatura_nome || 'ASSINADO DIGITALMENTE'}
-                    </span>
-                  )}
+
+                <div className="flex flex-col items-center w-[300px] sm:w-[400px]">
+                  <div className="border-b border-black w-full h-6 relative flex items-end justify-center pb-1">
+                    {data.assinado && (
+                      <span className="text-[11px] font-bold text-green-700 leading-none truncate uppercase w-full text-center">
+                        {data.assinatura_nome || 'ASSINADO DIGITALMENTE'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] font-medium mt-1">Assinatura do Funcionário</div>
                 </div>
               </div>
             </div>
