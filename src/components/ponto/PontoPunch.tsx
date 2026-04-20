@@ -2,19 +2,24 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Clock, MapPin, WifiOff, RefreshCw } from 'lucide-react'
+import { Clock, MapPin, MapPinOff, WifiOff, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { dataURLtoBlob, getDistanceFromLatLonInKm } from '@/lib/device-utils'
 
 export function PontoPunch({ colaborador, deviceId }: any) {
   const [time, setTime] = useState(new Date())
   const [location, setLocation] = useState<GeolocationPosition | null>(null)
+  const [locationError, setLocationError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [queueCount, setQueueCount] = useState(0)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent,
+  )
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
@@ -39,9 +44,20 @@ export function PontoPunch({ colaborador, deviceId }: any) {
       .catch(() => toast.error('Câmera não disponível'))
 
     navigator.geolocation.getCurrentPosition(
-      (pos) => setLocation(pos),
-      () => toast.error('Localização não disponível. Ative o GPS.'),
-      { enableHighAccuracy: true },
+      (pos) => {
+        setLocation(pos)
+        setLocationError(null)
+      },
+      (err) => {
+        if (isMobile) {
+          toast.error('Localização é obrigatória no celular. Ative o GPS.')
+          setLocationError('GPS Obrigatório')
+        } else {
+          toast.warning('GPS não ativado. Registro pelo Desktop é permitido.')
+          setLocationError('GPS Opcional (Desktop)')
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
     )
 
     return () => {
@@ -50,7 +66,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
       window.removeEventListener('offline', handleOffline)
       if (stream) stream.getTracks().forEach((t) => t.stop())
     }
-  }, [])
+  }, [isMobile])
 
   const syncOffline = async () => {
     const queue = JSON.parse(localStorage.getItem('ponto_queue') || '[]')
@@ -76,17 +92,18 @@ export function PontoPunch({ colaborador, deviceId }: any) {
   }
 
   const registerPoint = async (tipo: string) => {
-    if (!location) {
-      toast.error('Localização é obrigatória')
+    if (isMobile && !location) {
+      toast.error('Localização é obrigatória no celular')
       return
     }
     setLoading(true)
     try {
-      const lat = location.coords.latitude
-      const lng = location.coords.longitude
+      const lat = location?.coords.latitude || null
+      const lng = location?.coords.longitude || null
 
       let status = 'pendente'
-      if (colaborador.local_trabalho_lat && colaborador.local_trabalho_lng) {
+
+      if (lat && lng && colaborador.local_trabalho_lat && colaborador.local_trabalho_lng) {
         const dist = getDistanceFromLatLonInKm(
           lat,
           lng,
@@ -94,6 +111,31 @@ export function PontoPunch({ colaborador, deviceId }: any) {
           parseFloat(colaborador.local_trabalho_lng),
         )
         if (dist > 0.05) status = 'inconsistencia'
+      }
+
+      if (status !== 'inconsistencia') {
+        const checkTolerance = (expectedStr: string) => {
+          if (!expectedStr) return false
+          const [h, m] = expectedStr.split(':').map(Number)
+          const expected = new Date()
+          expected.setHours(h, m, 0, 0)
+          const diffMins = Math.abs(new Date().getTime() - expected.getTime()) / 60000
+          return diffMins <= 30
+        }
+
+        let isWithinTolerance = false
+        if (tipo === 'entrada' && colaborador.jornada_entrada)
+          isWithinTolerance = checkTolerance(colaborador.jornada_entrada)
+        if (tipo === 'saida_intervalo' && colaborador.jornada_saida_intervalo)
+          isWithinTolerance = checkTolerance(colaborador.jornada_saida_intervalo)
+        if (tipo === 'retorno_intervalo' && colaborador.jornada_retorno_intervalo)
+          isWithinTolerance = checkTolerance(colaborador.jornada_retorno_intervalo)
+        if (tipo === 'saida' && colaborador.jornada_saida)
+          isWithinTolerance = checkTolerance(colaborador.jornada_saida)
+
+        if (isWithinTolerance) {
+          status = 'aprovado'
+        }
       }
 
       let foto_url = null
@@ -128,7 +170,9 @@ export function PontoPunch({ colaborador, deviceId }: any) {
       } else {
         const { error } = await supabase.from('registro_ponto').insert(payload)
         if (error) throw error
-        toast.success('Ponto registrado com sucesso!')
+        toast.success(
+          `Ponto registrado com sucesso! (${status === 'aprovado' ? 'Automático' : 'Pendente'})`,
+        )
       }
     } catch (e: any) {
       toast.error('Erro ao registrar: ' + e.message)
@@ -136,6 +180,8 @@ export function PontoPunch({ colaborador, deviceId }: any) {
       setLoading(false)
     }
   }
+
+  const isBtnDisabled = loading || (isMobile && !location)
 
   return (
     <Card className="max-w-md mx-auto text-center shadow-lg border-t-4 border-t-primary">
@@ -165,7 +211,10 @@ export function PontoPunch({ colaborador, deviceId }: any) {
                   <MapPin className="w-3 h-3 text-green-500" /> GPS Ativo
                 </>
               ) : (
-                'Aguardando GPS...'
+                <>
+                  <MapPinOff className="w-3 h-3 text-amber-500" />{' '}
+                  {locationError || 'Aguardando GPS...'}
+                </>
               )}
             </div>
           </div>
@@ -189,18 +238,35 @@ export function PontoPunch({ colaborador, deviceId }: any) {
       <CardFooter className="grid grid-cols-2 gap-3">
         <Button
           size="lg"
-          className="h-14 text-lg"
+          className="h-12"
           onClick={() => registerPoint('entrada')}
-          disabled={loading || !location}
+          disabled={isBtnDisabled}
         >
           Entrada
         </Button>
         <Button
           size="lg"
           variant="secondary"
-          className="h-14 text-lg"
+          className="h-12"
+          onClick={() => registerPoint('saida_intervalo')}
+          disabled={isBtnDisabled}
+        >
+          Saída Int.
+        </Button>
+        <Button
+          size="lg"
+          variant="secondary"
+          className="h-12"
+          onClick={() => registerPoint('retorno_intervalo')}
+          disabled={isBtnDisabled}
+        >
+          Ret. Int.
+        </Button>
+        <Button
+          size="lg"
+          className="h-12"
           onClick={() => registerPoint('saida')}
-          disabled={loading || !location}
+          disabled={isBtnDisabled}
         >
           Saída
         </Button>

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase/client'
 import { getDeviceId } from '@/lib/device-utils'
 import { DeviceAuthFlow } from './DeviceAuthFlow'
 import { PontoPunch } from './PontoPunch'
+import { SaldoHoras } from './SaldoHoras'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export function EmployeePonto({ colaborador }: { colaborador: any }) {
@@ -43,5 +44,10 @@ export function EmployeePonto({ colaborador }: { colaborador: any }) {
     )
   }
 
-  return <PontoPunch colaborador={colaborador} deviceId={deviceId} />
+  return (
+    <div className="pb-8">
+      <PontoPunch colaborador={colaborador} deviceId={deviceId} />
+      <SaldoHoras colaborador={colaborador} />
+    </div>
+  )
 }
