@@ -1523,93 +1523,94 @@ function ContraChequeDataModal({
 
         <div className="w-full overflow-x-auto print:overflow-visible pb-4 flex justify-center">
           <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-4 sm:p-6 flex flex-col gap-6 relative min-w-[750px] w-full max-w-[900px] shadow-sm print-area print:min-w-0 print:w-full print:max-w-[180mm] print:border-none print:shadow-none print:overflow-visible print:p-0 print:m-0">
-            <div className="flex flex-col border-[1.5px] border-black box-border relative z-10 bg-white">
-              {data.assinado && (
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50 opacity-15 mix-blend-multiply">
-                  <div className="border-[8px] border-green-600 text-green-600 text-6xl font-black uppercase py-4 px-10 rotate-[-30deg] rounded-2xl tracking-widest print:opacity-[0.15]">
-                    Assinado
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-3 border-b-[1.5px] border-black p-1.5 pb-2">
-                <div className="col-span-1 space-y-0.5 pl-1">
-                  <div className="font-medium tracking-tight text-[11px]">
-                    {mockData.empresa?.nome || 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA'}
-                  </div>
-                  <div className="text-[11px] font-medium">
-                    CNPJ: &nbsp;&nbsp;{mockData.empresa?.cnpj || '10.929.600/0001-92'}
-                  </div>
-                </div>
-                <div className="col-span-1 text-center space-y-0.5 pt-1">
-                  <div className="text-[11px] font-medium">CC: Centro de Custo</div>
-                  <div className="text-[11px] font-medium">Mensalista</div>
-                </div>
-                <div className="col-span-1 text-right space-y-0.5 pr-2 pt-1">
-                  <div className="text-[11px] font-medium">Folha Mensal</div>
-                  <div className="capitalize text-[11px] font-medium">
-                    {(() => {
-                      if (!data.mes_ano) return ''
-                      const [m, y] = data.mes_ano.split('/')
-                      if (m && y) {
-                        const date = new Date(parseInt(y), parseInt(m) - 1, 1)
-                        return new Intl.DateTimeFormat('pt-BR', {
-                          month: 'long',
-                          year: 'numeric',
-                        }).format(date)
-                      }
-                      return data.mes_ano
-                    })()}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-[60px_1fr_240px] border-b-[1.5px] border-black text-[11px]">
-                <div className="border-r border-black p-1 px-2">
-                  <div className="text-[9px] font-medium">Código</div>
-                  <div className="font-medium text-center mt-0.5">
-                    {mockData.cabecalho?.codigo || '00'}
-                  </div>
-                </div>
-                <div className="border-r border-black p-1 px-2 flex flex-col justify-between">
-                  <div>
-                    <div className="text-[9px] font-medium">Nome do Funcionário</div>
-                    <div className="font-medium uppercase tracking-tight mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                      {mockData.cabecalho?.nome_impresso || data.nome}
+            <div className="flex flex-row relative w-full">
+              <div className="flex-1 flex flex-col border-[1.5px] border-black box-border relative z-10 bg-white">
+                {data.assinado && (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50 opacity-15 mix-blend-multiply">
+                    <div className="border-[8px] border-green-600 text-green-600 text-6xl font-black uppercase py-4 px-10 rotate-[-30deg] rounded-2xl tracking-widest print:opacity-[0.15]">
+                      Assinado
                     </div>
                   </div>
-                  <div className="uppercase font-medium tracking-tight mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                    {mockData.cabecalho?.cargo || data.cargo || ''}
+                )}
+
+                <div className="flex justify-between items-start border-b-[1.5px] border-black p-1.5 pb-2">
+                  <div className="space-y-0.5 pl-1">
+                    <div className="font-medium tracking-tight text-[11px] uppercase">
+                      {mockData.empresa?.nome || 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA'}
+                    </div>
+                    <div className="text-[11px] font-medium uppercase">
+                      CNPJ: &nbsp;&nbsp;{mockData.empresa?.cnpj || '10.929.600/0001-92'}
+                    </div>
+                  </div>
+                  <div className="text-center space-y-0.5 pt-1">
+                    <div className="text-[11px] font-medium">CC: Centro de Custo</div>
+                    <div className="text-[11px] font-medium">Mensalista</div>
+                  </div>
+                  <div className="text-right space-y-0.5 pr-2 pt-1">
+                    <div className="text-[11px] font-medium">Folha Mensal</div>
+                    <div className="capitalize text-[11px] font-medium">
+                      {(() => {
+                        if (!data.mes_ano) return ''
+                        const [m, y] = data.mes_ano.split('/')
+                        if (m && y) {
+                          const date = new Date(parseInt(y), parseInt(m) - 1, 1)
+                          return new Intl.DateTimeFormat('pt-BR', {
+                            month: 'long',
+                            year: 'numeric',
+                          }).format(date)
+                        }
+                        return data.mes_ano
+                      })()}
+                    </div>
                   </div>
                 </div>
-                <div className="p-1 px-2 flex flex-col justify-between">
-                  <div className="grid grid-cols-3">
-                    <div className="text-center">
+
+                <div className="flex flex-col border-b-[1.5px] border-black text-[11px]">
+                  <div className="flex w-full pt-1">
+                    <div className="w-[60px] px-2 text-center">
+                      <div className="text-[9px] font-medium">Código</div>
+                      <div className="font-medium mt-0.5">
+                        {mockData.cabecalho?.codigo || '00'}
+                      </div>
+                    </div>
+                    <div className="flex-1 px-2">
+                      <div className="text-[9px] font-medium">Nome do Funcionário</div>
+                      <div className="font-medium uppercase tracking-tight mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                        {mockData.cabecalho?.nome_impresso || data.nome}
+                      </div>
+                    </div>
+                    <div className="w-[80px] px-2 text-center">
                       <div className="text-[9px] font-medium">CBO</div>
                       <div className="font-medium mt-0.5">
                         {mockData.cabecalho?.cbo || '212420'}
                       </div>
                     </div>
-                    <div className="text-center">
+                    <div className="w-[100px] px-2 text-center">
                       <div className="text-[9px] font-medium">Departamento</div>
                       <div className="font-medium mt-0.5">
                         {mockData.cabecalho?.departamento || data.departamento || '1'}
                       </div>
                     </div>
-                    <div className="text-center">
+                    <div className="w-[80px] px-2 text-center">
                       <div className="text-[9px] font-medium">Filial</div>
                       <div className="font-medium mt-0.5">{mockData.cabecalho?.filial || '1'}</div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 mt-2 mb-[1px]">
-                    <div className="text-[10px] font-medium text-right pr-2">Admissão:</div>
-                    <div className="text-[10px] font-medium text-center">
-                      {mockData.cabecalho?.admissao || '01/01/2023'}
+                  <div className="flex w-full pb-1 items-center mt-1">
+                    <div className="w-[60px]"></div>
+                    <div className="flex-1 px-2">
+                      <div className="uppercase font-medium tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                        {mockData.cabecalho?.cargo || data.cargo || ''}
+                      </div>
                     </div>
-                    <div></div>
+                    <div className="w-[260px] flex justify-end items-center gap-2 pr-4">
+                      <span className="text-[10px] font-medium">Admissão:</span>
+                      <span className="text-[10px] font-medium">
+                        {mockData.cabecalho?.admissao || '01/01/2023'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
               <div className="grid grid-cols-[60px_1fr_80px_110px_110px] border-b-[1.5px] border-black font-medium text-[11px] bg-slate-50/50 print:bg-transparent">
                 <div className="border-r border-black p-1 text-center">Código</div>
