@@ -546,14 +546,56 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       let sheetsToProcess: { name: string; rows: any[][] }[] = []
 
       if (isDataEmpty && rawText) {
-        logs.push(`Abas vazias detectadas. Usando extração de texto bruto (Fallback).`)
-        const lines = rawText.split(/\r?\n/)
-        const delimiter = rawText.includes(';') ? ';' : rawText.includes('\t') ? '\t' : ','
-        const rows = lines.map((line) => line.split(delimiter))
-        sheetsToProcess.push({ name: 'Planilha1', rows })
+        logs.push(
+          `Motor padrão encontrou arquivo vazio ou ilegível. Acionando motor de contingência bruto.`,
+        )
+        if (rawText.toLowerCase().includes('<table') || rawText.toLowerCase().includes('<html')) {
+          logs.push(`Formato HTML/Tabela detectado. Renderizando DOM virtual para extração...`)
+          const parser = new DOMParser()
+          const doc = parser.parseFromString(rawText, 'text/html')
+          const tables = doc.querySelectorAll('table')
+          const rows: any[][] = []
+          if (tables.length > 0) {
+            tables.forEach((table) => {
+              table.querySelectorAll('tr').forEach((tr) => {
+                const row: string[] = []
+                tr.querySelectorAll('td, th').forEach((td) => {
+                  row.push((td.textContent || '').trim())
+                })
+                rows.push(row)
+              })
+            })
+          } else {
+            doc.body.textContent?.split('\n').forEach((line) => {
+              if (line.trim()) rows.push([line.trim()])
+            })
+          }
+          sheetsToProcess.push({ name: 'Planilha Bruta (HTML)', rows })
+        } else {
+          logs.push(`Formato Texto/CSV detectado. Fragmentando matriz...`)
+          const lines = rawText.split(/\r?\n/)
+          const delimiter = rawText.includes(';') ? ';' : rawText.includes('\t') ? '\t' : ','
+          const rows = lines.map((line) => line.split(delimiter).map((c) => c.trim()))
+          sheetsToProcess.push({ name: 'Planilha Bruta (Texto)', rows })
+        }
       } else if (parsedData) {
         for (const sheetName of sheetNames) {
-          sheetsToProcess.push({ name: sheetName, rows: parsedData[sheetName] })
+          let rows = parsedData[sheetName]
+          if (rows && rows.length > 0 && rows.every((r: any) => Object.keys(r).length === 1)) {
+            const firstKey = Object.keys(rows[0])[0]
+            const sampleVal = String(rows[0][firstKey] || '')
+            if (sampleVal.includes(';') || sampleVal.includes('\t')) {
+              const delimiter = sampleVal.includes(';') ? ';' : '\t'
+              rows = rows.map((r: any) => {
+                const val = String(r[Object.keys(r)[0]] || '')
+                return val.split(delimiter)
+              })
+              logs.push(
+                `Coluna única detectada em ${sheetName}. Separando por delimitador '${delimiter}'.`,
+              )
+            }
+          }
+          sheetsToProcess.push({ name: sheetName, rows })
         }
       }
 
@@ -644,28 +686,55 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           if (!rowText.trim()) continue
 
           // Detect headers
-          if (
-            (rowText.includes('CÓDIGO') || rowText.includes('COD')) &&
-            (rowText.includes('DESCRIÇÃO') ||
-              rowText.includes('DESCRICAO') ||
-              rowText.includes('EVENTO')) &&
-            !rowText.includes('TOTAL')
-          ) {
+          const hasCod =
+            rowText.includes('CÓD') ||
+            rowText.includes('COD') ||
+            rowText.includes('CD.') ||
+            rowText.includes('CÓDIGO')
+          const hasDesc =
+            rowText.includes('DESCRI') ||
+            rowText.includes('EVENTO') ||
+            rowText.includes('HISTÓRICO')
+
+          if (hasCod && hasDesc && !rowText.includes('TOTAL') && !rowText.includes('RESUMO')) {
+            // Se já tínhamos um holerite aberto com linhas, fechamos antes de abrir o próximo
+            if (h.cabecalho.nome_impresso && h.linhas.length > 0) {
+              if (h.totais.vencimentos === 0)
+                h.totais.vencimentos = h.linhas.reduce(
+                  (acc, l: any) => acc + (l.vencimento || 0),
+                  0,
+                )
+              if (h.totais.descontos === 0)
+                h.totais.descontos = h.linhas.reduce((acc, l: any) => acc + (l.desconto || 0), 0)
+              if (h.totais.liquido === 0)
+                h.totais.liquido = h.totais.vencimentos - h.totais.descontos
+              methodExtracted.push({ ...h })
+              logs.push(
+                `Holerite fechado por quebra de nova tabela para: ${h.cabecalho.nome_impresso}`,
+              )
+              h = getEmptyHolerite()
+            }
+
             colCod = row.findIndex(
               (c) =>
                 c.toUpperCase().includes('CÓD') ||
                 c.toUpperCase() === 'COD' ||
-                c.toUpperCase() === 'COD.',
+                c.toUpperCase() === 'COD.' ||
+                c.toUpperCase() === 'CD.',
             )
             colDesc = row.findIndex(
-              (c) => c.toUpperCase().includes('DESCRI') || c.toUpperCase().includes('EVENTO'),
+              (c) =>
+                c.toUpperCase().includes('DESCRI') ||
+                c.toUpperCase().includes('EVENTO') ||
+                c.toUpperCase().includes('HISTÓRICO'),
             )
             colRef = row.findIndex((c) => c.toUpperCase().includes('REF'))
             colVenc = row.findIndex(
               (c) =>
                 c.toUpperCase().includes('VENCIMENTO') ||
                 c.toUpperCase().includes('PROVENTO') ||
-                c.toUpperCase() === 'VALOR',
+                c.toUpperCase() === 'VALOR' ||
+                c.toUpperCase().includes('CRÉDITO'),
             )
             colDescVal = row.findIndex(
               (c) => c.toUpperCase().includes('DESCONTO') && !c.toUpperCase().includes('DESCRI'),
@@ -684,7 +753,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
             // Look back for employee name if not found
             if (!h.cabecalho.nome_impresso && i > 0) {
-              for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
+              for (let j = i - 1; j >= Math.max(0, i - 5); j--) {
                 const prevRow = expandedRows[j]
                 const possibleNameCell = prevRow.find(
                   (c) =>
@@ -719,7 +788,9 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
             (rowText.includes('TOTAL') && rowText.includes('DESCONTOS')) ||
             rowText.includes('LIQUIDO') ||
             rowText.includes('LÍQUIDO') ||
-            rowText.includes('SALÁRIO BASE')
+            rowText.includes('SALÁRIO BASE') ||
+            rowText.includes('TOTAIS') ||
+            rowText.includes('TOTAL LIQUIDO')
           ) {
             inEvents = false
 
@@ -762,30 +833,58 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
           // If not in events, look for employee name going forward
           if (!inEvents && !h.cabecalho.nome_impresso) {
-            const possibleNameCell = row.find((c) => {
-              if (c.length < 6) return false
-              const upper = c.toUpperCase()
-              if (
-                upper.includes('EMPRESA') ||
-                upper.includes('CNPJ') ||
-                upper.includes('RECIBO') ||
-                upper.includes('FOLHA') ||
-                upper.includes('MENSAL')
+            // Tentativa por rótulos
+            const nomeIndex = row.findIndex((c) => {
+              const upper = String(c).toUpperCase()
+              return (
+                upper === 'NOME' ||
+                upper === 'NOME DO FUNCIONÁRIO' ||
+                upper === 'FUNCIONÁRIO' ||
+                upper === 'EMPREGADO' ||
+                upper.includes('NOME:')
               )
-                return false
-              if (c.match(/^[0-9.,]+$/)) return false
-              return colabs.some((colab) => upper.includes(colab.nome.toUpperCase().trim()))
             })
 
-            if (possibleNameCell) {
-              h.cabecalho.nome_impresso = possibleNameCell
-              logs.push(`Colaborador detectado (match exato): ${possibleNameCell}`)
-            } else {
-              const match = rowText.match(/(?:^|\s)(\d{1,6})\s*[-|–]?\s*([A-ZÀ-Ÿ\s]{6,})/)
-              if (match && !match[2].includes('TOTAL') && !match[2].includes('EMPRESA')) {
-                h.cabecalho.codigo = match[1]
-                h.cabecalho.nome_impresso = match[2].trim()
-                logs.push(`Colaborador detectado (regex): ${h.cabecalho.nome_impresso}`)
+            if (nomeIndex !== -1) {
+              const cellText = String(row[nomeIndex]).toUpperCase()
+              if (cellText.includes(':') && cellText.split(':')[1].trim().length > 3) {
+                h.cabecalho.nome_impresso = cellText.split(':')[1].trim()
+              } else if (
+                row.length > nomeIndex + 1 &&
+                String(row[nomeIndex + 1]).trim().length > 3
+              ) {
+                h.cabecalho.nome_impresso = String(row[nomeIndex + 1]).trim()
+              }
+              if (h.cabecalho.nome_impresso)
+                logs.push(`Colaborador detectado por rótulo: ${h.cabecalho.nome_impresso}`)
+            }
+
+            if (!h.cabecalho.nome_impresso) {
+              const possibleNameCell = row.find((c) => {
+                if (c.length < 6) return false
+                const upper = c.toUpperCase()
+                if (
+                  upper.includes('EMPRESA') ||
+                  upper.includes('CNPJ') ||
+                  upper.includes('RECIBO') ||
+                  upper.includes('FOLHA') ||
+                  upper.includes('MENSAL')
+                )
+                  return false
+                if (c.match(/^[0-9.,]+$/)) return false
+                return colabs.some((colab) => upper.includes(colab.nome.toUpperCase().trim()))
+              })
+
+              if (possibleNameCell) {
+                h.cabecalho.nome_impresso = possibleNameCell
+                logs.push(`Colaborador detectado (match base de dados): ${possibleNameCell}`)
+              } else {
+                const match = rowText.match(/(?:^|\s)(\d{1,6})\s*[-|–]?\s*([A-ZÀ-Ÿ\s]{6,})/)
+                if (match && !match[2].includes('TOTAL') && !match[2].includes('EMPRESA')) {
+                  h.cabecalho.codigo = match[1]
+                  h.cabecalho.nome_impresso = match[2].trim()
+                  logs.push(`Colaborador detectado (regex numérico): ${h.cabecalho.nome_impresso}`)
+                }
               }
             }
           }
@@ -952,9 +1051,13 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       }
 
       if (extracted.length === 0) {
-        if (sheetNames.length > 0 && parsedData[sheetNames[0]]) {
-          const sample = parsedData[sheetNames[0]].slice(0, 3)
-          logs.push(`Amostra inicial do arquivo: ${JSON.stringify(sample)}`)
+        if (sheetsToProcess.length > 0 && sheetsToProcess[0].rows.length > 0) {
+          const sample = sheetsToProcess[0].rows.slice(0, 8)
+          logs.push(`Amostra inicial processada: ${JSON.stringify(sample)}`)
+        } else {
+          logs.push(
+            `Nenhuma linha pôde ser processada. O arquivo está vazio ou com codificação inválida.`,
+          )
         }
         setParsingErrorDetails(logs)
         toast.error(
