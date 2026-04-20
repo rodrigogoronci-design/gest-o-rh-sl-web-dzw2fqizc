@@ -15,8 +15,11 @@ export const getDashboardStats = async (month: string) => {
       supabase.from('colaboradores').select('id, status').eq('status', 'Ativo'),
       supabase.from('beneficios_ticket').select('*').eq('mes_ano', prevMonth),
       supabase.from('beneficios_transporte').select('*').eq('mes_ano', prevMonth),
-      supabase.from('contracheques').select('valor_liquido').eq('mes_ano', month),
-      supabase.from('contracheques').select('valor_liquido').eq('mes_ano', prevMonth),
+      supabase.from('contracheques').select('valor_liquido, dados_extraidos').eq('mes_ano', month),
+      supabase
+        .from('contracheques')
+        .select('valor_liquido, dados_extraidos')
+        .eq('mes_ano', prevMonth),
     ])
 
   const ticketData = tickets.data || []
@@ -25,9 +28,17 @@ export const getDashboardStats = async (month: string) => {
   const prevTransportData = prevTransports.data || []
 
   const folhaPagamento =
-    contracheques.data?.reduce((acc, curr) => acc + (Number(curr.valor_liquido) || 0), 0) || 0
+    contracheques.data?.reduce((acc, curr: any) => {
+      const gross = curr.dados_extraidos?.totais?.vencimentos
+      if (gross) return acc + Number(gross)
+      return acc + (Number(curr.valor_liquido) || 0)
+    }, 0) || 0
   const prevFolhaPagamento =
-    prevContracheques.data?.reduce((acc, curr) => acc + (Number(curr.valor_liquido) || 0), 0) || 0
+    prevContracheques.data?.reduce((acc, curr: any) => {
+      const gross = curr.dados_extraidos?.totais?.vencimentos
+      if (gross) return acc + Number(gross)
+      return acc + (Number(curr.valor_liquido) || 0)
+    }, 0) || 0
 
   let totalTicketDays = 0
   ticketData.forEach((t) => {
@@ -119,7 +130,7 @@ export const getDashboardChartData = async () => {
     .in('mes_ano', months)
   const { data: contracheques } = await supabase
     .from('contracheques')
-    .select('mes_ano, valor_liquido')
+    .select('mes_ano, valor_liquido, dados_extraidos')
     .in('mes_ano', months)
 
   const chartData = months.map((m) => {
@@ -149,7 +160,11 @@ export const getDashboardChartData = async () => {
       if (days > 0) trDays += days
     })
 
-    const folhaValor = cData.reduce((acc, curr) => acc + (Number(curr.valor_liquido) || 0), 0)
+    const folhaValor = cData.reduce((acc, curr: any) => {
+      const gross = curr.dados_extraidos?.totais?.vencimentos
+      if (gross) return acc + Number(gross)
+      return acc + (Number(curr.valor_liquido) || 0)
+    }, 0)
 
     return {
       name: m,

@@ -57,7 +57,10 @@ const generateMonths = () => {
     const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
     const m = (d.getMonth() + 1).toString().padStart(2, '0')
     const y = d.getFullYear()
-    months.push(`${m}/${y}`)
+    months.push({
+      value: `${y}-${m}`,
+      label: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(d),
+    })
   }
   return months
 }
@@ -123,7 +126,7 @@ function AdminTabs() {
 
 function AdminMemoriaCalculo() {
   const months = generateMonths()
-  const [selectedMonth, setSelectedMonth] = useState(months[0])
+  const [selectedMonth, setSelectedMonth] = useState(months[0].value)
   const [registros, setRegistros] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [previewData, setPreviewData] = useState<any>(null)
@@ -222,13 +225,13 @@ function AdminMemoriaCalculo() {
           </CardDescription>
         </div>
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-[180px] capitalize">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {months.map((m) => (
-              <SelectItem key={m} value={m}>
-                {m}
+              <SelectItem key={m.value} value={m.value} className="capitalize">
+                {m.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -240,8 +243,9 @@ function AdminMemoriaCalculo() {
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : registros.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
-            Nenhuma memória de cálculo gerada para {selectedMonth}.
+          <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg capitalize">
+            Nenhuma memória de cálculo gerada para{' '}
+            {months.find((m) => m.value === selectedMonth)?.label}.
           </div>
         ) : (
           <>
@@ -469,7 +473,7 @@ function AdminMemoriaCalculo() {
 
 function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
   const months = generateMonths()
-  const [selectedMonth, setSelectedMonth] = useState(months[0])
+  const [selectedMonth, setSelectedMonth] = useState(months[0].value)
   const [file, setFile] = useState<File | null>(null)
   const [processing, setProcessing] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -1136,13 +1140,13 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         <div className="space-y-2 max-w-[200px]">
           <label className="text-sm font-medium">Mês de Referência</label>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger>
+            <SelectTrigger className="capitalize">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {months.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m}
+                <SelectItem key={m.value} value={m.value} className="capitalize">
+                  {m.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1338,7 +1342,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
 function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
   const months = generateMonths()
-  const [selectedMonth, setSelectedMonth] = useState(months[0])
+  const [selectedMonth, setSelectedMonth] = useState(months[0].value)
   const [contracheque, setContracheque] = useState<any>(null)
   const [previewData, setPreviewData] = useState<any>(null)
 
@@ -1388,13 +1392,13 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
           <CardDescription>Consulte os dados do seu pagamento mensal.</CardDescription>
         </div>
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-[180px] capitalize">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {months.map((m) => (
-              <SelectItem key={m} value={m}>
-                {m}
+              <SelectItem key={m.value} value={m.value} className="capitalize">
+                {m.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -1404,7 +1408,9 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
         {contracheque ? (
           <div className="flex flex-col items-center justify-center p-10 border rounded-lg bg-muted/10">
             <FileText className="w-16 h-16 text-blue-500 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Holerite - {selectedMonth}</h3>
+            <h3 className="text-xl font-semibold mb-2 capitalize">
+              Holerite - {months.find((m) => m.value === selectedMonth)?.label}
+            </h3>
             <p className="text-muted-foreground mb-6 text-center max-w-sm">
               As informações do seu demonstrativo estão disponíveis para visualização.
             </p>
@@ -1457,7 +1463,9 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
         ) : (
           <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg text-muted-foreground">
             <Search className="w-10 h-10 mb-3 opacity-50" />
-            <p>Nenhum dado encontrado para {selectedMonth}</p>
+            <p className="capitalize">
+              Nenhum dado encontrado para {months.find((m) => m.value === selectedMonth)?.label}
+            </p>
           </div>
         )}
       </CardContent>
@@ -1571,13 +1579,24 @@ function ContraChequeDataModal({
                     <div className="capitalize text-[11px] font-medium">
                       {(() => {
                         if (!data.mes_ano) return ''
-                        const [m, y] = data.mes_ano.split('/')
-                        if (m && y) {
-                          const date = new Date(parseInt(y), parseInt(m) - 1, 1)
-                          return new Intl.DateTimeFormat('pt-BR', {
-                            month: 'long',
-                            year: 'numeric',
-                          }).format(date)
+                        if (data.mes_ano.includes('-')) {
+                          const [y, m] = data.mes_ano.split('-')
+                          if (m && y) {
+                            const date = new Date(parseInt(y), parseInt(m) - 1, 1)
+                            return new Intl.DateTimeFormat('pt-BR', {
+                              month: 'long',
+                              year: 'numeric',
+                            }).format(date)
+                          }
+                        } else {
+                          const [m, y] = data.mes_ano.split('/')
+                          if (m && y) {
+                            const date = new Date(parseInt(y), parseInt(m) - 1, 1)
+                            return new Intl.DateTimeFormat('pt-BR', {
+                              month: 'long',
+                              year: 'numeric',
+                            }).format(date)
+                          }
                         }
                         return data.mes_ano
                       })()}
