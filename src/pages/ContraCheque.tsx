@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -456,6 +457,7 @@ function AdminMemoriaCalculo() {
                                   dados_extraidos: r.dados_extraidos,
                                   assinado: r.assinado,
                                   data_assinatura: r.data_assinatura,
+                                  assinatura_nome: r.assinatura_nome,
                                 })
                               }
                             >
@@ -1300,12 +1302,16 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
     fetchData()
   }, [colaborador, selectedMonth])
 
-  const handleSign = async () => {
+  const handleSign = async (assinaturaNome: string) => {
     if (!contracheque) return
     try {
       const { error } = await supabase
         .from('contracheques')
-        .update({ assinado: true, data_assinatura: new Date().toISOString() })
+        .update({
+          assinado: true,
+          data_assinatura: new Date().toISOString(),
+          assinatura_nome: assinaturaNome,
+        })
         .eq('id', contracheque.id)
 
       if (error) throw error
@@ -1377,6 +1383,7 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
                     dados_extraidos: contracheque.dados_extraidos,
                     assinado: contracheque.assinado,
                     data_assinatura: contracheque.data_assinatura,
+                    assinatura_nome: contracheque.assinatura_nome,
                     id: contracheque.id,
                   })
                 }
@@ -1420,9 +1427,17 @@ function ContraChequeDataModal({
   data: any
   isOpen: boolean
   onClose: () => void
-  onSign?: () => void
+  onSign?: (signature: string) => void
   isEmployeeView?: boolean
 }) {
+  const [signature, setSignature] = useState('')
+
+  useEffect(() => {
+    if (isOpen) {
+      setSignature('')
+    }
+  }, [isOpen])
+
   if (!data) return null
 
   const formatNumber = (value: number) => {
@@ -1452,10 +1467,28 @@ function ContraChequeDataModal({
             <PenTool className="h-4 w-4 text-blue-600" />
             <AlertTitle>Assinatura Digital Necessária</AlertTitle>
             <AlertDescription>
-              Declaro ter recebido a importância líquida discriminada neste recibo e confirmo a
-              veracidade das informações apresentadas para a competência selecionada.
+              <div className="mb-3">
+                Declaro ter recebido a importância líquida discriminada neste recibo e confirmo a
+                veracidade das informações apresentadas para a competência selecionada.
+              </div>
+              <div className="flex flex-col gap-2 max-w-sm mt-4">
+                <label htmlFor="signature" className="text-sm font-medium">
+                  Digite seu nome completo para assinar eletronicamente:
+                </label>
+                <Input
+                  id="signature"
+                  value={signature}
+                  onChange={(e) => setSignature(e.target.value)}
+                  placeholder="Seu nome completo"
+                  className="bg-white border-blue-300 focus-visible:ring-blue-500 text-black"
+                />
+              </div>
             </AlertDescription>
-            <Button className="mt-3 bg-blue-600 hover:bg-blue-700" onClick={onSign}>
+            <Button
+              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
+              onClick={() => onSign && onSign(signature)}
+              disabled={signature.trim().length < 5}
+            >
               Confirmar Recebimento e Assinar
             </Button>
           </Alert>
@@ -1674,7 +1707,7 @@ function ContraChequeDataModal({
                   <span className="text-[9px] transform -rotate-90 origin-bottom-left translate-y-3">
                     Data
                   </span>
-                  <span className="border-b border-black w-full translate-y-2 ml-1">
+                  <span className="border-b border-black w-full translate-y-2 ml-1 relative">
                     {data.assinado && (
                       <span className="absolute bottom-1 right-0 text-[8px] font-bold text-green-700 leading-none">
                         {new Date(data.data_assinatura).toLocaleDateString('pt-BR')}
@@ -1682,10 +1715,10 @@ function ContraChequeDataModal({
                     )}
                   </span>
                 </div>
-                <div className="border-b border-black w-full relative">
+                <div className="border-b border-black w-full relative h-4">
                   {data.assinado && (
-                    <span className="absolute bottom-1 w-full text-center text-[9px] font-bold text-green-700 leading-none truncate block">
-                      ASSINADO DIGITALMENTE
+                    <span className="absolute bottom-1 w-full text-center text-[8px] font-bold text-green-700 leading-none truncate block uppercase">
+                      {data.assinatura_nome || 'ASSINADO DIGITALMENTE'}
                     </span>
                   )}
                 </div>
