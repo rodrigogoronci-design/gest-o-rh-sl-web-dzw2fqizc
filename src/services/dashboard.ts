@@ -4,6 +4,39 @@ import { format, subMonths, parseISO } from 'date-fns'
 export const TICKET_RATE = 31.59
 export const TRANSPORT_RATE = 10.2
 
+export const getLatestMonthWithData = async () => {
+  const [cRes, tRes, trRes] = await Promise.all([
+    supabase
+      .from('contracheques')
+      .select('mes_ano')
+      .order('mes_ano', { ascending: false })
+      .limit(1),
+    supabase
+      .from('beneficios_ticket')
+      .select('mes_ano')
+      .order('mes_ano', { ascending: false })
+      .limit(1),
+    supabase
+      .from('beneficios_transporte')
+      .select('mes_ano')
+      .order('mes_ano', { ascending: false })
+      .limit(1),
+  ])
+
+  const months = [
+    cRes.data?.[0]?.mes_ano,
+    tRes.data?.[0]?.mes_ano,
+    trRes.data?.[0]?.mes_ano,
+  ].filter(Boolean) as string[]
+
+  if (months.length > 0) {
+    months.sort((a, b) => b.localeCompare(a))
+    return months[0]
+  }
+
+  return format(new Date(), 'yyyy-MM')
+}
+
 export const getDashboardStats = async (month: string) => {
   const prevMonthDate = subMonths(parseISO(`${month}-01T12:00:00`), 1)
   const prevMonth = format(prevMonthDate, 'yyyy-MM')
@@ -112,10 +145,11 @@ export const getDashboardStats = async (month: string) => {
   }
 }
 
-export const getDashboardChartData = async () => {
+export const getDashboardChartData = async (endMonth?: string) => {
+  const baseDate = endMonth ? parseISO(`${endMonth}-01T12:00:00`) : new Date()
   const months = Array.from({ length: 6 })
     .map((_, i) => {
-      const d = subMonths(new Date(), i)
+      const d = subMonths(baseDate, i)
       return format(d, 'yyyy-MM')
     })
     .reverse()

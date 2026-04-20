@@ -9,7 +9,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { getDashboardStats, getDashboardChartData } from '@/services/dashboard'
+import {
+  getDashboardStats,
+  getDashboardChartData,
+  getLatestMonthWithData,
+} from '@/services/dashboard'
 import {
   Utensils,
   Bus,
@@ -32,16 +36,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-}
-
-const generateMonths = () => {
-  return Array.from({ length: 12 }).map((_, i) => {
-    const d = subMonths(new Date(), i)
-    return {
-      value: format(d, 'yyyy-MM'),
-      label: format(d, 'MMMM yyyy', { locale: ptBR }),
-    }
-  })
 }
 
 const chartConfig = {
@@ -68,15 +62,44 @@ const chartConfig = {
 }
 
 export default function Dashboard() {
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
+  const [selectedMonth, setSelectedMonth] = useState('')
+  const [months, setMonths] = useState<{ value: string; label: string }[]>([])
   const [stats, setStats] = useState<any>(null)
   const [chartData, setChartData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const months = generateMonths()
+  useEffect(() => {
+    const init = async () => {
+      const latest = await getLatestMonthWithData()
+
+      const mSet = new Set<string>()
+      const start = new Date(2026, 0, 1)
+      let current = new Date()
+      current = new Date(current.getFullYear(), current.getMonth() + 2, 1)
+
+      while (current >= start) {
+        mSet.add(format(current, 'yyyy-MM'))
+        current = subMonths(current, 1)
+      }
+      mSet.add(latest)
+
+      const options = Array.from(mSet)
+        .sort((a, b) => b.localeCompare(a))
+        .map((val) => ({
+          value: val,
+          label: format(parseISO(`${val}-01T12:00:00`), 'MMMM yyyy', { locale: ptBR }),
+        }))
+
+      setMonths(options)
+      setSelectedMonth(latest)
+    }
+    init()
+  }, [])
 
   useEffect(() => {
-    loadData()
+    if (selectedMonth) {
+      loadData()
+    }
   }, [selectedMonth])
 
   const loadData = async () => {
@@ -84,7 +107,7 @@ export default function Dashboard() {
     try {
       const [newStats, newChartData] = await Promise.all([
         getDashboardStats(selectedMonth),
-        getDashboardChartData(),
+        getDashboardChartData(selectedMonth),
       ])
       setStats(newStats)
       const formattedChartData = newChartData.map((d) => ({
