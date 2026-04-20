@@ -94,8 +94,8 @@ export default function Mural() {
 
       setEscalaStatus((escala?.status as any) || 'Rascunho')
 
-      const periodEnd = setDate(selectedDate, 24)
-      const periodStart = setDate(subMonths(selectedDate, 1), 25)
+      const periodStart = setDate(selectedDate, 25)
+      const periodEnd = setDate(addMonths(selectedDate, 1), 24)
       const start = format(periodStart, 'yyyy-MM-dd')
       const end = format(periodEnd, 'yyyy-MM-dd')
 
@@ -155,8 +155,8 @@ export default function Mural() {
   if (isLoading)
     return <div className="p-8 text-center text-muted-foreground">Carregando mural...</div>
 
-  const monthEnd = setDate(selectedDate, 24)
-  const monthStart = setDate(subMonths(selectedDate, 1), 25)
+  const monthStart = setDate(selectedDate, 25)
+  const monthEnd = setDate(addMonths(selectedDate, 1), 24)
   const startDate = startOfWeek(monthStart, { weekStartsOn: 0 })
   const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 })
 
@@ -277,8 +277,8 @@ export default function Mural() {
           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           <AlertTitle>Nova Escala Publicada!</AlertTitle>
           <AlertDescription>
-            A escala para o período de {format(subMonths(selectedDate, 1), 'dd/MM')} a{' '}
-            {format(selectedDate, 'dd/MM')} foi aprovada e já está disponível.
+            A escala para o período de {format(selectedDate, 'dd/MM')} a{' '}
+            {format(addMonths(selectedDate, 1), 'dd/MM')} foi aprovada e já está disponível.
           </AlertDescription>
         </Alert>
       )}
@@ -304,7 +304,7 @@ export default function Mural() {
                 {format(selectedDate, 'MMMM yyyy', { locale: ptBR })}
               </div>
               <span className="text-xs text-muted-foreground mt-0.5 font-medium">
-                25/{format(subMonths(selectedDate, 1), 'MM')} a 24/{format(selectedDate, 'MM')}
+                25/{format(selectedDate, 'MM')} a 24/{format(addMonths(selectedDate, 1), 'MM')}
               </span>
             </div>
             <Button

@@ -30,15 +30,20 @@ import { TicketRecord } from '@/types'
 
 const generateMonths = () => {
   const months = []
-  const today = new Date()
-  for (let i = -3; i < 24; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-    const m = (d.getMonth() + 1).toString().padStart(2, '0')
-    const y = d.getFullYear()
+  const start = new Date(2026, 0, 1) // Janeiro de 2026
+  const end = new Date()
+  end.setMonth(end.getMonth() + 3) // Até 3 meses no futuro
+
+  let current = new Date(end.getFullYear(), end.getMonth(), 1)
+
+  while (current >= start) {
+    const m = (current.getMonth() + 1).toString().padStart(2, '0')
+    const y = current.getFullYear()
     months.push({
       value: `${y}-${m}`,
-      label: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(d),
+      label: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(current),
     })
+    current.setMonth(current.getMonth() - 1)
   }
   return months
 }
