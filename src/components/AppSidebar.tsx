@@ -123,6 +123,8 @@ export default function AppSidebar() {
   const sortedItems = filteredItems.sort((a, b) => {
     if (a.title === 'Dashboard') return -1
     if (b.title === 'Dashboard') return 1
+    if (a.title === 'Relatórios') return 1
+    if (b.title === 'Relatórios') return -1
     return a.title.localeCompare(b.title)
   })
 
