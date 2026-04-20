@@ -1361,7 +1361,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 }
 
 function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
-  const months = generateMonths()
+  const [availableMonths, setAvailableMonths] = useState<{ value: string; label: string }[]>([])
   const [selectedMonth, setSelectedMonth] = useState<string>('')
   const [isMonthLoaded, setIsMonthLoaded] = useState(false)
   const [contracheque, setContracheque] = useState<any>(null)
@@ -1374,12 +1374,37 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
         .select('mes_ano')
         .eq('colaborador_id', colaborador.id)
         .order('mes_ano', { ascending: false })
-        .limit(1)
         .then(({ data }) => {
           if (data && data.length > 0) {
-            setSelectedMonth(data[0].mes_ano)
+            const uniqueMonths = Array.from(new Set(data.map((d) => d.mes_ano)))
+            const mappedMonths = uniqueMonths.map((mesAno) => {
+              let label = mesAno
+              if (mesAno.includes('-')) {
+                const [y, m] = mesAno.split('-')
+                if (m && y) {
+                  const date = new Date(parseInt(y), parseInt(m) - 1, 1)
+                  label = new Intl.DateTimeFormat('pt-BR', {
+                    month: 'long',
+                    year: 'numeric',
+                  }).format(date)
+                }
+              } else if (mesAno.includes('/')) {
+                const [m, y] = mesAno.split('/')
+                if (m && y) {
+                  const date = new Date(parseInt(y), parseInt(m) - 1, 1)
+                  label = new Intl.DateTimeFormat('pt-BR', {
+                    month: 'long',
+                    year: 'numeric',
+                  }).format(date)
+                }
+              }
+              return { value: mesAno, label }
+            })
+            setAvailableMonths(mappedMonths)
+            setSelectedMonth(mappedMonths[0].value)
           } else {
-            setSelectedMonth(months[0].value)
+            setAvailableMonths([])
+            setSelectedMonth('')
           }
           setIsMonthLoaded(true)
         })
@@ -1395,6 +1420,8 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
         .eq('mes_ano', selectedMonth)
         .single()
         .then(({ data }) => setContracheque(data))
+    } else if (isMonthLoaded && !selectedMonth) {
+      setContracheque(null)
     }
   }
 
@@ -1431,13 +1458,13 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
           </CardTitle>
           <CardDescription>Consulte os dados do seu pagamento mensal.</CardDescription>
         </div>
-        {isMonthLoaded && selectedMonth && (
+        {isMonthLoaded && availableMonths.length > 0 && selectedMonth && (
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-[180px] capitalize">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {months.map((m) => (
+              {availableMonths.map((m) => (
                 <SelectItem key={m.value} value={m.value} className="capitalize">
                   {m.label}
                 </SelectItem>
@@ -1451,7 +1478,7 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
           <div className="flex flex-col items-center justify-center p-10 border rounded-lg bg-muted/10">
             <FileText className="w-16 h-16 text-blue-500 mb-4" />
             <h3 className="text-xl font-semibold mb-2 capitalize">
-              Holerite - {months.find((m) => m.value === selectedMonth)?.label}
+              Holerite - {availableMonths.find((m) => m.value === selectedMonth)?.label}
             </h3>
             <p className="text-muted-foreground mb-6 text-center max-w-sm">
               As informações do seu demonstrativo estão disponíveis para visualização.
@@ -1506,7 +1533,9 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
           <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg text-muted-foreground">
             <Search className="w-10 h-10 mb-3 opacity-50" />
             <p className="capitalize">
-              Nenhum dado encontrado para {months.find((m) => m.value === selectedMonth)?.label}
+              {availableMonths.length > 0
+                ? `Nenhum dado encontrado para ${availableMonths.find((m) => m.value === selectedMonth)?.label}`
+                : 'Nenhum contracheque disponível'}
             </p>
           </div>
         )}
