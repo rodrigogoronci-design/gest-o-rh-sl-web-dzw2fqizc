@@ -620,7 +620,97 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
           const rowText = row.join(' ').toUpperCase()
 
-          // Hard Mapping: Buscar pelos cabeçalhos das colunas
+          // Header Empresa
+          if (!h.empresa.nome && rowText.includes('CNPJ') && i < 15) {
+            const possibleNome = row.find(
+              (c) =>
+                c.length > 10 &&
+                !c.toUpperCase().includes('CNPJ') &&
+                !c.toUpperCase().includes('FOLHA') &&
+                !c.toUpperCase().includes('RECIBO'),
+            )
+            if (possibleNome) h.empresa.nome = possibleNome
+            const cnpjCell = row.find((c) => c.toUpperCase().includes('CNPJ'))
+            if (cnpjCell) h.empresa.cnpj = cnpjCell.replace(/CNPJ[:\s]*/i, '').trim()
+          }
+
+          // Header Empregado
+          if (rowText.includes('NOME DO FUNCIONÁRIO') && rowText.includes('CBO')) {
+            if (h.cabecalho.nome_impresso && h.linhas.length > 0) {
+              if (h.totais.vencimentos === 0)
+                h.totais.vencimentos = h.linhas.reduce(
+                  (acc, l: any) => acc + (l.vencimento || 0),
+                  0,
+                )
+              if (h.totais.descontos === 0)
+                h.totais.descontos = h.linhas.reduce((acc, l: any) => acc + (l.desconto || 0), 0)
+              if (h.totais.liquido === 0)
+                h.totais.liquido = h.totais.vencimentos - h.totais.descontos
+              methodExtracted.push({ ...h })
+              h = getEmptyHolerite()
+              inEvents = false
+            }
+
+            const nextRow1 = rawRows[i + 1]
+              ? (Array.isArray(rawRows[i + 1])
+                  ? rawRows[i + 1]
+                  : Object.values(rawRows[i + 1])
+                ).map((c) => String(c || '').trim())
+              : []
+            const nextRow2 = rawRows[i + 2]
+              ? (Array.isArray(rawRows[i + 2])
+                  ? rawRows[i + 2]
+                  : Object.values(rawRows[i + 2])
+                ).map((c) => String(c || '').trim())
+              : []
+
+            const vals1 = nextRow1.filter((c) => c !== '')
+            if (vals1.length >= 2) {
+              h.cabecalho.codigo = vals1[0]
+              h.cabecalho.nome_impresso = vals1[1]
+            }
+
+            const cboIdx = row.findIndex((c) => c.toUpperCase().includes('CBO'))
+            const depIdx = row.findIndex((c) => c.toUpperCase().includes('DEPARTAMENTO'))
+            const filIdx = row.findIndex((c) => c.toUpperCase().includes('FILIAL'))
+
+            if (cboIdx !== -1) h.cabecalho.cbo = nextRow1[cboIdx] || h.cabecalho.cbo
+            if (depIdx !== -1)
+              h.cabecalho.departamento = nextRow1[depIdx] || h.cabecalho.departamento
+            if (filIdx !== -1) h.cabecalho.filial = nextRow1[filIdx] || h.cabecalho.filial
+
+            if (!h.cabecalho.cbo && vals1.length >= 3) h.cabecalho.cbo = vals1[2]
+            if (!h.cabecalho.departamento && vals1.length >= 4) h.cabecalho.departamento = vals1[3]
+
+            const vals2 = nextRow2.filter((c) => c !== '')
+            const nomeIdx = row.findIndex((c) => c.toUpperCase().includes('NOME DO FUNC'))
+            if (
+              nomeIdx !== -1 &&
+              nextRow2[nomeIdx] &&
+              !nextRow2[nomeIdx].toUpperCase().includes('CÓDIGO')
+            ) {
+              h.cabecalho.cargo = nextRow2[nomeIdx]
+            } else if (vals2.length > 0 && !vals2[0].toUpperCase().includes('CÓDIGO')) {
+              h.cabecalho.cargo = vals2[0]
+            }
+
+            const admIdxText = nextRow2.findIndex((c) => c.toUpperCase().includes('ADMISSÃO'))
+            if (admIdxText !== -1) {
+              if (
+                nextRow2[admIdxText].toUpperCase().trim() === 'ADMISSÃO:' ||
+                nextRow2[admIdxText].toUpperCase().trim() === 'ADMISSÃO'
+              ) {
+                h.cabecalho.admissao = nextRow2[admIdxText + 1] || nextRow2[admIdxText + 2] || ''
+              } else {
+                h.cabecalho.admissao = nextRow2[admIdxText].replace(/ADMISSÃO[:\s]*/i, '').trim()
+                if (!h.cabecalho.admissao) h.cabecalho.admissao = nextRow2[admIdxText + 1] || ''
+              }
+            }
+
+            continue
+          }
+
+          // Header Eventos
           const isHeader =
             (rowText.includes('CÓD') || rowText.includes('COD') || rowText.includes('CD.')) &&
             (rowText.includes('DESCRI') || rowText.includes('EVENTO')) &&
@@ -657,97 +747,83 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
             if (colVenc === -1) colVenc = row.length > 3 ? 3 : 2
             if (colDescVal === -1) colDescVal = row.length > 4 ? 4 : 3
 
-            logs.push(
-              `Cabeçalho detectado na linha ${i + 1} (Cod:${colCod}, Desc:${colDesc}, Venc:${colVenc}, DescVal:${colDescVal})`,
-            )
+            continue
+          }
 
-            // Procurar nome do funcionário nas linhas anteriores
-            if (!h.cabecalho.nome_impresso && i > 0) {
-              for (let j = i - 1; j >= Math.max(0, i - 10); j--) {
-                if (!rawRows[j]) continue
-                const prevRowArr = Array.isArray(rawRows[j])
-                  ? rawRows[j]
-                  : Object.values(rawRows[j])
-                const prevRow = prevRowArr.map((c: any) => String(c || '').trim())
-
-                // Primeiro procurar por formato "Nome:" ou "Funcionário:"
-                const labelIdx = prevRow.findIndex(
-                  (c) =>
-                    c.toUpperCase().includes('NOME') || c.toUpperCase().includes('FUNCIONÁRIO'),
-                )
-                if (labelIdx !== -1) {
-                  const txt = prevRow[labelIdx]
-                  if (txt.includes(':') && txt.split(':')[1].trim().length > 3) {
-                    h.cabecalho.nome_impresso = txt.split(':')[1].trim()
-                  } else if (prevRow.length > labelIdx + 1 && prevRow[labelIdx + 1].length > 3) {
-                    h.cabecalho.nome_impresso = prevRow[labelIdx + 1]
-                  }
-                }
-
-                if (!h.cabecalho.nome_impresso) {
-                  const possibleNameCell = prevRow.find(
-                    (c) =>
-                      c.length > 5 &&
-                      !c.match(/^[0-9.,]+$/) &&
-                      !c.toUpperCase().includes('EMPRESA') &&
-                      !c.toUpperCase().includes('RECIBO') &&
-                      !c.toUpperCase().includes('FOLHA') &&
-                      !c.toUpperCase().includes('MENSAL'),
-                  )
-
-                  if (possibleNameCell) {
-                    const match = possibleNameCell.match(
-                      /(?:^|\s)(\d{1,6})\s*[-|–]?\s*([A-ZÀ-Ÿ\s]{5,})/i,
-                    )
-                    if (match) {
-                      h.cabecalho.codigo = match[1]
-                      h.cabecalho.nome_impresso = match[2].trim()
-                    } else {
-                      h.cabecalho.nome_impresso = possibleNameCell
-                    }
-                    logs.push(
-                      `Colaborador ancorado antes do cabeçalho: ${h.cabecalho.nome_impresso}`,
-                    )
-                    break
-                  }
-                } else {
-                  logs.push(`Colaborador ancorado por rótulo: ${h.cabecalho.nome_impresso}`)
-                  break
-                }
-              }
+          // Totais
+          if (
+            inEvents &&
+            (rowText.includes('TOTAL DE VENCIMENTOS') ||
+              rowText.includes('TOTAL DE DESCONTOS') ||
+              (rowText.includes('TOTAL') && rowText.includes('VENC')))
+          ) {
+            const nums = extractNumbers(row)
+            if (nums.length >= 2) {
+              h.totais.vencimentos = nums[0]
+              h.totais.descontos = nums[1]
+            } else if (nums.length === 1) {
+              h.totais.vencimentos = nums[0]
             }
             continue
           }
 
-          // Se chegamos no rodapé / totais
-          if (
-            inEvents &&
-            (rowText.includes('TOTAL') ||
-              rowText.includes('LÍQUIDO') ||
-              rowText.includes('LIQUIDO') ||
-              rowText.includes('SALÁRIO BASE'))
-          ) {
+          if (inEvents && (rowText.includes('LÍQUIDO') || rowText.includes('LIQUIDO'))) {
             const nums = extractNumbers(row)
+            if (nums.length > 0) {
+              h.totais.liquido = nums[nums.length - 1]
+            }
+            continue
+          }
 
-            if (
-              rowText.includes('TOTAL') &&
-              (rowText.includes('VENC') || rowText.includes('PROVENTO'))
-            ) {
-              if (nums.length >= 2) {
-                h.totais.vencimentos = nums[0]
-                h.totais.descontos = nums[1]
-              } else if (nums.length === 1) {
-                h.totais.vencimentos = nums[0]
+          // Bases
+          if (
+            rowText.includes('SALÁRIO BASE') ||
+            rowText.includes('SAL. CONTR. INSS') ||
+            rowText.includes('BASE CÁLC. FGTS')
+          ) {
+            const nextRow = rawRows[i + 1]
+              ? (Array.isArray(rawRows[i + 1])
+                  ? rawRows[i + 1]
+                  : Object.values(rawRows[i + 1])
+                ).map((c) => String(c || '').trim())
+              : []
+            const nums = extractNumbers(nextRow)
+
+            const sBaseIdx = row.findIndex((c) => c.toUpperCase().includes('SALÁRIO BASE'))
+            const inssIdx = row.findIndex((c) => c.toUpperCase().includes('INSS'))
+            const fgtsBaseIdx = row.findIndex((c) => c.toUpperCase().includes('CÁLC. FGTS'))
+            const fgtsMesIdx = row.findIndex(
+              (c) => c.toUpperCase().includes('F.G.T.S DO MÊS') || c.toUpperCase() === 'F.G.T.S',
+            )
+            const irrfBaseIdx = row.findIndex((c) => c.toUpperCase().includes('CÁLC. IRRF'))
+            const irrfFaixaIdx = row.findIndex((c) => c.toUpperCase().includes('FAIXA IRRF'))
+
+            if (nums.length >= 6 && sBaseIdx === -1) {
+              h.bases.salario_base = nums[0]
+              h.bases.sal_contr_inss = nums[1]
+              h.bases.base_calc_fgts = nums[2]
+              h.bases.fgts_mes = nums[3]
+              h.bases.base_calc_irrf = nums[4]
+              h.bases.faixa_irrf = nums[5]
+            } else {
+              if (sBaseIdx !== -1) h.bases.salario_base = safeParseFloat(nextRow[sBaseIdx])
+              if (inssIdx !== -1) h.bases.sal_contr_inss = safeParseFloat(nextRow[inssIdx])
+              if (fgtsBaseIdx !== -1) h.bases.base_calc_fgts = safeParseFloat(nextRow[fgtsBaseIdx])
+              if (fgtsMesIdx !== -1) h.bases.fgts_mes = safeParseFloat(nextRow[fgtsMesIdx])
+              if (irrfBaseIdx !== -1) h.bases.base_calc_irrf = safeParseFloat(nextRow[irrfBaseIdx])
+              if (irrfFaixaIdx !== -1) h.bases.faixa_irrf = safeParseFloat(nextRow[irrfFaixaIdx])
+
+              if (nums.length > 0 && h.bases.salario_base === 0 && h.bases.sal_contr_inss === 0) {
+                h.bases.salario_base = nums[0] || 0
+                h.bases.sal_contr_inss = nums[1] || 0
+                h.bases.base_calc_fgts = nums[2] || 0
+                h.bases.fgts_mes = nums[3] || 0
+                h.bases.base_calc_irrf = nums[4] || 0
+                h.bases.faixa_irrf = nums[5] || 0
               }
             }
 
-            if (rowText.includes('TOTAL') && rowText.includes('DESC')) {
-              if (nums.length > 0) h.totais.descontos = nums[nums.length - 1]
-            }
-
-            if (rowText.includes('LÍQUIDO') || rowText.includes('LIQUIDO')) {
-              if (nums.length > 0) h.totais.liquido = nums[nums.length - 1]
-
+            if (h.cabecalho.nome_impresso && h.linhas.length > 0) {
               if (h.totais.vencimentos === 0)
                 h.totais.vencimentos = h.linhas.reduce(
                   (acc, l: any) => acc + (l.vencimento || 0),
@@ -757,30 +833,29 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                 h.totais.descontos = h.linhas.reduce((acc, l: any) => acc + (l.desconto || 0), 0)
               if (h.totais.liquido === 0)
                 h.totais.liquido = h.totais.vencimentos - h.totais.descontos
-
-              if (h.cabecalho.nome_impresso && h.linhas.length > 0) {
-                methodExtracted.push({ ...h })
-                logs.push(
-                  `Holerite concluído: ${h.cabecalho.nome_impresso} - Liq: ${h.totais.liquido}`,
-                )
-              }
-
+              methodExtracted.push({ ...h })
+              logs.push(`Holerite concluído por bases: ${h.cabecalho.nome_impresso}`)
               h = getEmptyHolerite()
               inEvents = false
-              colCod = -1
             }
             continue
           }
 
-          // Extração direta de linhas de eventos
-          if (inEvents && h.cabecalho.nome_impresso) {
+          // Linhas
+          if (
+            inEvents &&
+            h.cabecalho.nome_impresso &&
+            !rowText.includes('TOTAL') &&
+            !rowText.includes('LÍQUIDO') &&
+            !rowText.includes('SALÁRIO BASE') &&
+            !rowText.includes('BASE CÁLC')
+          ) {
             let codVal = colCod >= 0 ? row[colCod] : ''
             let descText = colDesc >= 0 ? row[colDesc] : ''
             let refVal = colRef >= 0 ? row[colRef] : ''
             let vencVal = colVenc >= 0 ? safeParseFloat(row[colVenc]) : 0
             let descVal = colDescVal >= 0 ? safeParseFloat(row[colDescVal]) : 0
 
-            // Compensação para células mescladas ou vazias (fallback de linha inteira)
             if (
               !descText &&
               row.some((c) => c && isNaN(Number(c.replace(/,/g, '.'))) && c.length > 2)
@@ -803,15 +878,13 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
             }
 
             if (
-              (vencVal > 0 || descVal > 0) &&
+              (vencVal > 0 || descVal > 0 || refVal) &&
               descText &&
               descText.length > 1 &&
-              !descText.toUpperCase().includes('TOTAL') &&
-              !descText.toUpperCase().includes('LÍQUIDO') &&
-              !descText.toUpperCase().includes('SALÁRIO BASE')
+              !descText.toUpperCase().includes('TOTAL')
             ) {
               h.linhas.push({
-                codigo: codVal || '00',
+                codigo: codVal || '',
                 descricao: descText,
                 referencia: refVal,
                 vencimento: vencVal,
@@ -821,7 +894,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           }
         }
 
-        // Finalizar caso o arquivo termine abruptamente
         if (h.cabecalho.nome_impresso && h.linhas.length > 0) {
           if (h.totais.vencimentos === 0)
             h.totais.vencimentos = h.linhas.reduce((acc, l: any) => acc + (l.vencimento || 0), 0)
@@ -1460,22 +1532,22 @@ function ContraChequeDataModal({
                 </div>
               )}
 
-              <div className="grid grid-cols-3 border-b-[1.5px] border-black p-2 pb-3">
-                <div className="col-span-1 space-y-1">
-                  <div className="font-bold uppercase tracking-tight text-sm">
+              <div className="grid grid-cols-3 border-b-[1.5px] border-black p-1.5 pb-2">
+                <div className="col-span-1 space-y-0.5 pl-1">
+                  <div className="font-medium tracking-tight text-[11px]">
                     {mockData.empresa?.nome || 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA'}
                   </div>
-                  <div className="text-xs">
-                    CNPJ:&nbsp;&nbsp;{mockData.empresa?.cnpj || '10.929.600/0001-92'}
+                  <div className="text-[11px] font-medium">
+                    CNPJ: &nbsp;&nbsp;{mockData.empresa?.cnpj || '10.929.600/0001-92'}
                   </div>
                 </div>
-                <div className="col-span-1 text-center space-y-1">
-                  <div className="text-xs">CC: Centro de Custo</div>
-                  <div className="text-xs">Mensalista</div>
+                <div className="col-span-1 text-center space-y-0.5 pt-1">
+                  <div className="text-[11px] font-medium">CC: Centro de Custo</div>
+                  <div className="text-[11px] font-medium">Mensalista</div>
                 </div>
-                <div className="col-span-1 text-right space-y-1">
-                  <div className="text-xs">Folha Mensal</div>
-                  <div className="capitalize text-xs">
+                <div className="col-span-1 text-right space-y-0.5 pr-2 pt-1">
+                  <div className="text-[11px] font-medium">Folha Mensal</div>
+                  <div className="capitalize text-[11px] font-medium">
                     {(() => {
                       if (!data.mes_ano) return ''
                       const [m, y] = data.mes_ano.split('/')
@@ -1492,150 +1564,160 @@ function ContraChequeDataModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-[auto_1fr_auto_auto_auto] border-b-[1.5px] border-black text-xs">
-                <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] mb-0.5">Código</div>
-                  <div className="font-bold text-center">{mockData.cabecalho?.codigo || '00'}</div>
+              <div className="grid grid-cols-[60px_1fr_80px_100px_60px] border-b-[1.5px] border-black text-[11px]">
+                <div className="border-r border-black p-1 px-2">
+                  <div className="text-[9px] font-medium">Código</div>
+                  <div className="font-medium text-center mt-0.5">
+                    {mockData.cabecalho?.codigo || '00'}
+                  </div>
                 </div>
-                <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] mb-0.5">Nome do Funcionário</div>
-                  <div className="font-bold uppercase tracking-tight">
+                <div className="border-r border-black p-1 px-2">
+                  <div className="text-[9px] font-medium">Nome do Funcionário</div>
+                  <div className="font-medium uppercase tracking-tight mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
                     {mockData.cabecalho?.nome_impresso || data.nome}
                   </div>
-                  <div className="uppercase text-[10px] mt-1 text-slate-700">
-                    {mockData.cabecalho?.cargo || data.cargo || ''}
+                  <div className="uppercase font-medium tracking-tight mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis flex justify-between">
+                    <span>{mockData.cabecalho?.cargo || data.cargo || ''}</span>
                   </div>
                 </div>
-                <div className="border-r border-black p-1.5 px-3 text-center">
-                  <div className="text-[9px] mb-0.5">CBO</div>
-                  <div className="font-medium">{mockData.cabecalho?.cbo || '212420'}</div>
-                  <div className="text-[9px] mt-1">Admissão:</div>
-                </div>
-                <div className="border-r border-black p-1.5 px-3 text-center">
-                  <div className="text-[9px] mb-0.5">Departamento</div>
-                  <div className="font-medium">
-                    {mockData.cabecalho?.departamento || data.departamento || '1'}
+                <div className="border-r border-black p-1 px-2 flex flex-col justify-between">
+                  <div>
+                    <div className="text-[9px] font-medium text-center">CBO</div>
+                    <div className="font-medium text-center mt-0.5">
+                      {mockData.cabecalho?.cbo || '212420'}
+                    </div>
                   </div>
-                  <div className="mt-1 font-medium">
+                  <div className="text-[10px] font-medium text-right mb-[1px]">Admissão:</div>
+                </div>
+                <div className="border-r border-black p-1 px-2 flex flex-col justify-between">
+                  <div>
+                    <div className="text-[9px] font-medium text-center">Departamento</div>
+                    <div className="font-medium text-center mt-0.5">
+                      {mockData.cabecalho?.departamento || data.departamento || '1'}
+                    </div>
+                  </div>
+                  <div className="text-[10px] font-medium text-left mb-[1px]">
                     {mockData.cabecalho?.admissao || '01/01/2023'}
                   </div>
                 </div>
-                <div className="p-1.5 px-3 text-center">
-                  <div className="text-[9px] mb-0.5">Filial</div>
-                  <div className="font-medium">{mockData.cabecalho?.filial || '1'}</div>
+                <div className="p-1 px-2">
+                  <div className="text-[9px] font-medium text-center">Filial</div>
+                  <div className="font-medium text-center mt-0.5">
+                    {mockData.cabecalho?.filial || '1'}
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-[auto_1fr_auto_auto_auto] border-b-[1.5px] border-black font-bold text-[11px] bg-slate-50/50 print:bg-transparent">
-                <div className="border-r border-black p-1 text-center w-[60px]">Código</div>
+              <div className="grid grid-cols-[60px_1fr_80px_110px_110px] border-b-[1.5px] border-black font-medium text-[11px] bg-slate-50/50 print:bg-transparent">
+                <div className="border-r border-black p-1 text-center">Código</div>
                 <div className="border-r border-black p-1 pl-2 text-left">Descrição</div>
-                <div className="border-r border-black p-1 text-center w-[80px]">Referência</div>
-                <div className="border-r border-black p-1 text-center w-[110px]">Vencimentos</div>
-                <div className="p-1 text-center w-[110px]">Descontos</div>
+                <div className="border-r border-black p-1 text-center">Referência</div>
+                <div className="border-r border-black p-1 text-center">Vencimentos</div>
+                <div className="p-1 text-center">Descontos</div>
               </div>
 
-              <div className="grid grid-cols-[auto_1fr_auto_auto_auto] flex-1 min-h-[300px] text-[12px] print:text-[11px]">
-                <div className="border-r border-black p-1 flex flex-col items-center w-[60px]">
+              <div className="grid grid-cols-[60px_1fr_80px_110px_110px] flex-1 min-h-[300px] text-[11px] print:text-[11px]">
+                <div className="border-r border-black pt-1 pb-1 flex flex-col items-center">
                   {mockData.linhas?.map((l: any, i: number) => (
-                    <div key={i} className="min-h-[1.25rem]">
+                    <div key={i} className="h-[1.1rem] leading-none">
                       {l.codigo}
                     </div>
                   ))}
                 </div>
-                <div className="border-r border-black p-1 pl-2 flex flex-col items-start uppercase">
+                <div className="border-r border-black pt-1 pb-1 pl-2 flex flex-col items-start uppercase font-medium">
                   {mockData.linhas?.map((l: any, i: number) => (
-                    <div key={i} className="min-h-[1.25rem] truncate">
+                    <div key={i} className="h-[1.1rem] leading-none truncate w-full">
                       {l.descricao}
                     </div>
                   ))}
                 </div>
-                <div className="border-r border-black p-1 flex flex-col items-end pr-3 w-[80px]">
+                <div className="border-r border-black pt-1 pb-1 flex flex-col items-end pr-3 font-medium">
                   {mockData.linhas?.map((l: any, i: number) => (
-                    <div key={i} className="min-h-[1.25rem]">
+                    <div key={i} className="h-[1.1rem] leading-none">
                       {l.referencia}
                     </div>
                   ))}
                 </div>
-                <div className="border-r border-black p-1 flex flex-col items-end pr-2 w-[110px]">
+                <div className="border-r border-black pt-1 pb-1 flex flex-col items-end pr-3 font-medium">
                   {mockData.linhas?.map((l: any, i: number) => (
-                    <div key={i} className="min-h-[1.25rem]">
+                    <div key={i} className="h-[1.1rem] leading-none">
                       {l.vencimento ? formatNumber(l.vencimento) : '\u00A0'}
                     </div>
                   ))}
                 </div>
-                <div className="p-1 flex flex-col items-end pr-2 w-[110px]">
+                <div className="pt-1 pb-1 flex flex-col items-end pr-3 font-medium">
                   {mockData.linhas?.map((l: any, i: number) => (
-                    <div key={i} className="min-h-[1.25rem]">
+                    <div key={i} className="h-[1.1rem] leading-none">
                       {l.desconto ? formatNumber(l.desconto) : '\u00A0'}
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-[1fr_auto_auto] border-t-[1.5px] border-black h-[60px]">
+              <div className="grid grid-cols-[1fr_110px_110px] border-t-[1.5px] border-black h-[50px]">
                 <div className="border-r border-black"></div>
-                <div className="border-r border-black w-[110px] flex flex-col">
+                <div className="border-r border-black flex flex-col">
                   <div className="text-[9px] p-1 border-b border-black text-center font-medium bg-slate-50/50 print:bg-transparent">
                     Total de Vencimentos
                   </div>
-                  <div className="p-2 flex-1 flex items-center justify-end pr-2 font-bold text-[13px]">
+                  <div className="flex-1 flex items-center justify-end pr-3 font-medium text-[12px]">
                     {formatNumber(mockData.totais?.vencimentos || 0)}
                   </div>
                 </div>
-                <div className="w-[110px] flex flex-col">
+                <div className="flex flex-col">
                   <div className="text-[9px] p-1 border-b border-black text-center font-medium bg-slate-50/50 print:bg-transparent">
                     Total de Descontos
                   </div>
-                  <div className="p-2 flex-1 flex items-center justify-end pr-2 font-bold text-[13px]">
+                  <div className="flex-1 flex items-center justify-end pr-3 font-medium text-[12px]">
                     {formatNumber(mockData.totais?.descontos || 0)}
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-[1fr_auto] border-t-[1.5px] border-black h-[50px]">
-                <div className="border-r border-black flex justify-end items-center pr-4">
-                  <span className="text-[10px] mr-6 font-medium">Valor Líquido</span>
-                  <span className="text-2xl leading-none font-light">⇨</span>
+              <div className="grid grid-cols-[1fr_220px] border-t-[1.5px] border-black h-[40px]">
+                <div className="border-r border-black flex justify-end items-center pr-4 gap-6">
+                  <span className="text-[10px] font-medium">Valor Líquido</span>
+                  <span className="text-xl leading-none font-light">⇨</span>
                 </div>
-                <div className="w-[220px] flex items-center justify-end pr-4 font-bold text-[16px] bg-slate-50/50 print:bg-transparent">
+                <div className="flex items-center justify-end pr-3 font-bold text-[14px] bg-slate-50/50 print:bg-transparent">
                   {formatNumber(mockData.totais?.liquido || 0)}
                 </div>
               </div>
 
               <div className="grid grid-cols-6 border-t-[1.5px] border-black text-center bg-slate-50/50 print:bg-transparent">
                 <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] mb-1">Salário Base</div>
-                  <div className="font-bold text-[11px]">
+                  <div className="text-[9px] font-medium mb-1">Salário Base</div>
+                  <div className="font-medium text-[11px]">
                     {formatNumber(mockData.bases?.salario_base || 0)}
                   </div>
                 </div>
                 <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] mb-1">Sal. Contr. INSS</div>
-                  <div className="font-bold text-[11px]">
+                  <div className="text-[9px] font-medium mb-1">Sal. Contr. INSS</div>
+                  <div className="font-medium text-[11px]">
                     {formatNumber(mockData.bases?.sal_contr_inss || 0)}
                   </div>
                 </div>
                 <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] mb-1">Base Cálc. FGTS</div>
-                  <div className="font-bold text-[11px]">
+                  <div className="text-[9px] font-medium mb-1">Base Cálc. FGTS</div>
+                  <div className="font-medium text-[11px]">
                     {formatNumber(mockData.bases?.base_calc_fgts || 0)}
                   </div>
                 </div>
                 <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] mb-1">F.G.T.S do Mês</div>
-                  <div className="font-bold text-[11px]">
+                  <div className="text-[9px] font-medium mb-1">F.G.T.S do Mês</div>
+                  <div className="font-medium text-[11px]">
                     {formatNumber(mockData.bases?.fgts_mes || 0)}
                   </div>
                 </div>
                 <div className="border-r border-black p-1.5 px-2">
-                  <div className="text-[9px] mb-1">Base Cálc. IRRF</div>
-                  <div className="font-bold text-[11px]">
+                  <div className="text-[9px] font-medium mb-1">Base Cálc. IRRF</div>
+                  <div className="font-medium text-[11px]">
                     {formatNumber(mockData.bases?.base_calc_irrf || 0)}
                   </div>
                 </div>
                 <div className="p-1.5 px-2">
-                  <div className="text-[9px] mb-1">Faixa IRRF</div>
-                  <div className="font-bold text-[11px]">
+                  <div className="text-[9px] font-medium mb-1">Faixa IRRF</div>
+                  <div className="font-medium text-[11px]">
                     {formatNumber(mockData.bases?.faixa_irrf || 0)}
                   </div>
                 </div>
