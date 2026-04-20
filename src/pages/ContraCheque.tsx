@@ -3,16 +3,9 @@ import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Select,
   SelectContent,
@@ -104,7 +97,6 @@ export default function ContraCheque() {
           </p>
         </div>
       </div>
-
       {isAdmin ? <AdminTabs /> : <EmployeeContraCheque colaborador={colaborador} />}
     </div>
   )
@@ -162,7 +154,6 @@ function AdminMemoriaCalculo() {
   let totalVencimentos = 0
   let totalDescontos = 0
   let totalLiquido = 0
-
   const eventos: Record<string, { descricao: string; provento: number; desconto: number }> = {}
 
   registros.forEach((r) => {
@@ -179,20 +170,18 @@ function AdminMemoriaCalculo() {
       ext.linhas.forEach((linha: any) => {
         if (!linha.codigo && !linha.descricao) return
         const key = linha.codigo || linha.descricao
-        if (!eventos[key]) {
+        if (!eventos[key])
           eventos[key] = {
             descricao: linha.descricao || `Cód. ${linha.codigo}`,
             provento: 0,
             desconto: 0,
           }
-        }
         eventos[key].provento += linha.vencimento || 0
         eventos[key].desconto += linha.desconto || 0
       })
     }
   })
 
-  // Cores distintas conforme solicitado
   const COLORS_PROVENTOS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4']
   const COLORS_DESCONTOS = ['#ef4444', '#ec4899', '#f97316', '#6366f1', '#14b8a6']
 
@@ -205,7 +194,6 @@ function AdminMemoriaCalculo() {
       desconto: Number(e.desconto.toFixed(2)),
       fill: COLORS_DESCONTOS[index % COLORS_DESCONTOS.length],
     }))
-
   const topProventos = Object.values(eventos)
     .filter((e) => e.provento > 0)
     .sort((a, b) => b.provento - a.provento)
@@ -220,12 +208,6 @@ function AdminMemoriaCalculo() {
     { name: 'Líquido', valor: Number(totalLiquido.toFixed(2)), fill: '#3b82f6' },
     { name: 'Descontos', valor: Number(totalDescontos.toFixed(2)), fill: '#ef4444' },
   ]
-
-  const chartConfig = {
-    valor: { label: 'Valor', color: 'hsl(var(--primary))' },
-    provento: { label: 'Provento', color: '#10b981' },
-    desconto: { label: 'Desconto', color: '#ef4444' },
-  }
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
@@ -292,17 +274,8 @@ function AdminMemoriaCalculo() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-[#3b82f6]"></div> Líquido
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-[#ef4444]"></div> Descontos
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
-
               <Card className="bg-slate-50/50 shadow-sm col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <CardHeader className="pb-0">
@@ -311,7 +284,7 @@ function AdminMemoriaCalculo() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <ChartContainer config={chartConfig} className="h-[220px] w-full">
+                    <ChartContainer config={{}} className="h-[220px] w-full">
                       <BarChart
                         data={topProventos}
                         layout="vertical"
@@ -349,7 +322,7 @@ function AdminMemoriaCalculo() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <ChartContainer config={chartConfig} className="h-[220px] w-full">
+                    <ChartContainer config={{}} className="h-[220px] w-full">
                       <BarChart
                         data={topDescontos}
                         layout="vertical"
@@ -382,112 +355,105 @@ function AdminMemoriaCalculo() {
                 </div>
               </Card>
             </div>
-
-            <div>
-              <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" /> Descritivo por Funcionário
-              </h3>
-              <div className="border rounded-md">
-                <Table>
-                  <TableHeader className="bg-muted/50">
-                    <TableRow>
-                      <TableHead>Colaborador</TableHead>
-                      <TableHead className="text-center">Assinatura</TableHead>
-                      <TableHead className="text-right">Proventos</TableHead>
-                      <TableHead className="text-right">Descontos</TableHead>
-                      <TableHead className="text-right">Valor Líquido</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {registros.map((r) => {
-                      const ext = r.dados_extraidos
-                      const prov = ext?.totais?.vencimentos || 0
-                      const desc = ext?.totais?.descontos || 0
-                      const liq = ext?.totais?.liquido || r.valor_liquido || 0
-
-                      return (
-                        <TableRow key={r.id}>
-                          <TableCell className="font-medium">
-                            <div className="flex flex-col">
-                              <span>{r.colaboradores?.nome}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {r.colaboradores?.cargo}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {r.assinado ? (
-                              <Badge
-                                variant="outline"
-                                className="bg-green-50 text-green-700 border-green-200"
-                              >
-                                <CheckCircle2 className="w-3 h-3 mr-1" /> Assinado
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                className="bg-amber-50 text-amber-700 border-amber-200"
-                              >
-                                Pendente
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">
-                            {formatCurrency(prov)}
-                          </TableCell>
-                          <TableCell className="text-right text-red-600 font-medium">
-                            {formatCurrency(desc)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {formatCurrency(liq)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setPreviewData({
-                                  nome: r.colaboradores?.nome,
-                                  cargo: r.colaboradores?.cargo,
-                                  mes_ano: r.mes_ano,
-                                  salario: r.colaboradores?.salario,
-                                  departamento: r.colaboradores?.departamento,
-                                  data_admissao: r.colaboradores?.data_admissao,
-                                  arquivo_url: r.arquivo_url,
-                                  dados_extraidos: r.dados_extraidos,
-                                  assinado: r.assinado,
-                                  data_assinatura: r.data_assinatura,
-                                  assinatura_nome: r.assinatura_nome,
-                                })
-                              }
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead>Colaborador</TableHead>
+                    <TableHead className="text-center">Assinatura</TableHead>
+                    <TableHead className="text-right">Proventos</TableHead>
+                    <TableHead className="text-right">Descontos</TableHead>
+                    <TableHead className="text-right">Valor Líquido</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {registros.map((r) => {
+                    const ext = r.dados_extraidos
+                    const prov = ext?.totais?.vencimentos || 0
+                    const desc = ext?.totais?.descontos || 0
+                    const liq = ext?.totais?.liquido || r.valor_liquido || 0
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col">
+                            <span>{r.colaboradores?.nome}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {r.colaboradores?.cargo}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {r.assinado ? (
+                            <Badge
+                              variant="outline"
+                              className="bg-green-50 text-green-700 border-green-200"
                             >
-                              <Eye className="w-4 h-4 mr-2" /> Demonstrativo
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                  <TableFooter>
-                    <TableRow>
-                      <TableCell colSpan={2} className="font-bold">
-                        Totalizadores
-                      </TableCell>
-                      <TableCell className="text-right text-green-700 font-bold">
-                        {formatCurrency(totalVencimentos)}
-                      </TableCell>
-                      <TableCell className="text-right text-red-700 font-bold">
-                        {formatCurrency(totalDescontos)}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-lg">
-                        {formatCurrency(totalLiquido)}
-                      </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                  </TableFooter>
-                </Table>
-              </div>
+                              <CheckCircle2 className="w-3 h-3 mr-1" /> Assinado
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="bg-amber-50 text-amber-700 border-amber-200"
+                            >
+                              Pendente
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right text-green-600 font-medium">
+                          {formatCurrency(prov)}
+                        </TableCell>
+                        <TableCell className="text-right text-red-600 font-medium">
+                          {formatCurrency(desc)}
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {formatCurrency(liq)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setPreviewData({
+                                nome: r.colaboradores?.nome,
+                                cargo: r.colaboradores?.cargo,
+                                mes_ano: r.mes_ano,
+                                salario: r.colaboradores?.salario,
+                                departamento: r.colaboradores?.departamento,
+                                data_admissao: r.colaboradores?.data_admissao,
+                                arquivo_url: r.arquivo_url,
+                                dados_extraidos: r.dados_extraidos,
+                                assinado: r.assinado,
+                                data_assinatura: r.data_assinatura,
+                                assinatura_nome: r.assinatura_nome,
+                              })
+                            }
+                          >
+                            <Eye className="w-4 h-4 mr-2" /> Demonstrativo
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={2} className="font-bold">
+                      Totalizadores
+                    </TableCell>
+                    <TableCell className="text-right text-green-700 font-bold">
+                      {formatCurrency(totalVencimentos)}
+                    </TableCell>
+                    <TableCell className="text-right text-red-700 font-bold">
+                      {formatCurrency(totalDescontos)}
+                    </TableCell>
+                    <TableCell className="text-right font-bold text-lg">
+                      {formatCurrency(totalLiquido)}
+                    </TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
             </div>
           </>
         )}
@@ -530,17 +496,10 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       const { error: uploadError } = await supabase.storage
         .from('contracheques')
         .upload(fileName, file)
-
-      if (uploadError) {
-        toast.error('Erro no upload: ' + uploadError.message)
-        setProcessing(false)
-        return
-      }
+      if (uploadError) throw new Error('Erro no upload: ' + uploadError.message)
 
       const { data: urlData } = supabase.storage.from('contracheques').getPublicUrl(fileName)
       const publicUrl = urlData.publicUrl
-
-      let parsedData: any = null
 
       const formData = new FormData()
       formData.append('file', file)
@@ -548,7 +507,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       const { data: edgeData, error: edgeError } = await supabase.functions.invoke('parse-excel', {
         body: formData,
       })
-
+      let parsedData: any = null
       if (!edgeError && edgeData?.success && Object.keys(edgeData.data).length > 0) {
         parsedData = edgeData.data
       } else {
@@ -563,7 +522,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           'id, nome, cargo, salario, departamento, data_admissao, role, codigo_funcionario, cpf, rg',
         )
         .or('status.eq.Ativo,status.is.null')
-
       if (!allColabs) throw new Error('Erro ao buscar colaboradores no sistema')
 
       const colabs = allColabs.filter((c) => {
@@ -577,6 +535,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       const sheetNames = Object.keys(parsedData)
       let finalExtracted: any[] = []
       const logs: string[] = []
+      logs.push(`Arquivo lido. Abas encontradas: ${sheetNames.join(', ')}`)
 
       const getEmptyHolerite = () => ({
         empresa: { nome: '', cnpj: '' },
@@ -606,11 +565,9 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         if (!val) return 0
         let strVal = String(val).trim()
         strVal = strVal.replace(/R\$\s*/gi, '').replace(/\s/g, '')
-        if (strVal.includes('.') && strVal.includes(',')) {
+        if (strVal.includes('.') && strVal.includes(','))
           strVal = strVal.replace(/\./g, '').replace(',', '.')
-        } else if (strVal.includes(',')) {
-          strVal = strVal.replace(',', '.')
-        }
+        else if (strVal.includes(',')) strVal = strVal.replace(',', '.')
         const parsed = parseFloat(strVal)
         return isNaN(parsed) ? 0 : parsed
       }
@@ -623,9 +580,9 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           .filter((c) => isNumeric(c))
           .map((c) => safeParseFloat(c))
 
-      // Multi-pass parsing strategy
       for (const sheetName of sheetNames) {
         let rawRows: any[] = parsedData[sheetName] || []
+        logs.push(`Aba '${sheetName}' tem ${rawRows.length} linhas brutas.`)
         if (rawRows.length === 0) continue
 
         if (rawRows.length > 0 && !Array.isArray(rawRows[0])) {
@@ -638,6 +595,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           if (!row) continue
           const rowArr = Array.isArray(row) ? row : Object.values(row)
           const cells = rowArr.map((c: any) => String(c || '').trim())
+          if (cells.every((c) => c === '')) continue
           let maxLines = 1
           const splitCells = cells.map((c) => {
             const lines = c.split(/\r?\n/).map((l) => l.trim())
@@ -646,473 +604,211 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
           })
           for (let i = 0; i < maxLines; i++) {
             const newRow = splitCells.map((lines) => lines[i] || '')
-            if (newRow.some((c) => c !== '')) {
-              expandedRows.push(newRow)
-            }
+            if (newRow.some((c) => c !== '')) expandedRows.push(newRow)
           }
         }
+        logs.push(`Aba '${sheetName}' expandida para ${expandedRows.length} linhas.`)
 
-        logs.push(`Processando aba: ${sheetName} (${expandedRows.length} linhas)`)
-
-        // Method 1: Classic parsing (Header per employee)
-        let method1Extracted = []
-        let state = 'HEADER'
-        let colMap = { codigo: -1, descricao: -1, referencia: -1, vencimentos: -1, descontos: -1 }
+        let methodExtracted = []
         let h = getEmptyHolerite()
+        let inEvents = false
+        let foundHeaders = false
+        let colCod = 0,
+          colDesc = 1,
+          colRef = 2,
+          colVenc = 3,
+          colDescVal = 4
 
         for (let i = 0; i < expandedRows.length; i++) {
           const row = expandedRows[i]
-          const rowTextUpper = row.join(' ').toUpperCase()
+          const rowText = row.join(' ').toUpperCase()
+          if (!rowText.trim()) continue
 
-          if (!rowTextUpper.trim()) continue
-
-          const isEmployeeHeaderRow =
-            (rowTextUpper.includes('NOME DO FUNCION') ||
-              rowTextUpper.includes('NOME DO FUNCIONARIO')) &&
-            rowTextUpper.includes('CBO')
-          const isEventsHeaderRow =
-            rowTextUpper.includes('CÓDIGO') &&
-            (rowTextUpper.includes('DESCRIÇÃO') || rowTextUpper.includes('DESCRICAO')) &&
-            rowTextUpper.includes('REFERÊNCIA')
-
-          if (isEmployeeHeaderRow) {
-            if (h.cabecalho.nome_impresso) {
-              h.totais.vencimentos = h.linhas.reduce(
-                (acc: number, l: any) => acc + (l.vencimento || 0),
-                0,
-              )
-              h.totais.descontos = h.linhas.reduce(
-                (acc: number, l: any) => acc + (l.desconto || 0),
-                0,
-              )
-              if (!h.totais.liquido && h.totais.vencimentos > 0)
-                h.totais.liquido = h.totais.vencimentos - h.totais.descontos
-              method1Extracted.push(h)
-              h = getEmptyHolerite()
-            }
-            state = 'HEADER'
-            colMap = { codigo: -1, descricao: -1, referencia: -1, vencimentos: -1, descontos: -1 }
-
-            if (i + 1 < expandedRows.length) {
-              const dataRow = expandedRows[i + 1]
-              const nonEmpty = dataRow.map((c) => c.trim()).filter((c) => c !== '')
-              if (nonEmpty.length >= 2) {
-                h.cabecalho.codigo = nonEmpty[0]
-                h.cabecalho.nome_impresso = nonEmpty[1]
-                if (nonEmpty.length >= 3) h.cabecalho.cbo = nonEmpty[2]
-              }
-            }
-            if (i + 2 < expandedRows.length) {
-              const roleRow = expandedRows[i + 2]
-              const nonEmptyRole = roleRow.map((c) => c.trim()).filter((c) => c !== '')
-              if (nonEmptyRole.length > 0) {
-                const roleStr = nonEmptyRole.find((c) => !c.toUpperCase().includes('ADMISS'))
-                if (roleStr) h.cabecalho.cargo = roleStr
-              }
-            }
-            if (!h.empresa.cnpj) {
-              for (let prev = Math.max(0, i - 5); prev <= i; prev++) {
-                const prevRowText = expandedRows[prev].join(' ').toUpperCase()
-                const match = prevRowText.match(/CNPJ:\s*([\d./-]+)/)
-                if (match) h.empresa.cnpj = match[1]
-                const empNameRow = expandedRows[Math.max(0, prev - 1)].concat(expandedRows[prev])
-                const longest = empNameRow.reduce((a, b) => (a.length > b.length ? a : b), '')
-                if (longest.length > 10 && !longest.includes('CNPJ'))
-                  h.empresa.nome = longest.trim()
-              }
-            }
-            continue
-          }
-
-          if (isEventsHeaderRow) {
-            state = 'EVENTS'
-            colMap.codigo = row.findIndex(
-              (c) => c.toUpperCase() === 'CÓDIGO' || c.toUpperCase() === 'CODIGO',
-            )
-            colMap.descricao = row.findIndex(
-              (c) => c.toUpperCase().includes('DESCRIÇÃO') || c.toUpperCase().includes('DESCRICAO'),
-            )
-            colMap.referencia = row.findIndex(
+          if (
+            (rowText.includes('CÓDIGO') || rowText.includes('COD')) &&
+            (rowText.includes('DESCRIÇÃO') ||
+              rowText.includes('DESCRICAO') ||
+              rowText.includes('EVENTO'))
+          ) {
+            colCod = row.findIndex(
               (c) =>
-                c.toUpperCase().includes('REFERÊNCIA') || c.toUpperCase().includes('REFERENCIA'),
+                c.toUpperCase().includes('CÓDIGO') ||
+                c.toUpperCase() === 'COD' ||
+                c.toUpperCase() === 'COD.',
             )
-            colMap.vencimentos = row.findIndex(
+            colDesc = row.findIndex(
+              (c) =>
+                c.toUpperCase().includes('DESCRIÇÃO') ||
+                c.toUpperCase().includes('DESCRICAO') ||
+                c.toUpperCase().includes('EVENTO'),
+            )
+            colRef = row.findIndex(
+              (c) =>
+                c.toUpperCase().includes('REFERÊNCIA') ||
+                c.toUpperCase().includes('REFERENCIA') ||
+                c.toUpperCase() === 'REF.',
+            )
+            colVenc = row.findIndex(
               (c) =>
                 c.toUpperCase().includes('VENCIMENTO') ||
                 c.toUpperCase().includes('PROVENTO') ||
-                c.toUpperCase().includes('VENCIMENTOS'),
+                c.toUpperCase().includes('VALOR'),
             )
-            colMap.descontos = row.findIndex(
+            colDescVal = row.findIndex(
               (c) => c.toUpperCase().includes('DESCONTO') && !c.toUpperCase().includes('DESCRIÇÃO'),
             )
 
-            if (colMap.codigo === -1) colMap.codigo = 0
-            if (colMap.descricao === -1) colMap.descricao = 1
-            if (colMap.referencia === -1) colMap.referencia = 2
-            if (colMap.vencimentos === -1) colMap.vencimentos = 3
-            if (colMap.descontos === -1) colMap.descontos = 4
+            if (colCod === -1) colCod = 0
+            if (colDesc === -1) colDesc = 1
+            if (colRef === -1) colRef = 2
+            if (colVenc === -1) colVenc = row.length > 3 ? 3 : 2
+            if (colDescVal === -1) colDescVal = row.length > 4 ? 4 : 3
+
+            foundHeaders = true
+            logs.push(
+              `Cabeçalhos detectados (Linha ${i + 1}) - C:${colCod} D:${colDesc} V:${colVenc} Desc:${colDescVal}`,
+            )
             continue
           }
 
-          if (state === 'EVENTS') {
-            if (
-              rowTextUpper.includes('TOTAL DE VENCIMENTOS') ||
-              rowTextUpper.includes('TOTAL DE DESCONTOS') ||
-              rowTextUpper.includes('VALOR LÍQUIDO') ||
-              rowTextUpper.includes('SALÁRIO BASE') ||
-              rowTextUpper.includes('TOTAIS') ||
-              (rowTextUpper.includes('TOTAL') &&
-                !rowTextUpper.includes('VENCIMENTOS') &&
-                !rowTextUpper.includes('DESCONTOS'))
-            ) {
-              state = 'FOOTER'
-              i--
-              continue
+          if (
+            rowText.includes('TOTAL DE VENCIMENTOS') ||
+            rowText.includes('VALOR LÍQUIDO') ||
+            (rowText.includes('TOTAL') && rowText.includes('DESCONTOS')) ||
+            rowText.includes('LIQUIDO')
+          ) {
+            if (h.cabecalho.nome_impresso && h.linhas.length > 0) {
+              h.totais.vencimentos = h.linhas.reduce((acc, l: any) => acc + (l.vencimento || 0), 0)
+              h.totais.descontos = h.linhas.reduce((acc, l: any) => acc + (l.desconto || 0), 0)
+              h.totais.liquido = h.totais.vencimentos - h.totais.descontos
+              methodExtracted.push({ ...h })
+              h = getEmptyHolerite()
             }
+            inEvents = false
+            continue
+          }
 
-            let cod = colMap.codigo >= 0 ? row[colMap.codigo] : ''
-            let desc = colMap.descricao >= 0 ? row[colMap.descricao] : ''
-            let ref = colMap.referencia >= 0 ? row[colMap.referencia] : ''
-            let venc = colMap.vencimentos >= 0 ? row[colMap.vencimentos] : ''
-            let descVal = colMap.descontos >= 0 ? row[colMap.descontos] : ''
+          const matchedColab = colabs.find((c) => {
+            const n = c.nome.toUpperCase().replace(/\s+/g, ' ').trim()
+            return n.length > 5 && rowText.includes(n)
+          })
 
-            if (!cod && desc) {
-              const m = desc.match(/^(\d+)\s+(.+)$/)
+          let possibleName = ''
+          let possibleCode = ''
+
+          if (matchedColab && !rowText.includes('TOTAL') && !rowText.includes('LÍQUIDO')) {
+            possibleName = matchedColab.nome
+            possibleCode = matchedColab.codigo_funcionario || '00'
+          } else if (!inEvents) {
+            const firstCol = row[0]?.trim() || ''
+            const secondCol = row[1]?.trim() || ''
+            if (
+              firstCol.match(/^\d+$/) &&
+              secondCol.length > 5 &&
+              isNaN(Number(secondCol.replace(/,/g, '.')))
+            ) {
+              possibleCode = firstCol
+              possibleName = secondCol
+            } else if (firstCol.match(/^\d+\s+[A-Z\s]+$/)) {
+              const m = firstCol.match(/^(\d+)\s+(.+)$/)
               if (m) {
-                cod = m[1]
-                desc = m[2].trim()
-              }
-            }
-
-            if (cod || desc || venc || descVal) {
-              if (cod.replace(/[-_]/g, '').trim() === '' && desc.replace(/[-_]/g, '').trim() === '')
-                continue
-              if (cod.trim() || desc.trim()) {
-                h.linhas.push({
-                  codigo: cod.trim() || '',
-                  descricao: desc.trim() || '',
-                  referencia: ref.trim() || '',
-                  vencimento: safeParseFloat(venc),
-                  desconto: safeParseFloat(descVal),
-                })
-              }
-            }
-          } else if (state === 'FOOTER') {
-            if (rowTextUpper.includes('VALOR LÍQUIDO') || rowTextUpper.includes('LIQUIDO')) {
-              const match = rowTextUpper.match(/L[ÍI]QUIDO.*?R?\$?\s*([-]?[\d.,]+)/i)
-              if (match) {
-                h.totais.liquido = safeParseFloat(match[1])
-              } else {
-                const nums = extractNumbers(row)
-                if (nums.length > 0) h.totais.liquido = nums[nums.length - 1]
-              }
-            }
-
-            if (
-              rowTextUpper.includes('SALÁRIO BASE') ||
-              rowTextUpper.includes('SAL. CONTR. INSS') ||
-              rowTextUpper.includes('SALARIO BASE') ||
-              rowTextUpper.includes('INSS')
-            ) {
-              if (i + 1 < expandedRows.length) {
-                const baseHeaders = row.map((c) => c.toUpperCase())
-                const baseVals = expandedRows[i + 1]
-                let foundBases = false
-                for (let j = 0; j < baseHeaders.length; j++) {
-                  if (
-                    baseHeaders[j].includes('SALÁRIO BASE') ||
-                    baseHeaders[j].includes('SALARIO BASE')
-                  ) {
-                    h.bases.salario_base = safeParseFloat(baseVals[j])
-                    foundBases = true
-                  }
-                  if (
-                    baseHeaders[j].includes('SAL. CONTR. INSS') ||
-                    baseHeaders[j].includes('INSS')
-                  ) {
-                    h.bases.sal_contr_inss = safeParseFloat(baseVals[j])
-                    foundBases = true
-                  }
-                  if (
-                    baseHeaders[j].includes('BASE CÁLC. FGTS') ||
-                    baseHeaders[j].includes('BASE CALC. FGTS')
-                  ) {
-                    h.bases.base_calc_fgts = safeParseFloat(baseVals[j])
-                    foundBases = true
-                  }
-                  if (
-                    baseHeaders[j].includes('F.G.T.S DO MÊS') ||
-                    baseHeaders[j].includes('FGTS DO MES')
-                  ) {
-                    h.bases.fgts_mes = safeParseFloat(baseVals[j])
-                    foundBases = true
-                  }
-                  if (
-                    baseHeaders[j].includes('BASE CÁLC. IRRF') ||
-                    baseHeaders[j].includes('BASE CALC. IRRF')
-                  ) {
-                    h.bases.base_calc_irrf = safeParseFloat(baseVals[j])
-                    foundBases = true
-                  }
-                  if (baseHeaders[j].includes('FAIXA IRRF')) {
-                    h.bases.faixa_irrf = safeParseFloat(baseVals[j])
-                    foundBases = true
-                  }
-                }
-                if (!foundBases) {
-                  const nums = extractNumbers(expandedRows[i + 1])
-                  if (nums.length >= 6) {
-                    h.bases.salario_base = nums[0]
-                    h.bases.sal_contr_inss = nums[1]
-                    h.bases.base_calc_fgts = nums[2]
-                    h.bases.fgts_mes = nums[3]
-                    h.bases.base_calc_irrf = nums[4]
-                    h.bases.faixa_irrf = nums[5]
-                  }
-                }
+                possibleCode = m[1]
+                possibleName = m[2]
               }
             }
           }
-        }
-        h.totais.vencimentos = h.linhas.reduce(
-          (acc: number, l: any) => acc + (l.vencimento || 0),
-          0,
-        )
-        h.totais.descontos = h.linhas.reduce((acc: number, l: any) => acc + (l.desconto || 0), 0)
-        if (!h.totais.liquido && h.totais.vencimentos > 0)
-          h.totais.liquido = h.totais.vencimentos - h.totais.descontos
-        if (h.cabecalho.nome_impresso || h.linhas.length > 0) method1Extracted.push(h)
 
-        if (method1Extracted.length > 0) {
-          logs.push(`Método Clássico: ${method1Extracted.length} holerites encontrados.`)
-          finalExtracted = [...finalExtracted, ...method1Extracted]
-        } else {
-          logs.push(`Método Clássico falhou. Tentando Método de Leitura Linear (Tabela Única)...`)
-
-          // Method 2: Continuous List Parsing (New Layout)
-          let method2Extracted = []
-          let h2 = getEmptyHolerite()
-          let inEvents = false
-          let colCod = 0,
-            colDesc = 1,
-            colRef = 2,
-            colVenc = 3,
-            colDescVal = 4
-
-          for (let i = 0; i < expandedRows.length; i++) {
-            const row = expandedRows[i]
-            const rowUpper = row.join(' ').toUpperCase()
-            if (!rowUpper.trim()) continue
-
-            // Detect global headers
-            if (
-              rowUpper.includes('CÓDIGO') &&
-              rowUpper.includes('DESCRIÇÃO') &&
-              (rowUpper.includes('VENCIMENTO') || rowUpper.includes('PROVENTO'))
-            ) {
-              colCod = row.findIndex(
-                (c) => c.toUpperCase().includes('CÓDIGO') || c.toUpperCase().includes('CODIGO'),
-              )
-              colDesc = row.findIndex(
-                (c) =>
-                  c.toUpperCase().includes('DESCRIÇÃO') || c.toUpperCase().includes('DESCRICAO'),
-              )
-              colRef = row.findIndex(
-                (c) =>
-                  c.toUpperCase().includes('REFERÊNCIA') || c.toUpperCase().includes('REFERENCIA'),
-              )
-              colVenc = row.findIndex(
-                (c) =>
-                  c.toUpperCase().includes('VENCIMENTO') ||
-                  c.toUpperCase().includes('PROVENTO') ||
-                  c.toUpperCase().includes('VENCIMENTOS'),
-              )
-              colDescVal = row.findIndex(
-                (c) =>
-                  c.toUpperCase().includes('DESCONTO') && !c.toUpperCase().includes('DESCRIÇÃO'),
-              )
-              if (colCod === -1) colCod = 0
-              if (colDesc === -1) colDesc = 1
-              if (colVenc === -1) colVenc = 3
-              if (colDescVal === -1) colDescVal = 4
-              logs.push(`Cabeçalhos de colunas detectados na linha ${i + 1}.`)
-              continue
+          if (
+            possibleName &&
+            !possibleName.toUpperCase().includes('TOTAL') &&
+            !possibleName.toUpperCase().includes('EMPRESA')
+          ) {
+            if (h.cabecalho.nome_impresso && h.linhas.length > 0) {
+              h.totais.vencimentos = h.linhas.reduce((acc, l: any) => acc + (l.vencimento || 0), 0)
+              h.totais.descontos = h.linhas.reduce((acc, l: any) => acc + (l.desconto || 0), 0)
+              h.totais.liquido = h.totais.vencimentos - h.totais.descontos
+              methodExtracted.push({ ...h })
+              h = getEmptyHolerite()
             }
+            h.cabecalho.nome_impresso = possibleName
+            h.cabecalho.codigo = possibleCode || '00'
+            logs.push(`Colaborador detectado: ${possibleName} (Linha ${i + 1})`)
+            inEvents = false
 
-            // Detect Totals row (End of an employee block)
-            if (
-              rowUpper.includes('TOTAL DE VENCIMENTOS') ||
-              rowUpper.includes('VALOR LÍQUIDO') ||
-              (rowUpper.includes('TOTAL') && rowUpper.includes('DESCONTOS'))
-            ) {
-              const nums = extractNumbers(row)
-              if (nums.length >= 2) {
-                h2.totais.vencimentos = nums[0]
-                h2.totais.descontos = nums[1]
-              } else if (nums.length === 1 && rowUpper.includes('LÍQUIDO')) {
-                h2.totais.liquido = nums[0]
-              }
-
-              if (h2.cabecalho.nome_impresso && h2.linhas.length > 0) {
-                h2.totais.vencimentos = h2.linhas.reduce(
-                  (acc: number, l: any) => acc + (l.vencimento || 0),
-                  0,
-                )
-                h2.totais.descontos = h2.linhas.reduce(
-                  (acc: number, l: any) => acc + (l.desconto || 0),
-                  0,
-                )
-                if (!h2.totais.liquido)
-                  h2.totais.liquido = h2.totais.vencimentos - h2.totais.descontos
-                method2Extracted.push({ ...h2 })
-                h2 = getEmptyHolerite()
-              }
-              inEvents = false
-              continue
-            }
-
-            // Detect Bases row
-            if (rowUpper.includes('SALÁRIO BASE') || rowUpper.includes('SAL. CONTR. INSS')) {
-              if (i + 1 < expandedRows.length) {
-                const nextNums = extractNumbers(expandedRows[i + 1])
-                if (nextNums.length >= 4 && method2Extracted.length > 0) {
-                  const last = method2Extracted[method2Extracted.length - 1]
-                  last.bases.salario_base = nextNums[0]
-                  last.bases.sal_contr_inss = nextNums[1]
-                  last.bases.base_calc_fgts = nextNums[2]
-                  last.bases.fgts_mes = nextNums[3]
+            if (i + 1 < expandedRows.length) {
+              const nextRow = expandedRows[i + 1]
+              const nextText = nextRow.join(' ').toUpperCase()
+              if (
+                !nextText.includes('TOTAL') &&
+                !nextText.includes('CÓDIGO') &&
+                !nextText.includes('SALÁRIO')
+              ) {
+                const nums = extractNumbers(nextRow)
+                if (nums.length === 0) {
+                  const funcStr = nextRow.find((c) => c && c.length > 3 && isNaN(Number(c)))
+                  if (funcStr) {
+                    h.cabecalho.cargo = funcStr.trim()
+                    i++
+                  }
                 }
               }
-              continue
             }
+            continue
+          }
 
-            // Evaluate if row is an event
+          if (h.cabecalho.nome_impresso) {
             let codVal = row[colCod]?.trim() || ''
             let descText = row[colDesc]?.trim() || ''
             let refVal = row[colRef]?.trim() || ''
             let vencVal = safeParseFloat(row[colVenc])
             let descVal = safeParseFloat(row[colDescVal])
 
-            if (
-              (vencVal > 0 || descVal > 0) &&
-              descText.length > 0 &&
-              !descText.toUpperCase().includes('TOTAL')
-            ) {
-              // It is an event
-              if (!h2.cabecalho.nome_impresso && method2Extracted.length > 0) {
-                // We shouldn't add events if we don't have an active employee context
-              } else {
-                h2.linhas.push({
-                  codigo: codVal,
-                  descricao: descText,
-                  referencia: refVal,
-                  vencimento: vencVal,
-                  desconto: descVal,
-                })
-                inEvents = true
-              }
-            } else if (!inEvents) {
-              // Not an event, maybe an employee name/code?
-              const firstCol = row[0]?.trim() || ''
-              const secondCol = row[1]?.trim() || ''
-              let possibleName = ''
-              let possibleCode = ''
-
-              if (firstCol.match(/^\d+$/) && secondCol.length > 3) {
-                possibleCode = firstCol
-                possibleName = secondCol
-              } else if (firstCol.match(/^\d+\s+.+/)) {
-                const m = firstCol.match(/^(\d+)\s+(.+)$/)
-                if (m) {
-                  possibleCode = m[1]
-                  possibleName = m[2]
-                }
-              } else if (
-                firstCol.length > 5 &&
-                !firstCol.includes('R$') &&
-                safeParseFloat(firstCol) === 0
-              ) {
-                possibleName = firstCol
-              } else if (
-                secondCol.length > 5 &&
-                !secondCol.includes('R$') &&
-                safeParseFloat(secondCol) === 0
-              ) {
-                possibleName = secondCol
-              }
-
-              if (
-                possibleName &&
-                !possibleName.toUpperCase().includes('TOTAL') &&
-                !possibleName.toUpperCase().includes('EMPRESA') &&
-                !possibleName.toUpperCase().includes('CÓDIGO')
-              ) {
-                // Close previous if pending
-                if (h2.cabecalho.nome_impresso && h2.linhas.length > 0) {
-                  h2.totais.vencimentos = h2.linhas.reduce(
-                    (acc: number, l: any) => acc + (l.vencimento || 0),
-                    0,
-                  )
-                  h2.totais.descontos = h2.linhas.reduce(
-                    (acc: number, l: any) => acc + (l.desconto || 0),
-                    0,
-                  )
-                  if (!h2.totais.liquido)
-                    h2.totais.liquido = h2.totais.vencimentos - h2.totais.descontos
-                  method2Extracted.push({ ...h2 })
-                  h2 = getEmptyHolerite()
-                }
-
-                h2.cabecalho.nome_impresso = possibleName
-                h2.cabecalho.codigo = possibleCode || '00'
-                logs.push(
-                  `Detectado colaborador: ${possibleName} (Cód: ${possibleCode}) na linha ${i + 1}`,
-                )
-
-                // Capture function from the very next row
-                if (i + 1 < expandedRows.length) {
-                  const nextRow = expandedRows[i + 1]
-                  const nextRowUpper = nextRow.join(' ').toUpperCase()
-                  const nextVenc = safeParseFloat(nextRow[colVenc])
-                  const nextDesc = safeParseFloat(nextRow[colDescVal])
-
-                  if (
-                    nextVenc === 0 &&
-                    nextDesc === 0 &&
-                    !nextRowUpper.includes('TOTAL') &&
-                    !nextRowUpper.includes('CÓDIGO') &&
-                    !nextRowUpper.includes('SALÁRIO')
-                  ) {
-                    const possibleFunction = nextRow.find(
-                      (c) => c && c.trim().length > 3 && !c.match(/^\d+$/),
-                    )
-                    if (possibleFunction) {
-                      h2.cabecalho.cargo = possibleFunction.trim()
-                      logs.push(`Detectada função: ${h2.cabecalho.cargo} na linha ${i + 2}`)
-                      i++ // Skip this row as it was the function
-                    }
-                  }
+            if (!foundHeaders) {
+              const nums = extractNumbers(row)
+              const descCand = row.find(
+                (c) =>
+                  c &&
+                  isNaN(Number(c.replace(/,/g, '.'))) &&
+                  c.length > 2 &&
+                  c.toUpperCase() !== h.cabecalho.nome_impresso.toUpperCase(),
+              )
+              if (descCand) descText = descCand
+              if (nums.length >= 2) {
+                vencVal = nums[0]
+                descVal = nums[1]
+              } else if (nums.length === 1) {
+                if (rowText.includes('DESCONTO') || descText.toUpperCase().includes('DESC')) {
+                  descVal = nums[0]
+                } else {
+                  vencVal = nums[0]
                 }
               }
             }
-          }
 
-          if (h2.cabecalho.nome_impresso && h2.linhas.length > 0) {
-            h2.totais.vencimentos = h2.linhas.reduce(
-              (acc: number, l: any) => acc + (l.vencimento || 0),
-              0,
-            )
-            h2.totais.descontos = h2.linhas.reduce(
-              (acc: number, l: any) => acc + (l.desconto || 0),
-              0,
-            )
-            if (!h2.totais.liquido) h2.totais.liquido = h2.totais.vencimentos - h2.totais.descontos
-            method2Extracted.push({ ...h2 })
+            if (
+              (vencVal > 0 || descVal > 0) &&
+              descText.length > 1 &&
+              !descText.toUpperCase().includes('TOTAL') &&
+              !descText.toUpperCase().includes('LÍQUIDO')
+            ) {
+              h.linhas.push({
+                codigo: codVal || '00',
+                descricao: descText,
+                referencia: refVal,
+                vencimento: vencVal,
+                desconto: descVal,
+              })
+              inEvents = true
+            }
           }
-
-          logs.push(`Método Linear: ${method2Extracted.length} holerites encontrados.`)
-          finalExtracted = [...finalExtracted, ...method2Extracted]
         }
+        if (h.cabecalho.nome_impresso && h.linhas.length > 0) {
+          h.totais.vencimentos = h.linhas.reduce((acc, l: any) => acc + (l.vencimento || 0), 0)
+          h.totais.descontos = h.linhas.reduce((acc, l: any) => acc + (l.desconto || 0), 0)
+          h.totais.liquido = h.totais.vencimentos - h.totais.descontos
+          methodExtracted.push({ ...h })
+        }
+        finalExtracted = [...finalExtracted, ...methodExtracted]
       }
 
       const extracted = []
@@ -1124,8 +820,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         const empCargo = (empData.cabecalho.cargo || '').trim()
 
         let colab = null
-
-        // 0. Primary strict code match + name check
         if (empCode && empCode !== '00') {
           const possibleColab = colabs.find((c) => c.codigo_funcionario === empCode)
           if (possibleColab) {
@@ -1134,40 +828,30 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
               .toUpperCase()
               .replace(/\s+/g, ' ')
               .trim()
-
-            // Very basic safety check to avoid wrong code mapping
             const empTokens = normEmpName.split(' ').filter((t) => t.length > 2)
             const colabTokens = normColabName.split(' ').filter((t) => t.length > 2)
-            const hasNameOverlap = empTokens.some((t) => colabTokens.includes(t))
-
-            if (hasNameOverlap || normEmpName === normColabName) {
+            if (empTokens.some((t) => colabTokens.includes(t)) || normEmpName === normColabName)
               colab = possibleColab
-            }
           }
         }
 
         if (!colab && empName) {
           const normEmpName = empName.toUpperCase().replace(/\s+/g, ' ').trim()
-
           colab = colabs.find(
             (c) => !mappedColabIds.has(c.id) && (c.nome || '').toUpperCase().trim() === normEmpName,
           )
-
           if (!colab) {
             colab = colabs.find((c) => {
               if (mappedColabIds.has(c.id)) return false
               const normColabName = (c.nome || '').toUpperCase().replace(/\s+/g, ' ').trim()
               const empTokens = normEmpName.split(' ').filter((t) => t.length > 2)
               const colabTokens = normColabName.split(' ').filter((t) => t.length > 2)
-
               if (empTokens.length > 0 && colabTokens.length > 0) {
                 const matchCount = empTokens.filter((t) => colabTokens.includes(t)).length
-                if (
+                return (
                   empTokens[0] === colabTokens[0] &&
                   (matchCount >= 2 || (empTokens.length === 1 && colabTokens.length === 1))
-                ) {
-                  return true
-                }
+                )
               }
               return false
             })
@@ -1176,7 +860,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
         let has_error = false
         let error_msg = ''
-
         if (colab) {
           if (
             colab.codigo_funcionario &&
@@ -1231,6 +914,10 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       }
 
       if (extracted.length === 0) {
+        if (sheetNames.length > 0 && parsedData[sheetNames[0]]) {
+          const sample = parsedData[sheetNames[0]].slice(0, 3)
+          logs.push(`Amostra inicial do arquivo: ${JSON.stringify(sample)}`)
+        }
         setParsingErrorDetails(logs)
         toast.error(
           'Falha na leitura da planilha. O arquivo não corresponde a nenhum formato reconhecido.',
@@ -1238,16 +925,13 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       } else {
         setExtractedData(extracted)
         toast.success('Planilha processada com sucesso! Prévia carregada.')
-
         const firstMapped = extracted.find((e) => e.is_mapped) || extracted[0]
-        if (firstMapped) {
-          setTimeout(() => {
-            setPreviewData({ ...firstMapped, mes_ano: selectedMonth })
-          }, 500)
-        }
+        if (firstMapped)
+          setTimeout(() => setPreviewData({ ...firstMapped, mes_ano: selectedMonth }), 500)
       }
     } catch (error: any) {
       console.error(error)
+      setParsingErrorDetails([error.message])
       toast.error('Erro ao processar o arquivo: ' + error.message)
     } finally {
       setProcessing(false)
@@ -1258,17 +942,15 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
     const errorCount = extractedData.filter((e) => e.has_error).length
     if (errorCount > 0) {
       toast.error(
-        'Não é possível publicar: Há divergências de segurança entre código e nome do funcionário. Corrija o cadastro ou a planilha.',
+        'Não é possível publicar: Há divergências de segurança entre código e nome do funcionário.',
       )
       return
     }
-
     const validData = extractedData.filter((e) => e.is_mapped !== false && !e.has_error)
     if (!validData.length) {
       toast.error('Nenhum colaborador válido mapeado para publicar.')
       return
     }
-
     setPublishing(true)
     try {
       const insertsMap = new Map()
@@ -1286,17 +968,14 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         }
       })
       const inserts = Array.from(insertsMap.values())
-
       const batchSize = 50
       for (let i = 0; i < inserts.length; i += batchSize) {
         const batch = inserts.slice(i, i + batchSize)
         const { error } = await supabase
           .from('contracheques')
           .upsert(batch as any, { onConflict: 'colaborador_id, mes_ano' })
-
         if (error) throw error
       }
-
       const unmappedCount = extractedData.length - validData.length
       toast.success(
         `Contracheques publicados com sucesso! ${unmappedCount > 0 ? `(${unmappedCount} ignorados)` : ''}`,
@@ -1324,9 +1003,9 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         <div className="bg-blue-50/50 text-blue-800 text-sm p-4 rounded-lg flex items-start gap-3 border border-blue-100">
           <div className="mt-0.5">💡</div>
           <div>
-            <strong>Leitura Fiel e Estruturada:</strong> O sistema agora suporta a importação de
-            planilhas de tabela única. Ele irá varrer automaticamente os blocos de funcionários,
-            associar códigos e funções, garantindo total integridade de dados.
+            <strong>Leitura Flexível Ativada:</strong> O sistema buscará padrões conhecidos e nomes
+            de funcionários, além de ignorar cabeçalhos desnecessários, melhorando a adaptação a
+            diferentes formatos.
           </div>
         </div>
 
@@ -1354,21 +1033,13 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                 className="animate-in fade-in slide-in-from-top-2 duration-300 border-red-200 bg-red-50 text-red-900"
               >
                 <AlertTitle className="font-bold flex items-center gap-2">
-                  <TableIcon className="w-4 h-4" /> Erro de Processamento (Tabela não reconhecida)
+                  <TableIcon className="w-4 h-4" /> Erro de Processamento
                 </AlertTitle>
                 <AlertDescription className="mt-2 space-y-3">
                   <p>
-                    O sistema leu o arquivo, mas não conseguiu extrair os holerites. Verifique se:
+                    O sistema leu o arquivo, mas não conseguiu extrair os dados. Verifique os logs
+                    técnicos abaixo para entender o que foi lido:
                   </p>
-                  <ul className="list-disc list-inside text-sm ml-4 space-y-1 opacity-90">
-                    <li>
-                      As colunas estão nomeadas como{' '}
-                      <strong>Código, Descrição, Referência, Vencimentos, Descontos</strong>.
-                    </li>
-                    <li>
-                      O nome do colaborador está imediatamente acima de seus eventos de pagamento.
-                    </li>
-                  </ul>
                   <div className="mt-4 pt-3 border-t border-red-200/50">
                     <p className="text-xs font-bold mb-2 uppercase opacity-70">
                       Logs de Extração (Técnico)
@@ -1388,7 +1059,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
               <TableIcon className="w-12 h-12 text-green-600 mb-4" />
               <p className="text-lg font-medium mb-1">Arraste a planilha Excel aqui</p>
               <p className="text-sm text-muted-foreground mb-4">
-                ou clique para selecionar (.xlsx, .xls)
+                ou clique para selecionar (.xlsx, .xls, .csv)
               </p>
               <Input
                 type="file"
@@ -1414,7 +1085,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5" />
                 <div>
-                  <p className="font-medium">Mapeamento 1:1 Concluído</p>
+                  <p className="font-medium">Mapeamento Concluído</p>
                   <p className="text-sm opacity-90">
                     {extractedData.length} colaboradores identificados na planilha.
                   </p>
@@ -1477,10 +1148,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                         )}
                       </TableCell>
                       <TableCell className="text-right font-bold text-slate-900">
-                        R${' '}
-                        {d.valor_bruto?.toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                        })}
+                        R$ {d.valor_bruto?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell className="text-center">
                         {d.has_error ? (
@@ -1507,15 +1175,13 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setPreviewData({ ...d, mes_ano: selectedMonth })}
-                          >
-                            <Eye className="w-4 h-4 mr-2" /> Visualizar
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPreviewData({ ...d, mes_ano: selectedMonth })}
+                        >
+                          <Eye className="w-4 h-4 mr-2" /> Visualizar
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1579,7 +1245,6 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
           assinatura_nome: assinaturaNome,
         })
         .eq('id', contracheque.id)
-
       if (error) throw error
       toast.success('Assinatura registrada com sucesso!')
       fetchData()
@@ -1625,8 +1290,8 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
                   variant="outline"
                   className="bg-green-50 text-green-700 border-green-200 px-4 py-1.5 text-sm"
                 >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Assinado em {new Date(contracheque.data_assinatura).toLocaleDateString('pt-BR')}
+                  <CheckCircle2 className="w-4 h-4 mr-2" /> Assinado em{' '}
+                  {new Date(contracheque.data_assinatura).toLocaleDateString('pt-BR')}
                 </Badge>
               </div>
             ) : (
@@ -1699,19 +1364,15 @@ function ContraChequeDataModal({
   const [signature, setSignature] = useState('')
 
   useEffect(() => {
-    if (isOpen) {
-      setSignature('')
-    }
+    if (isOpen) setSignature('')
   }, [isOpen])
 
   if (!data) return null
 
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value || 0)
-  }
+  const formatNumber = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+      value || 0,
+    )
 
   const mockData = data.dados_extraidos || {
     empresa: { nome: '', cnpj: '' },
@@ -1762,7 +1423,6 @@ function ContraChequeDataModal({
 
         <div className="w-full overflow-x-auto print:overflow-visible pb-4 flex justify-center">
           <div className="bg-white text-black font-mono text-[11px] border border-slate-400 p-3 flex relative min-w-[750px] w-full max-w-[900px] shadow-sm print-area print:min-w-0 print:w-full print:max-w-[180mm] print:border-none print:shadow-none print:overflow-hidden print:p-0 print:m-0">
-            {/* Main Recibo Area */}
             <div className="flex-1 flex flex-col border-[1.5px] border-black box-border relative z-10 bg-white">
               {data.assinado && (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50 opacity-15 mix-blend-multiply">
@@ -1772,7 +1432,6 @@ function ContraChequeDataModal({
                 </div>
               )}
 
-              {/* Cabeçalho Empresa */}
               <div className="grid grid-cols-3 border-b-[1.5px] border-black p-2 pb-3">
                 <div className="col-span-1 space-y-1">
                   <div className="font-bold uppercase tracking-tight text-sm">
@@ -1805,7 +1464,6 @@ function ContraChequeDataModal({
                 </div>
               </div>
 
-              {/* Dados do Funcionario */}
               <div className="grid grid-cols-[auto_1fr_auto_auto_auto] border-b-[1.5px] border-black text-xs">
                 <div className="border-r border-black p-1.5 px-2">
                   <div className="text-[9px] mb-0.5">Código</div>
@@ -1840,7 +1498,6 @@ function ContraChequeDataModal({
                 </div>
               </div>
 
-              {/* Titulos Eventos */}
               <div className="grid grid-cols-[auto_1fr_auto_auto_auto] border-b-[1.5px] border-black font-bold text-[11px] bg-slate-50/50 print:bg-transparent">
                 <div className="border-r border-black p-1 text-center w-[60px]">Código</div>
                 <div className="border-r border-black p-1 pl-2 text-left">Descrição</div>
@@ -1849,7 +1506,6 @@ function ContraChequeDataModal({
                 <div className="p-1 text-center w-[110px]">Descontos</div>
               </div>
 
-              {/* Tabela Eventos (Area Minima 300px) */}
               <div className="grid grid-cols-[auto_1fr_auto_auto_auto] flex-1 min-h-[300px] text-[12px] print:text-[11px]">
                 <div className="border-r border-black p-1 flex flex-col items-center w-[60px]">
                   {mockData.linhas?.map((l: any, i: number) => (
@@ -1888,7 +1544,6 @@ function ContraChequeDataModal({
                 </div>
               </div>
 
-              {/* Totais Vencimentos e Descontos */}
               <div className="grid grid-cols-[1fr_auto_auto] border-t-[1.5px] border-black h-[60px]">
                 <div className="border-r border-black"></div>
                 <div className="border-r border-black w-[110px] flex flex-col">
@@ -1909,7 +1564,6 @@ function ContraChequeDataModal({
                 </div>
               </div>
 
-              {/* Valor Liquido */}
               <div className="grid grid-cols-[1fr_auto] border-t-[1.5px] border-black h-[50px]">
                 <div className="border-r border-black flex justify-end items-center pr-4">
                   <span className="text-[10px] mr-6 font-medium">Valor Líquido</span>
@@ -1920,7 +1574,6 @@ function ContraChequeDataModal({
                 </div>
               </div>
 
-              {/* Bases */}
               <div className="grid grid-cols-6 border-t-[1.5px] border-black text-center bg-slate-50/50 print:bg-transparent">
                 <div className="border-r border-black p-1.5 px-2">
                   <div className="text-[9px] mb-1">Salário Base</div>
@@ -1961,7 +1614,6 @@ function ContraChequeDataModal({
               </div>
             </div>
 
-            {/* Recibo Vertical Assinatura */}
             <div className="w-[50px] sm:w-[60px] border-y-[1.5px] border-r-[1.5px] border-black flex flex-col relative bg-white shrink-0 box-border ml-[2px]">
               <div className="flex flex-row flex-1 justify-center items-center py-6 px-1 gap-2">
                 <div
