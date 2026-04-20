@@ -907,8 +907,36 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         finalExtracted = [...finalExtracted, ...methodExtracted]
       }
 
+      // Deduplication to prevent phantom rows
+      const uniqueExtracted: any[] = []
+      const seenMap = new Map()
+      for (const h of finalExtracted) {
+        const empCode = (h.cabecalho?.codigo || '').trim()
+        const empName = (h.cabecalho?.nome_impresso || '').trim()
+        const valLiquido = h.totais?.liquido || 0
+        const key = `${empCode}-${empName}-${valLiquido}`
+
+        if (!seenMap.has(key)) {
+          seenMap.set(key, h)
+          uniqueExtracted.push(h)
+        } else {
+          const existing = seenMap.get(key)
+          if (existing && h.linhas) {
+            for (const l of h.linhas) {
+              if (
+                !existing.linhas.some(
+                  (el: any) => el.codigo === l.codigo && el.descricao === l.descricao,
+                )
+              ) {
+                existing.linhas.push(l)
+              }
+            }
+          }
+        }
+      }
+      finalExtracted = uniqueExtracted
+
       const extracted = []
-      const mappedColabIds = new Set()
 
       for (const empData of finalExtracted) {
         const empName = (empData.cabecalho.nome_impresso || '').trim()
@@ -933,12 +961,9 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
 
         if (!colab && empName) {
           const normEmpName = empName.toUpperCase().replace(/\s+/g, ' ').trim()
-          colab = colabs.find(
-            (c) => !mappedColabIds.has(c.id) && (c.nome || '').toUpperCase().trim() === normEmpName,
-          )
+          colab = colabs.find((c) => (c.nome || '').toUpperCase().trim() === normEmpName)
           if (!colab) {
             colab = colabs.find((c) => {
-              if (mappedColabIds.has(c.id)) return false
               const normColabName = (c.nome || '').toUpperCase().replace(/\s+/g, ' ').trim()
               const empTokens = normEmpName.split(' ').filter((t) => t.length > 2)
               const colabTokens = normColabName.split(' ').filter((t) => t.length > 2)
@@ -966,7 +991,6 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
             has_error = true
             error_msg = `Divergência de segurança: Planilha (Cód: ${empCode}) vs Sistema (Cód: ${colab.codigo_funcionario} / Nome: ${colab.nome}). Corrija para importar.`
           }
-          mappedColabIds.add(colab.id)
         }
 
         const dados_extraidos = {
@@ -1533,8 +1557,8 @@ function ContraChequeDataModal({
                   </div>
                 )}
 
-                <div className="flex justify-between items-start border-b-[1.5px] border-black p-1.5 pb-2">
-                  <div className="space-y-0.5 pl-1">
+                <div className="flex justify-between items-start border-b-[1.5px] border-black p-2 pb-2">
+                  <div className="space-y-0.5">
                     <div className="font-medium tracking-tight text-[11px] uppercase">
                       {mockData.empresa?.nome || 'SERVICELOGIC.COM SOLUCOES EM TECNOLOGIA LTDA'}
                     </div>
@@ -1542,12 +1566,8 @@ function ContraChequeDataModal({
                       CNPJ: &nbsp;&nbsp;{mockData.empresa?.cnpj || '10.929.600/0001-92'}
                     </div>
                   </div>
-                  <div className="text-center space-y-0.5 pt-1">
-                    <div className="text-[11px] font-medium">CC: Centro de Custo</div>
-                    <div className="text-[11px] font-medium">Mensalista</div>
-                  </div>
-                  <div className="text-right space-y-0.5 pr-2 pt-1">
-                    <div className="text-[11px] font-medium">Folha Mensal</div>
+                  <div className="text-right space-y-0.5 pt-1">
+                    <div className="text-[11px] font-medium">Recibo de Pagamento de Salário</div>
                     <div className="capitalize text-[11px] font-medium">
                       {(() => {
                         if (!data.mes_ano) return ''
@@ -1565,47 +1585,46 @@ function ContraChequeDataModal({
                   </div>
                 </div>
 
-                <div className="flex flex-col border-b-[1.5px] border-black text-[11px]">
-                  <div className="flex w-full pt-1">
-                    <div className="w-[60px] px-2 text-center">
-                      <div className="text-[9px] font-medium">Código</div>
+                <div className="flex flex-col border-b-[1.5px] border-black text-[11px] p-2 gap-2">
+                  <div className="flex gap-4">
+                    <div className="w-[50px]">
+                      <div className="text-[9px] font-bold">Código</div>
                       <div className="font-medium mt-0.5">{mockData.cabecalho?.codigo || '00'}</div>
                     </div>
-                    <div className="flex-1 px-2">
-                      <div className="text-[9px] font-medium">Nome do Funcionário</div>
-                      <div className="font-medium uppercase tracking-tight mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                        {mockData.cabecalho?.nome_impresso || data.nome}
+                    <div className="flex-1 flex flex-col">
+                      <div className="text-[9px] font-bold">Nome do Funcionário</div>
+                      <div className="font-medium uppercase tracking-tight mt-0.5 flex gap-2">
+                        <span>{mockData.cabecalho?.nome_impresso || data.nome}</span>
+                        {mockData.cabecalho?.cargo && (
+                          <span className="text-gray-500 font-normal">
+                            - {mockData.cabecalho?.cargo}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="w-[80px] px-2 text-center">
-                      <div className="text-[9px] font-medium">CBO</div>
+                  </div>
+                  <div className="flex gap-10 mt-1">
+                    <div>
+                      <div className="text-[9px] font-bold">CBO</div>
                       <div className="font-medium mt-0.5">
                         {mockData.cabecalho?.cbo || '212420'}
                       </div>
                     </div>
-                    <div className="w-[100px] px-2 text-center">
-                      <div className="text-[9px] font-medium">Departamento</div>
+                    <div>
+                      <div className="text-[9px] font-bold">Departamento</div>
                       <div className="font-medium mt-0.5">
                         {mockData.cabecalho?.departamento || data.departamento || '1'}
                       </div>
                     </div>
-                    <div className="w-[80px] px-2 text-center">
-                      <div className="text-[9px] font-medium">Filial</div>
+                    <div>
+                      <div className="text-[9px] font-bold">Filial</div>
                       <div className="font-medium mt-0.5">{mockData.cabecalho?.filial || '1'}</div>
                     </div>
-                  </div>
-                  <div className="flex w-full pb-1 items-center mt-1">
-                    <div className="w-[60px]"></div>
-                    <div className="flex-1 px-2">
-                      <div className="uppercase font-medium tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
-                        {mockData.cabecalho?.cargo || data.cargo || ''}
-                      </div>
-                    </div>
-                    <div className="w-[260px] flex justify-end items-center gap-2 pr-4">
-                      <span className="text-[10px] font-medium">Admissão:</span>
-                      <span className="text-[10px] font-medium">
+                    <div>
+                      <div className="text-[9px] font-bold">Admissão</div>
+                      <div className="font-medium mt-0.5">
                         {mockData.cabecalho?.admissao || '01/01/2023'}
-                      </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1726,34 +1745,26 @@ function ContraChequeDataModal({
                 </div>
               </div>
 
-              <div className="w-[70px] shrink-0 ml-2 border-[1.5px] border-black box-border relative z-10 bg-white flex flex-col justify-between items-center py-6">
-                <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-medium tracking-tight text-center flex-1 w-full max-h-[300px]">
-                  Declaro ter recebido a importância líquida discriminada neste recibo.
-                </div>
-
-                <div className="flex flex-col gap-6 w-full items-center">
-                  <div className="flex justify-center items-end relative h-[180px] w-full">
-                    <div className="w-px h-full bg-black absolute top-0 left-1/2"></div>
-                    <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-medium h-full flex items-center ml-4">
-                      Assinatura do Funcionário
-                    </div>
-                    {data.assinado && (
-                      <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-bold text-green-700 uppercase h-full flex items-center absolute left-1">
-                        {data.assinatura_nome || 'ASSINADO DIGITALMENTE'}
-                      </div>
-                    )}
+              <div className="w-[70px] shrink-0 ml-2 border-[1.5px] border-black box-border relative z-10 bg-white flex items-center justify-center overflow-hidden">
+                <div className="w-[350px] h-[70px] -rotate-90 flex flex-col justify-center px-4 absolute origin-center">
+                  <div className="text-[10px] font-medium text-center mb-3">
+                    DECLARO TER RECEBIDO A IMPORTÂNCIA LÍQUIDA DISCRIMINADA NESTE RECIBO.
                   </div>
-
-                  <div className="flex justify-center items-end relative h-[60px] w-full">
-                    <div className="w-px h-full bg-black absolute top-0 left-1/2"></div>
-                    <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-medium h-full flex items-center ml-4">
-                      Data
-                    </div>
-                    {data.assinado && (
-                      <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-bold text-green-700 h-full flex items-center absolute left-1">
-                        {new Date(data.data_assinatura).toLocaleDateString('pt-BR')}
+                  <div className="flex justify-between items-end gap-6 px-2 w-full">
+                    <div className="flex flex-col items-center">
+                      <div className="w-[80px] border-b border-black h-4 text-center text-[10px] font-bold text-green-700 leading-none">
+                        {data.assinado
+                          ? new Date(data.data_assinatura).toLocaleDateString('pt-BR')
+                          : ''}
                       </div>
-                    )}
+                      <span className="text-[9px] mt-1 font-medium">DATA</span>
+                    </div>
+                    <div className="flex flex-col items-center flex-1">
+                      <div className="w-full border-b border-black h-4 text-center text-[10px] font-bold text-green-700 uppercase leading-none">
+                        {data.assinado ? data.assinatura_nome || 'ASSINADO DIGITALMENTE' : ''}
+                      </div>
+                      <span className="text-[9px] mt-1 font-medium">ASSINATURA DO FUNCIONÁRIO</span>
+                    </div>
                   </div>
                 </div>
               </div>

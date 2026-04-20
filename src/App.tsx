@@ -22,6 +22,7 @@ import Ponto from './pages/Ponto'
 import ContraCheque from './pages/ContraCheque'
 import Profile from './pages/Profile'
 import Admissao from './pages/Admissao'
+import Settings from './pages/Settings'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -78,6 +79,7 @@ const App = () => (
                   <Route path="ticket" element={<Ticket />} />
                   <Route path="transporte" element={<Transport />} />
                   <Route path="admissao" element={<Admissao />} />
+                  <Route path="configuracoes" element={<Settings />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />
                 <Route path="ponto" element={<Ponto />} />

@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard,
   CalendarDays,
@@ -11,9 +12,11 @@ import {
   Clock,
   Wallet,
   UserPlus,
+  Settings,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase/client'
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +30,24 @@ import {
 export default function AppSidebar() {
   const { currentUser } = useAppStore()
   const location = useLocation()
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [appName, setAppName] = useState<string>('Gestão RH SL Web')
+
+  useEffect(() => {
+    supabase
+      .from('configuracoes')
+      .select('*')
+      .in('chave', ['app_logo', 'app_name'])
+      .then(({ data }) => {
+        if (data) {
+          const logo = data.find((d) => d.chave === 'app_logo')?.valor as any
+          if (logo?.url) setLogoUrl(logo.url)
+          const name = data.find((d) => d.chave === 'app_name')?.valor as any
+          if (name?.text) setAppName(name.text)
+        }
+      })
+  }, [])
 
   const menuItems = [
     {
@@ -84,11 +105,10 @@ export default function AppSidebar() {
       roles: ['admin', 'Admin', 'Gerente'],
     },
     {
-      title: 'Meritocracia (Em breve)',
-      path: '#',
-      icon: Star,
+      title: 'Configurações',
+      path: '/app/configuracoes',
+      icon: Settings,
       roles: ['admin', 'Admin', 'Gerente'],
-      disabled: true,
     },
     {
       title: 'Relatórios',
@@ -100,19 +120,29 @@ export default function AppSidebar() {
 
   const filteredItems = menuItems.filter((item) => item.roles.includes(currentUser?.role || ''))
 
+  const sortedItems = filteredItems.sort((a, b) => {
+    if (a.title === 'Dashboard') return -1
+    if (b.title === 'Dashboard') return 1
+    return a.title.localeCompare(b.title)
+  })
+
   return (
     <Sidebar className="border-r border-sidebar-border bg-sidebar">
       <SidebarContent>
         <div className="p-4 py-6 text-lg font-bold text-primary flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex shrink-0 items-center justify-center text-white text-sm">
-            SL
-          </div>
-          <span className="truncate">Gestão RH SL Web</span>
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="max-h-8 max-w-[40px] object-contain rounded" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-primary flex shrink-0 items-center justify-center text-white text-sm">
+              SL
+            </div>
+          )}
+          <span className="truncate">{appName}</span>
         </div>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredItems.map((item) => (
+              {sortedItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
