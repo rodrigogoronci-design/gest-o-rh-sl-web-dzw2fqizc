@@ -55,7 +55,7 @@ const SUPPORT_TEAM = [
   'Lucas',
   'Giselly',
   'Guilherme',
-  'Felipe Borges',
+  'Felipe',
   'Fabricio',
   'Rafaela',
 ]
@@ -686,6 +686,46 @@ export default function Mural() {
                           <p className="text-sm text-muted-foreground p-4 text-center border border-dashed rounded-lg">
                             Nenhum plantonista para este dia.
                           </p>
+                        )}
+
+                        {canEdit && (
+                          <div className="space-y-3 mt-2">
+                            <div className="flex gap-2">
+                              <Select value={assignUserId} onValueChange={setAssignUserId}>
+                                <SelectTrigger className="flex-1 border-primary/20 focus:ring-primary">
+                                  <SelectValue placeholder="Adicionar Plantonista" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {supportOptions
+                                    .filter((u) => !dayShifts.includes(u.id))
+                                    .map((u) => (
+                                      <SelectItem key={u.id} value={u.id}>
+                                        {u.name}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                onClick={async () => {
+                                  if (assignUserId) {
+                                    await supabase.from('plantoes').upsert(
+                                      {
+                                        colaborador_id: assignUserId,
+                                        data: dateStr,
+                                        periodo: 'Integral',
+                                      },
+                                      { onConflict: 'colaborador_id, data' },
+                                    )
+                                    toggleShift(dateStr, assignUserId)
+                                    setAssignUserId('')
+                                    setReloadKey((k) => k + 1)
+                                  }
+                                }}
+                              >
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </div>
 
