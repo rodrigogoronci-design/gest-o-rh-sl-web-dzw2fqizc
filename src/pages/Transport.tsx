@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, eachDayOfInterval } from 'date-fns'
 import { supabase } from '@/lib/supabase/client'
 import useAppStore from '@/stores/useAppStore'
 import { saveTransportBatch } from '@/services/beneficios'
@@ -140,8 +140,8 @@ export default function Transport() {
         supabase
           .from('atestados')
           .select('*')
-          .lte('data_inicio', prevPEnd)
-          .gte('data_fim', prevPStart),
+          .gte('data_inicio', prevPStart)
+          .lte('data_inicio', prevPEnd),
       ])
 
       const freshUsers = cols || []
@@ -154,21 +154,41 @@ export default function Transport() {
         dDetails[u.id] = { ferias: [], atestados: [], faltas: [], homeOffice: hoDates }
       })
 
-      ferias?.forEach((f) => {
-        if (dDetails[f.colaborador_id]) {
-          dDetails[f.colaborador_id].ferias.push(
-            `${format(parseISO(f.data_inicio), 'dd/MM')} a ${format(parseISO(f.data_fim), 'dd/MM')}`,
-          )
-        }
-      })
-      atestados?.forEach((a) => {
-        if (dDetails[a.colaborador_id]) {
-          dDetails[a.colaborador_id].atestados.push(
-            `${format(parseISO(a.data_inicio), 'dd/MM')} a ${format(parseISO(a.data_fim), 'dd/MM')}`,
-          )
-        }
-      })
+      const calcDays = (records: any[], startStr: string, endStr: string, type: string) => {
+        const counts: Record<string, number> = {}
+        const start = parseISO(startStr)
+        const end = parseISO(endStr)
+        records?.forEach((r) => {
+          if (!r.colaborador_id) return
+          const rStart = parseISO(r.data_inicio)
+          const rEnd = parseISO(r.data_fim)
+          if (rStart <= end && rEnd >= start) {
+            const overlapStart = rStart < start ? start : rStart
+            const overlapEnd = rEnd > end ? end : rEnd
+
+            let days = eachDayOfInterval({ start: overlapStart, end: overlapEnd }).length
+            if (type === 'atestados' && r.quantidade_dias) {
+              days = r.quantidade_dias
+            }
+
+            counts[r.colaborador_id] = (counts[r.colaborador_id] || 0) + days
+
+            if (dDetails[r.colaborador_id]) {
+              dDetails[r.colaborador_id][type].push(
+                `${format(rStart, 'dd/MM')} a ${format(rEnd, 'dd/MM')}${type === 'atestados' && r.quantidade_dias ? ` (${r.quantidade_dias} ${r.quantidade_dias === 1 ? 'dia' : 'dias'})` : ''}`,
+              )
+            }
+          }
+        })
+        return counts
+      }
+
+      const vacationDaysCount = calcDays(ferias || [], pStart, pEnd, 'ferias')
+      const atestadoDaysCount = calcDays(atestados || [], prevPStart, prevPEnd, 'atestados')
+
+      const currentMonthFaltas: Record<string, number> = {}
       faltas?.forEach((f) => {
+        currentMonthFaltas[f.colaborador_id] = (currentMonthFaltas[f.colaborador_id] || 0) + 1
         if (dDetails[f.colaborador_id]) {
           dDetails[f.colaborador_id].faltas.push(format(parseISO(f.data), 'dd/MM/yyyy'))
         }
@@ -177,11 +197,6 @@ export default function Transport() {
       setDetailsData(dDetails)
 
       const transportsByColab = (transports || []).reduce((acc: any, t: any) => {
-        acc[t.colaborador_id] = t
-        return acc
-      }, {})
-
-      const ticketsByColab = (tickets || []).reduce((acc: any, t: any) => {
         acc[t.colaborador_id] = t
         return acc
       }, {})
@@ -203,14 +218,13 @@ export default function Transport() {
             credito: 0,
             desconto: 0,
           }
-          const tk = ticketsByColab[u.id] || { ferias: 0, atestados: 0, faltas: 0 }
 
           initial[u.id] = {
             businessDays: isStored ? data.dias_uteis : 20,
-            vacation: isStored ? data.ferias : tk.ferias,
-            sick: isStored ? data.atestados : tk.atestados,
-            faltas: isStored ? data.faltas : tk.faltas,
-            homeOffice: isStored ? data.home_office : hoDates.length,
+            vacation: vacationDaysCount[u.id] || 0,
+            sick: atestadoDaysCount[u.id] || 0,
+            faltas: currentMonthFaltas[u.id] || 0,
+            homeOffice: hoDates.length,
             credito: isStored ? data.credito : 0,
             desconto: isStored ? data.desconto : 0,
             credito_justificativa: isStored ? data.credito_justificativa : '',

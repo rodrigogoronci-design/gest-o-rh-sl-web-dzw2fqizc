@@ -133,8 +133,8 @@ export default function Ticket() {
         supabase
           .from('atestados')
           .select('*')
-          .lte('data_inicio', prevPEnd)
-          .gte('data_fim', prevPStart),
+          .gte('data_inicio', prevPStart)
+          .lte('data_inicio', prevPEnd),
         supabase.from('plantoes').select('*').gte('data', pStart).lte('data', pEnd),
         supabase.from('beneficios_ticket').select('*').eq('mes_ano', selectedMonth),
         supabase.from('faltas').select('*').gte('data', prevPStart).lte('data', prevPEnd),
@@ -156,13 +156,17 @@ export default function Ticket() {
           if (rStart <= end && rEnd >= start) {
             const overlapStart = rStart < start ? start : rStart
             const overlapEnd = rEnd > end ? end : rEnd
-            counts[r.colaborador_id] =
-              (counts[r.colaborador_id] || 0) +
-              eachDayOfInterval({ start: overlapStart, end: overlapEnd }).length
+
+            let days = eachDayOfInterval({ start: overlapStart, end: overlapEnd }).length
+            if (type === 'atestados' && r.quantidade_dias) {
+              days = r.quantidade_dias
+            }
+
+            counts[r.colaborador_id] = (counts[r.colaborador_id] || 0) + days
 
             if (dDetails[r.colaborador_id]) {
               dDetails[r.colaborador_id][type].push(
-                `${format(overlapStart, 'dd/MM')} a ${format(overlapEnd, 'dd/MM')}`,
+                `${format(rStart, 'dd/MM')} a ${format(rEnd, 'dd/MM')}${type === 'atestados' && r.quantidade_dias ? ` (${r.quantidade_dias} ${r.quantidade_dias === 1 ? 'dia' : 'dias'})` : ''}`,
               )
             }
           }
@@ -216,9 +220,9 @@ export default function Ticket() {
           initial[u.id] = {
             regular: isStored ? data.dias_uteis : 20,
             shifts: currentMonthShifts[u.id] || 0,
-            vacation: isStored ? data.ferias : vacationDaysCount[u.id] || 0,
-            sick: isStored ? data.atestados : atestadoDaysCount[u.id] || 0,
-            faltas: isStored ? data.faltas : currentMonthFaltas[u.id] || 0,
+            vacation: vacationDaysCount[u.id] || 0,
+            sick: atestadoDaysCount[u.id] || 0,
+            faltas: currentMonthFaltas[u.id] || 0,
             credito: isStored ? data.credito : 0,
             desconto: isStored ? data.desconto : 0,
             credito_justificativa: isStored ? data.credito_justificativa : '',
