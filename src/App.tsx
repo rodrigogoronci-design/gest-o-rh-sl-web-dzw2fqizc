@@ -24,6 +24,7 @@ import Profile from './pages/Profile'
 import Meritocracia from './pages/Meritocracia'
 import Admissao from './pages/Admissao'
 import Settings from './pages/Settings'
+import PlanoSaude from './pages/PlanoSaude'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -79,6 +80,7 @@ const App = () => (
                   <Route path="usuarios" element={<Users />} />
                   <Route path="ticket" element={<Ticket />} />
                   <Route path="transporte" element={<Transport />} />
+                  <Route path="plano-saude" element={<PlanoSaude />} />
                   <Route path="admissao" element={<Admissao />} />
                   <Route path="configuracoes" element={<Settings />} />
                 </Route>

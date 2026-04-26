@@ -41,7 +41,7 @@ export default function AppHeader() {
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-4 lg:px-6 shadow-sm">
       <div className="flex items-center gap-4">
-        <SidebarTrigger className="lg:hidden" />
+        <SidebarTrigger className="text-slate-600 hover:text-slate-900" />
         <h1 className="text-lg font-semibold text-slate-800 hidden sm:block">Painel de Controle</h1>
       </div>
 

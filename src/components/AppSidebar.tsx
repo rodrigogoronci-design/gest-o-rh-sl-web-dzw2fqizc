@@ -13,6 +13,8 @@ import {
   Wallet,
   UserPlus,
   Settings,
+  HeartPulse,
+  ChevronRight,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
@@ -25,7 +27,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from '@/components/ui/sidebar'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@radix-ui/react-collapsible'
 
 export default function AppSidebar() {
   const { currentUser } = useAppStore()
@@ -55,12 +61,6 @@ export default function AppSidebar() {
       path: '/app/dashboard',
       icon: LayoutDashboard,
       roles: ['admin', 'Admin', 'Gerente'],
-    },
-    {
-      title: 'Meritocracia',
-      path: '/app/meritocracia',
-      icon: Star,
-      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
     },
     {
       title: 'Mural de Plantões',
@@ -99,16 +99,43 @@ export default function AppSidebar() {
       roles: ['admin', 'Admin', 'Gerente'],
     },
     {
-      title: 'Ticket Alimentação',
-      path: '/app/ticket',
-      icon: Utensils,
-      roles: ['admin', 'Admin', 'Gerente'],
-    },
-    {
-      title: 'Vale Transporte',
-      path: '/app/transporte',
-      icon: Bus,
-      roles: ['admin', 'Admin', 'Gerente'],
+      title: 'Benefícios',
+      icon: HeartPulse,
+      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
+      items: [
+        {
+          title: 'Ticket Alimentação',
+          path: '/app/ticket',
+          icon: Utensils,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+        {
+          title: 'Vale Transporte',
+          path: '/app/transporte',
+          icon: Bus,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+        {
+          title: 'Meritocracia',
+          path: '/app/meritocracia',
+          icon: Star,
+          roles: [
+            'admin',
+            'Admin',
+            'Gerente',
+            'user',
+            'Colaborador',
+            'Personalizado',
+            'personalizado',
+          ],
+        },
+        {
+          title: 'Plano de Saúde',
+          path: '/app/plano-saude',
+          icon: HeartPulse,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+      ],
     },
     {
       title: 'Configurações',
@@ -124,7 +151,20 @@ export default function AppSidebar() {
     },
   ]
 
-  const filteredItems = menuItems.filter((item) => item.roles.includes(currentUser?.role || ''))
+  const filteredItems = menuItems
+    .map((item) => {
+      if (item.items) {
+        const filteredSubItems = item.items.filter((sub) =>
+          sub.roles.includes(currentUser?.role || ''),
+        )
+        return { ...item, items: filteredSubItems }
+      }
+      return item
+    })
+    .filter((item) => {
+      if (item.items) return item.items.length > 0
+      return item.roles.includes(currentUser?.role || '')
+    })
 
   const sortedItems = filteredItems.sort((a, b) => {
     if (a.title === 'Dashboard') return -1
@@ -150,22 +190,54 @@ export default function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {sortedItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.path}
-                    className={cn(
-                      item.disabled && 'opacity-50 cursor-not-allowed pointer-events-none',
-                    )}
-                  >
-                    <Link to={item.path}>
-                      <item.icon className="w-5 h-5" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {sortedItems.map((item) =>
+                item.items ? (
+                  <Collapsible key={item.title} asChild defaultOpen className="group/collapsible">
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton tooltip={item.title}>
+                          <item.icon className="w-5 h-5" />
+                          <span>{item.title}</span>
+                          <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {item.items.map((subItem) => (
+                            <SidebarMenuSubItem key={subItem.title}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={location.pathname === subItem.path}
+                              >
+                                <Link to={subItem.path}>
+                                  <subItem.icon className="w-4 h-4 mr-2" />
+                                  <span>{subItem.title}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                ) : (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === item.path}
+                      className={cn(
+                        item.disabled && 'opacity-50 cursor-not-allowed pointer-events-none',
+                      )}
+                      tooltip={item.title}
+                    >
+                      <Link to={item.path!}>
+                        <item.icon className="w-5 h-5" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ),
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
