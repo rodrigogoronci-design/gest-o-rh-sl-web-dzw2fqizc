@@ -16,6 +16,7 @@ import {
   HeartPulse,
   ChevronRight,
   Briefcase,
+  Sliders,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
@@ -75,6 +76,12 @@ export default function AppSidebar() {
           roles: ['admin', 'Admin', 'Gerente'],
         },
         {
+          title: 'Atestados',
+          path: '/app/atestados',
+          icon: FileText,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+        {
           title: 'Contra Cheque',
           path: '/app/contracheque',
           icon: Wallet,
@@ -119,18 +126,6 @@ export default function AppSidebar() {
       ],
     },
     {
-      title: 'Atestados',
-      path: '/app/atestados',
-      icon: FileText,
-      roles: ['admin', 'Admin', 'Gerente'],
-    },
-    {
-      title: 'Gestão de Usuários',
-      path: '/app/usuarios',
-      icon: Users,
-      roles: ['admin', 'Admin', 'Gerente'],
-    },
-    {
       title: 'Benefícios',
       icon: HeartPulse,
       roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
@@ -170,10 +165,23 @@ export default function AppSidebar() {
       ],
     },
     {
-      title: 'Configurações',
-      path: '/app/configuracoes',
-      icon: Settings,
+      title: 'Painel de Controle',
+      icon: Sliders,
       roles: ['admin', 'Admin', 'Gerente'],
+      items: [
+        {
+          title: 'Configurações',
+          path: '/app/configuracoes',
+          icon: Settings,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+        {
+          title: 'Gestão de Usuários',
+          path: '/app/usuarios',
+          icon: Users,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+      ],
     },
     {
       title: 'Relatórios',
