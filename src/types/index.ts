@@ -27,6 +27,7 @@ export interface TransportRecord {
   sick?: number
   faltas: number
   homeOffice?: number
+  shifts?: number
   credito?: number
   desconto?: number
   credito_justificativa?: string

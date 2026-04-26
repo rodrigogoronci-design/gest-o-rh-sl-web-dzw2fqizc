@@ -72,7 +72,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const prevStartStr = format(prevPeriodStart, 'yyyy-MM-dd')
   const prevEndStr = format(prevPeriodEnd, 'yyyy-MM-dd')
 
-  const [cols, faltas, ferias, atestados, plantoes, tickets, transports, hoData] =
+  const [cols, faltas, ferias, atestados, plantoes, tickets, transports, hoData, plantoesPrev] =
     await Promise.all([
       supabase.from('colaboradores').select('id, role, recebe_transporte'),
       supabase.from('faltas').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
@@ -90,6 +90,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
         .select('data')
         .gte('data', prevStartStr)
         .lte('data', prevEndStr),
+      supabase.from('plantoes').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
     ])
 
   const users = cols.data || []
@@ -100,6 +101,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const ticketsData = tickets.data || []
   const transportsData = transports.data || []
   const hoDataResult = hoData.data || []
+  const plantoesPrevData = plantoesPrev.data || []
   const homeOfficeCount = hoDataResult.length
 
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd })
@@ -153,6 +155,8 @@ export const syncAllUsersBeneficios = async (month: string) => {
 
     const receivesTransport = user.recebe_transporte === true
 
+    const userPlantoesPrev = plantoesPrevData.filter((p) => p.colaborador_id === userId).length
+
     if (receivesTransport) {
       transportUpdates.push({
         colaborador_id: userId,
@@ -161,6 +165,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
         ferias: userFerias,
         atestados: userAtestados,
         home_office: homeOfficeCount,
+        plantoes: userPlantoesPrev,
         dias_uteis: existingTransport ? existingTransport.dias_uteis : 20,
         credito: existingTransport ? existingTransport.credito : 0,
         desconto: existingTransport ? existingTransport.desconto : 0,

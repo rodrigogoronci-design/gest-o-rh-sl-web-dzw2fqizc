@@ -126,6 +126,7 @@ export default function Transport() {
         { data: faltas },
         { data: ferias },
         { data: atestados },
+        { data: plantoes },
       ] = await Promise.all([
         supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
         supabase.from('colaboradores').select('*').order('nome'),
@@ -142,6 +143,7 @@ export default function Transport() {
           .select('*')
           .gte('data_inicio', prevPStart)
           .lte('data_inicio', prevPEnd),
+        supabase.from('plantoes').select('*').gte('data', prevPStart).lte('data', prevPEnd),
       ])
 
       const freshUsers = cols || []
@@ -151,7 +153,13 @@ export default function Transport() {
 
       const dDetails: Record<string, Record<string, string[]>> = {}
       freshUsers.forEach((u: any) => {
-        dDetails[u.id] = { ferias: [], atestados: [], faltas: [], homeOffice: hoDates }
+        dDetails[u.id] = {
+          ferias: [],
+          atestados: [],
+          faltas: [],
+          homeOffice: hoDates,
+          plantoes: [],
+        }
       })
 
       const calcDays = (records: any[], startStr: string, endStr: string, type: string) => {
@@ -194,6 +202,14 @@ export default function Transport() {
         }
       })
 
+      const currentMonthPlantoes: Record<string, number> = {}
+      plantoes?.forEach((p) => {
+        currentMonthPlantoes[p.colaborador_id] = (currentMonthPlantoes[p.colaborador_id] || 0) + 1
+        if (dDetails[p.colaborador_id]) {
+          dDetails[p.colaborador_id].plantoes.push(format(parseISO(p.data), 'dd/MM/yyyy'))
+        }
+      })
+
       setDetailsData(dDetails)
 
       const transportsByColab = (transports || []).reduce((acc: any, t: any) => {
@@ -224,7 +240,8 @@ export default function Transport() {
             vacation: vacationDaysCount[u.id] || 0,
             sick: atestadoDaysCount[u.id] || 0,
             faltas: currentMonthFaltas[u.id] || 0,
-            homeOffice: hoDates.length,
+            homeOffice: isStored ? (data.home_office ?? hoDates.length) : hoDates.length,
+            shifts: isStored ? data.plantoes || 0 : currentMonthPlantoes[u.id] || 0,
             credito: isStored ? data.credito : 0,
             desconto: isStored ? data.desconto : 0,
             credito_justificativa: isStored ? data.credito_justificativa : '',
@@ -273,6 +290,7 @@ export default function Transport() {
       mes_ano: selectedMonth,
       dias_uteis: data.businessDays,
       home_office: data.homeOffice || 0,
+      plantoes: data.shifts || 0,
       ferias: data.vacation,
       atestados: data.sick,
       faltas: data.faltas,
@@ -404,6 +422,14 @@ export default function Transport() {
                     Home Office <Info className="w-3 h-3 text-slate-400" />
                   </div>
                 </TableHead>
+                <TableHead className="w-[100px] text-center">
+                  <div
+                    className="flex items-center justify-center gap-1 cursor-help"
+                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                  >
+                    Plantões <Info className="w-3 h-3 text-slate-400" />
+                  </div>
+                </TableHead>
                 <TableHead className="w-[90px] text-center">Crédito</TableHead>
                 <TableHead className="w-[90px] text-center">Desconto</TableHead>
                 <TableHead className="text-center w-[80px]">Total</TableHead>
@@ -423,6 +449,7 @@ export default function Transport() {
                     sick: 0,
                     faltas: 0,
                     homeOffice: 0,
+                    shifts: 0,
                     credito: 0,
                     desconto: 0,
                   }
@@ -431,6 +458,7 @@ export default function Transport() {
                     atestados: [],
                     faltas: [],
                     homeOffice: [],
+                    plantoes: [],
                   }
 
                   const eligibleDays = Math.max(
@@ -441,6 +469,7 @@ export default function Transport() {
                       (data.sick || 0) -
                       (data.faltas || 0) -
                       (data.homeOffice || 0) -
+                      (data.shifts || 0) -
                       (data.desconto || 0),
                   )
                   const totalValue = eligibleDays * transportValue
@@ -508,6 +537,17 @@ export default function Transport() {
                           title="Dias de Home Office"
                           items={details.homeOffice}
                           emptyText="Sem registros globais"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <FieldWithInfo
+                          value={data.shifts || 0}
+                          onChange={(e: any) => handleInputChange(u.id, 'shifts', e.target.value)}
+                          multiplier={transportValue}
+                          type="deduction"
+                          title="Dias de Plantão"
+                          items={details.plantoes}
+                          emptyText="Sem plantões registrados"
                         />
                       </TableCell>
                       <TableCell>
