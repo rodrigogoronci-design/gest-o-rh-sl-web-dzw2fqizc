@@ -167,24 +167,21 @@ Deno.serve(async (req: Request) => {
         role: mapRole(role),
         departamento: payload.departamento || null,
         recebe_transporte: receivesTransport,
-      }
-
+      };
+      
       if (payload.avatar_url !== undefined) {
-        updateDataDb.avatar_url = payload.avatar_url
+        updateDataDb.avatar_url = payload.avatar_url;
       }
-      if (payload.cpf !== undefined) updateDataDb.cpf = payload.cpf
-      if (payload.rg !== undefined) updateDataDb.rg = payload.rg
-      if (payload.data_nascimento !== undefined)
-        updateDataDb.data_nascimento = payload.data_nascimento
-      if (payload.endereco !== undefined) updateDataDb.endereco = payload.endereco
-      if (payload.telefone !== undefined) updateDataDb.telefone = payload.telefone
-      if (payload.cargo !== undefined) updateDataDb.cargo = payload.cargo
-      if (payload.data_admissao !== undefined) updateDataDb.data_admissao = payload.data_admissao
-      if (payload.salario !== undefined)
-        updateDataDb.salario = payload.salario ? parseFloat(payload.salario) : null
-      if (payload.tipo_contrato !== undefined) updateDataDb.tipo_contrato = payload.tipo_contrato
-      if (payload.codigo_funcionario !== undefined)
-        updateDataDb.codigo_funcionario = payload.codigo_funcionario
+      if (payload.cpf !== undefined) updateDataDb.cpf = payload.cpf;
+      if (payload.rg !== undefined) updateDataDb.rg = payload.rg;
+      if (payload.data_nascimento !== undefined) updateDataDb.data_nascimento = payload.data_nascimento;
+      if (payload.endereco !== undefined) updateDataDb.endereco = payload.endereco;
+      if (payload.telefone !== undefined) updateDataDb.telefone = payload.telefone;
+      if (payload.cargo !== undefined) updateDataDb.cargo = payload.cargo;
+      if (payload.data_admissao !== undefined) updateDataDb.data_admissao = payload.data_admissao;
+      if (payload.salario !== undefined) updateDataDb.salario = payload.salario ? parseFloat(payload.salario) : null;
+      if (payload.tipo_contrato !== undefined) updateDataDb.tipo_contrato = payload.tipo_contrato;
+      if (payload.codigo_funcionario !== undefined) updateDataDb.codigo_funcionario = payload.codigo_funcionario;
 
       const { error: dbErr } = await supabase
         .from('colaboradores')
