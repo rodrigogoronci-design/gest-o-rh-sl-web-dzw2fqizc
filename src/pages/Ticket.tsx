@@ -17,8 +17,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { Save, Info, Calendar as CalendarIcon, Minus, Plus } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Save, Info, Calendar as CalendarIcon } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -27,13 +26,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { TicketRecord } from '@/types'
+import { FieldWithInfo, AdjustmentInput } from '@/components/beneficios/TableUtils'
 
 const buildMonthsList = (maxFutureDate?: Date) => {
   const months = []
-  const start = new Date(2026, 0, 1) // Janeiro de 2026
+  const start = new Date(2026, 0, 1)
 
   const now = new Date()
-  let maxMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1) // Mês seguinte
+  let maxMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
 
   if (maxFutureDate && maxFutureDate > maxMonth) {
     maxMonth = new Date(maxFutureDate.getFullYear(), maxFutureDate.getMonth(), 1)
@@ -53,57 +53,6 @@ const buildMonthsList = (maxFutureDate?: Date) => {
   return months
 }
 
-const UnitInput = ({ value, onChange, className, readOnly, title }: any) => {
-  const handleDecrement = () => {
-    if (readOnly) return
-    const current = parseInt(value) || 0
-    if (current > 0) {
-      onChange({ target: { value: String(current - 1) } })
-    }
-  }
-
-  const handleIncrement = () => {
-    if (readOnly) return
-    const current = parseInt(value) || 0
-    onChange({ target: { value: String(current + 1) } })
-  }
-
-  return (
-    <div
-      className={cn(
-        'flex w-[84px] items-center h-8 rounded border border-slate-200 bg-white overflow-hidden transition-all focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary/50',
-        className,
-      )}
-      title={title}
-    >
-      <button
-        type="button"
-        onClick={handleDecrement}
-        disabled={readOnly || value <= 0}
-        className="flex h-full w-7 shrink-0 items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 disabled:pointer-events-none transition-colors"
-      >
-        <Minus className="h-3 w-3" />
-      </button>
-      <input
-        type="number"
-        min="0"
-        value={value}
-        onChange={onChange}
-        readOnly={readOnly}
-        className="flex-1 w-full h-full bg-transparent text-center text-xs font-medium text-slate-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-      />
-      <button
-        type="button"
-        onClick={handleIncrement}
-        disabled={readOnly}
-        className="flex h-full w-7 shrink-0 items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 disabled:pointer-events-none transition-colors"
-      >
-        <Plus className="h-3 w-3" />
-      </button>
-    </div>
-  )
-}
-
 export default function Ticket() {
   const { currentUser, users } = useAppStore()
   const { toast } = useToast()
@@ -115,6 +64,7 @@ export default function Ticket() {
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [closedMonth, setClosedMonth] = useState('')
   const [localData, setLocalData] = useState<Record<string, TicketRecord>>({})
+  const [detailsData, setDetailsData] = useState<Record<string, Record<string, string[]>>>({})
   const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
   const [preCalculatedAtestados, setPreCalculatedAtestados] = useState<Record<string, number>>({})
   const [preCalculatedFaltas, setPreCalculatedFaltas] = useState<Record<string, number>>({})
@@ -152,8 +102,7 @@ export default function Ticket() {
       .maybeSingle()
       .then(({ data }) => {
         if (data && data.data) {
-          const shiftDate = parseISO(data.data)
-          setMonths(buildMonthsList(shiftDate))
+          setMonths(buildMonthsList(parseISO(data.data)))
         }
       })
 
@@ -164,9 +113,7 @@ export default function Ticket() {
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) {
-          setClosedMonth(data.mes_ano)
-        }
+        if (data) setClosedMonth(data.mes_ano)
       })
   }, [])
 
@@ -190,10 +137,15 @@ export default function Ticket() {
           .gte('data_fim', prevPStart),
         supabase.from('plantoes').select('*').gte('data', pStart).lte('data', pEnd),
         supabase.from('beneficios_ticket').select('*').eq('mes_ano', selectedMonth),
-        supabase.from('faltas').select('*').gte('data', pStart).lte('data', pEnd),
+        supabase.from('faltas').select('*').gte('data', prevPStart).lte('data', prevPEnd),
       ])
 
-      const calcDays = (records: any[], startStr: string, endStr: string) => {
+      const dDetails: Record<string, Record<string, string[]>> = {}
+      users.forEach(
+        (u) => (dDetails[u.id] = { ferias: [], atestados: [], plantoes: [], faltas: [] }),
+      )
+
+      const calcDays = (records: any[], startStr: string, endStr: string, type: string) => {
         const counts: Record<string, number> = {}
         const start = parseISO(startStr)
         const end = parseISO(endStr)
@@ -207,26 +159,38 @@ export default function Ticket() {
             counts[r.colaborador_id] =
               (counts[r.colaborador_id] || 0) +
               eachDayOfInterval({ start: overlapStart, end: overlapEnd }).length
+
+            if (dDetails[r.colaborador_id]) {
+              dDetails[r.colaborador_id][type].push(
+                `${format(overlapStart, 'dd/MM')} a ${format(overlapEnd, 'dd/MM')}`,
+              )
+            }
           }
         })
         return counts
       }
 
-      const vacationDaysCount = calcDays(ferias || [], pStart, pEnd)
-      const atestadoDaysCount = calcDays(atestados || [], prevPStart, prevPEnd)
+      const vacationDaysCount = calcDays(ferias || [], pStart, pEnd, 'ferias')
+      const atestadoDaysCount = calcDays(atestados || [], prevPStart, prevPEnd, 'atestados')
+
       setPreCalculatedVacations(vacationDaysCount)
       setPreCalculatedAtestados(atestadoDaysCount)
 
       const currentMonthShifts: Record<string, number> = {}
       plantoes?.forEach((p) => {
         currentMonthShifts[p.colaborador_id] = (currentMonthShifts[p.colaborador_id] || 0) + 1
+        if (dDetails[p.colaborador_id])
+          dDetails[p.colaborador_id].plantoes.push(format(parseISO(p.data), 'dd/MM/yyyy'))
       })
 
       const currentMonthFaltas: Record<string, number> = {}
       faltas?.forEach((f) => {
         currentMonthFaltas[f.colaborador_id] = (currentMonthFaltas[f.colaborador_id] || 0) + 1
+        if (dDetails[f.colaborador_id])
+          dDetails[f.colaborador_id].faltas.push(format(parseISO(f.data), 'dd/MM/yyyy'))
       })
       setPreCalculatedFaltas(currentMonthFaltas)
+      setDetailsData(dDetails)
 
       const ticketsByColab = (tickets || []).reduce((acc: any, t: any) => {
         acc[t.colaborador_id] = t
@@ -239,7 +203,15 @@ export default function Ticket() {
         .forEach((u) => {
           const t = ticketsByColab[u.id]
           const isStored = !!t
-          const data = t || { dias_uteis: 20, plantoes: 0, atestados: 0, ferias: 0, faltas: 0 }
+          const data = t || {
+            dias_uteis: 20,
+            plantoes: 0,
+            atestados: 0,
+            ferias: 0,
+            faltas: 0,
+            credito: 0,
+            desconto: 0,
+          }
 
           initial[u.id] = {
             regular: isStored ? data.dias_uteis : 20,
@@ -247,6 +219,10 @@ export default function Ticket() {
             vacation: isStored ? data.ferias : vacationDaysCount[u.id] || 0,
             sick: isStored ? data.atestados : atestadoDaysCount[u.id] || 0,
             faltas: isStored ? data.faltas : currentMonthFaltas[u.id] || 0,
+            credito: isStored ? data.credito : 0,
+            desconto: isStored ? data.desconto : 0,
+            credito_justificativa: isStored ? data.credito_justificativa : '',
+            desconto_justificativa: isStored ? data.desconto_justificativa : '',
           }
         })
       setLocalData(initial)
@@ -261,6 +237,11 @@ export default function Ticket() {
 
   const handleInputChange = (userId: string, field: keyof TicketRecord, value: string) => {
     if (field === 'shifts') return
+    if (field === 'credito_justificativa' || field === 'desconto_justificativa') {
+      setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: value } }))
+      return
+    }
+
     const num = parseInt(value) || 0
 
     const checkWarning = (f: string, preCalc: number, label: string) => {
@@ -305,17 +286,20 @@ export default function Ticket() {
       atestados: data.sick,
       ferias: data.vacation,
       faltas: data.faltas,
+      credito: data.credito || 0,
+      desconto: data.desconto || 0,
+      credito_justificativa: data.credito_justificativa || '',
+      desconto_justificativa: data.desconto_justificativa || '',
     }))
     const { error } = await saveTicketsBatch(rows, selectedMonth)
     setIsSaving(false)
-    if (error) {
+    if (error)
       toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' })
-    } else {
+    else
       toast({
         title: 'Salvo com sucesso!',
         className: 'bg-emerald-50 text-emerald-900 border-emerald-200',
       })
-    }
   }
 
   let grandTotal = 0
@@ -347,7 +331,6 @@ export default function Ticket() {
               {ticketValue !== dbTicketValue && (
                 <Button
                   size="sm"
-                  variant="default"
                   className="h-6 text-[10px] px-2 bg-blue-600 hover:bg-blue-700 text-white transition-all animate-in fade-in"
                   onClick={handleSaveGlobalValue}
                 >
@@ -358,7 +341,7 @@ export default function Ticket() {
             <div className="h-3 w-px bg-slate-300 hidden sm:block"></div>
             <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
               <CalendarIcon className="w-3.5 h-3.5 text-slate-500" />
-              <span>Ciclo de Apuração:</span>
+              <span>Ciclo:</span>
               <strong className="text-slate-700">
                 {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
               </strong>
@@ -400,23 +383,31 @@ export default function Ticket() {
           )}
           <Table className="text-sm">
             <TableHeader className="bg-slate-50/90 sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200">
-              <TableRow className="[&>th]:py-2 [&>th]:px-3 text-xs uppercase tracking-wider text-slate-500 font-semibold border-0">
+              <TableRow className="[&>th]:py-2 [&>th]:px-3 text-[11px] uppercase tracking-wider text-slate-500 font-semibold border-0 whitespace-nowrap">
                 <TableHead className="min-w-[160px]">Colaborador</TableHead>
-                <TableHead className="w-[100px] text-center">Dias Úteis</TableHead>
-                <TableHead className="w-[100px] text-center">Plantões</TableHead>
-                <TableHead className="w-[110px] text-center">
+                <TableHead className="w-[90px] text-center">Dias Úteis</TableHead>
+                <TableHead className="w-[90px] text-center">Plantões</TableHead>
+                <TableHead className="w-[100px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Descontos baseados no ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
                   >
-                    Atestados
-                    <Info className="w-3 h-3 text-slate-400" />
+                    Atestados <Info className="w-3 h-3 text-slate-400" />
                   </div>
                 </TableHead>
-                <TableHead className="w-[100px] text-center">Férias</TableHead>
-                <TableHead className="w-[100px] text-center">Faltas</TableHead>
-                <TableHead className="text-center w-[90px]">Total</TableHead>
-                <TableHead className="text-right min-w-[120px]">Valor</TableHead>
+                <TableHead className="w-[90px] text-center">Férias</TableHead>
+                <TableHead className="w-[100px] text-center">
+                  <div
+                    className="flex items-center justify-center gap-1 cursor-help"
+                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                  >
+                    Faltas <Info className="w-3 h-3 text-slate-400" />
+                  </div>
+                </TableHead>
+                <TableHead className="w-[90px] text-center">Crédito</TableHead>
+                <TableHead className="w-[90px] text-center">Desconto</TableHead>
+                <TableHead className="text-center w-[80px]">Total</TableHead>
+                <TableHead className="text-right min-w-[110px]">Valor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -429,13 +420,24 @@ export default function Ticket() {
                     sick: 0,
                     vacation: 0,
                     faltas: 0,
+                    credito: 0,
+                    desconto: 0,
                   }
                   const preCalcVacation = preCalculatedVacations[u.id] || 0
                   const preCalcSick = preCalculatedAtestados[u.id] || 0
                   const preCalcFaltas = preCalculatedFaltas[u.id] || 0
+                  const details = detailsData[u.id] || {
+                    ferias: [],
+                    atestados: [],
+                    plantoes: [],
+                    faltas: [],
+                  }
                   const eligibleDays = Math.max(
                     0,
-                    data.regular + data.shifts - (data.sick + data.vacation + (data.faltas || 0)),
+                    data.regular +
+                      data.shifts +
+                      (data.credito || 0) -
+                      (data.sick + data.vacation + (data.faltas || 0) + (data.desconto || 0)),
                   )
                   const totalValue = eligibleDays * ticketValue
                   grandTotal += totalValue
@@ -447,110 +449,85 @@ export default function Ticket() {
                     >
                       <TableCell className="font-medium text-slate-700 text-xs">{u.name}</TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1 items-center">
-                          <UnitInput
-                            value={data.regular}
-                            onChange={(e: any) =>
-                              handleInputChange(u.id, 'regular', e.target.value)
-                            }
-                          />
-                          <span className="text-[10px] text-emerald-600 font-medium">
-                            +R$ {(data.regular * ticketValue).toFixed(2).replace('.', ',')}
-                          </span>
-                        </div>
+                        <FieldWithInfo
+                          value={data.regular}
+                          onChange={(e: any) => handleInputChange(u.id, 'regular', e.target.value)}
+                          multiplier={ticketValue}
+                          type="addition"
+                        />
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1 items-center">
-                          <UnitInput
-                            value={data.shifts}
-                            readOnly
-                            className="bg-slate-50 border-slate-200 opacity-80"
-                            title="Calculado automaticamente"
-                          />
-                          <span className="text-[10px] text-emerald-600 font-medium">
-                            +R$ {(data.shifts * ticketValue).toFixed(2).replace('.', ',')}
-                          </span>
-                        </div>
+                        <FieldWithInfo
+                          value={data.shifts}
+                          readOnly
+                          multiplier={ticketValue}
+                          type="addition"
+                          title="Dias de Plantão"
+                          items={details.plantoes}
+                          emptyText="Sem plantões registrados"
+                        />
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1 items-center">
-                          <UnitInput
-                            value={data.sick}
-                            onChange={(e: any) => handleInputChange(u.id, 'sick', e.target.value)}
-                            className={cn(
-                              data.sick !== preCalcSick && 'border-orange-300 bg-orange-50',
-                            )}
-                          />
-                          <div className="flex w-[84px] justify-between items-center px-1">
-                            <span className="text-[10px] text-red-600 font-medium">
-                              -R$ {(data.sick * ticketValue).toFixed(2).replace('.', ',')}
-                            </span>
-                            {data.sick !== preCalcSick && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="w-3 h-3 text-orange-500 cursor-help shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Diferente ({preCalcSick} dias no ciclo anterior)</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                        </div>
+                        <FieldWithInfo
+                          value={data.sick}
+                          onChange={(e: any) => handleInputChange(u.id, 'sick', e.target.value)}
+                          multiplier={ticketValue}
+                          type="deduction"
+                          isWarning={data.sick !== preCalcSick}
+                          title="Períodos de Atestados"
+                          items={details.atestados}
+                          emptyText="Sem atestados registrados"
+                        />
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1 items-center">
-                          <UnitInput
-                            value={data.vacation}
-                            onChange={(e: any) =>
-                              handleInputChange(u.id, 'vacation', e.target.value)
-                            }
-                            className={cn(
-                              data.vacation !== preCalcVacation && 'border-orange-300 bg-orange-50',
-                            )}
-                          />
-                          <div className="flex w-[84px] justify-between items-center px-1">
-                            <span className="text-[10px] text-red-600 font-medium">
-                              -R$ {(data.vacation * ticketValue).toFixed(2).replace('.', ',')}
-                            </span>
-                            {data.vacation !== preCalcVacation && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="w-3 h-3 text-orange-500 cursor-help shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Diferente ({preCalcVacation} dias na escala atual)</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                        </div>
+                        <FieldWithInfo
+                          value={data.vacation}
+                          onChange={(e: any) => handleInputChange(u.id, 'vacation', e.target.value)}
+                          multiplier={ticketValue}
+                          type="deduction"
+                          isWarning={data.vacation !== preCalcVacation}
+                          title="Períodos de Férias"
+                          items={details.ferias}
+                          emptyText="Sem férias registradas"
+                        />
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1 items-center">
-                          <UnitInput
-                            value={data.faltas || 0}
-                            onChange={(e: any) => handleInputChange(u.id, 'faltas', e.target.value)}
-                            className={cn(
-                              data.faltas !== preCalcFaltas && 'border-orange-300 bg-orange-50',
-                            )}
-                          />
-                          <div className="flex w-[84px] justify-between items-center px-1">
-                            <span className="text-[10px] text-red-600 font-medium">
-                              -R$ {((data.faltas || 0) * ticketValue).toFixed(2).replace('.', ',')}
-                            </span>
-                            {data.faltas !== preCalcFaltas && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="w-3 h-3 text-orange-500 cursor-help shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Diferente ({preCalcFaltas} faltas na escala atual)</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                        </div>
+                        <FieldWithInfo
+                          value={data.faltas || 0}
+                          onChange={(e: any) => handleInputChange(u.id, 'faltas', e.target.value)}
+                          multiplier={ticketValue}
+                          type="deduction"
+                          isWarning={data.faltas !== preCalcFaltas}
+                          title="Dias de Falta"
+                          items={details.faltas}
+                          emptyText="Sem faltas registradas"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <AdjustmentInput
+                          value={data.credito}
+                          justification={data.credito_justificativa}
+                          onChange={(val: string, just: string) => {
+                            handleInputChange(u.id, 'credito', val)
+                            handleInputChange(u.id, 'credito_justificativa', just)
+                          }}
+                          title="Justificativa do Crédito (Dias)"
+                          type="credito"
+                          multiplier={ticketValue}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <AdjustmentInput
+                          value={data.desconto}
+                          justification={data.desconto_justificativa}
+                          onChange={(val: string, just: string) => {
+                            handleInputChange(u.id, 'desconto', val)
+                            handleInputChange(u.id, 'desconto_justificativa', just)
+                          }}
+                          title="Justificativa do Desconto (Dias)"
+                          type="desconto"
+                          multiplier={ticketValue}
+                        />
                       </TableCell>
                       <TableCell className="text-center font-bold text-slate-700 text-sm">
                         {eligibleDays}

@@ -15,6 +15,10 @@ export interface TicketRecord {
   sick: number
   vacation: number
   faltas: number
+  credito?: number
+  desconto?: number
+  credito_justificativa?: string
+  desconto_justificativa?: string
 }
 
 export interface TransportRecord {
@@ -23,6 +27,10 @@ export interface TransportRecord {
   sick?: number
   faltas: number
   homeOffice?: number
+  credito?: number
+  desconto?: number
+  credito_justificativa?: string
+  desconto_justificativa?: string
 }
 
 export interface AppState {

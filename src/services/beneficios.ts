@@ -74,7 +74,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
 
   const [cols, faltas, ferias, atestados, plantoes, tickets, transports] = await Promise.all([
     supabase.from('colaboradores').select('id, role, recebe_transporte'),
-    supabase.from('faltas').select('*').gte('data', startStr).lte('data', endStr),
+    supabase.from('faltas').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
     supabase.from('ferias').select('*').lte('data_inicio', endStr).gte('data_fim', startStr),
     supabase
       .from('atestados')
