@@ -72,19 +72,25 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const prevStartStr = format(prevPeriodStart, 'yyyy-MM-dd')
   const prevEndStr = format(prevPeriodEnd, 'yyyy-MM-dd')
 
-  const [cols, faltas, ferias, atestados, plantoes, tickets, transports] = await Promise.all([
-    supabase.from('colaboradores').select('id, role, recebe_transporte'),
-    supabase.from('faltas').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
-    supabase.from('ferias').select('*').lte('data_inicio', endStr).gte('data_fim', startStr),
-    supabase
-      .from('atestados')
-      .select('*')
-      .lte('data_inicio', prevEndStr)
-      .gte('data_fim', prevStartStr),
-    supabase.from('plantoes').select('*').gte('data', startStr).lte('data', endStr),
-    supabase.from('beneficios_ticket').select('*').eq('mes_ano', month),
-    supabase.from('beneficios_transporte').select('*').eq('mes_ano', month),
-  ])
+  const [cols, faltas, ferias, atestados, plantoes, tickets, transports, hoData] =
+    await Promise.all([
+      supabase.from('colaboradores').select('id, role, recebe_transporte'),
+      supabase.from('faltas').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
+      supabase.from('ferias').select('*').lte('data_inicio', endStr).gte('data_fim', startStr),
+      supabase
+        .from('atestados')
+        .select('*')
+        .gte('data_inicio', prevStartStr)
+        .lte('data_inicio', prevEndStr),
+      supabase.from('plantoes').select('*').gte('data', startStr).lte('data', endStr),
+      supabase.from('beneficios_ticket').select('*').eq('mes_ano', month),
+      supabase.from('beneficios_transporte').select('*').eq('mes_ano', month),
+      supabase
+        .from('dias_home_office')
+        .select('data')
+        .gte('data', prevStartStr)
+        .lte('data', prevEndStr),
+    ])
 
   const users = cols.data || []
   const faltasData = faltas.data || []
@@ -93,14 +99,14 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const plantoesData = plantoes.data || []
   const ticketsData = tickets.data || []
   const transportsData = transports.data || []
+  const hoDataResult = hoData.data || []
+  const homeOfficeCount = hoDataResult.length
 
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd })
   const daysStrs = days.map((d) => format(d, 'yyyy-MM-dd'))
 
-  const prevDays = eachDayOfInterval({ start: prevPeriodStart, end: prevPeriodEnd })
-  const prevDaysStrs = prevDays.map((d) => format(d, 'yyyy-MM-dd'))
-
   const ticketUpdates: any[] = []
+  const transportUpdates: any[] = []
   const transportDeletes: string[] = []
 
   users.forEach((user) => {
@@ -124,33 +130,44 @@ export const syncAllUsersBeneficios = async (month: string) => {
 
     let userAtestados = 0
     const userAtestadosList = atestadosData.filter((a) => a.colaborador_id === userId)
-    if (userAtestadosList.length > 0) {
-      prevDaysStrs.forEach((dateStr) => {
-        const isAtestado = userAtestadosList.some(
-          (a) => dateStr >= a.data_inicio && dateStr <= a.data_fim,
-        )
-        if (isAtestado) userAtestados++
-      })
-    }
+    userAtestadosList.forEach((a) => {
+      userAtestados += a.quantidade_dias || 1
+    })
 
     const existingTicket = ticketsData.find((t) => t.colaborador_id === userId)
     const existingTransport = transportsData.find((t) => t.colaborador_id === userId)
 
-    if (!existingTicket) {
-      ticketUpdates.push({
+    ticketUpdates.push({
+      colaborador_id: userId,
+      mes_ano: month,
+      faltas: userFaltas,
+      ferias: userFerias,
+      atestados: userAtestados,
+      plantoes: userPlantoes,
+      dias_uteis: existingTicket ? existingTicket.dias_uteis : 20,
+      credito: existingTicket ? existingTicket.credito : 0,
+      desconto: existingTicket ? existingTicket.desconto : 0,
+      credito_justificativa: existingTicket ? existingTicket.credito_justificativa : '',
+      desconto_justificativa: existingTicket ? existingTicket.desconto_justificativa : '',
+    })
+
+    const receivesTransport = user.recebe_transporte === true
+
+    if (receivesTransport) {
+      transportUpdates.push({
         colaborador_id: userId,
         mes_ano: month,
         faltas: userFaltas,
         ferias: userFerias,
         atestados: userAtestados,
-        plantoes: userPlantoes,
-        dias_uteis: 20,
+        home_office: homeOfficeCount,
+        dias_uteis: existingTransport ? existingTransport.dias_uteis : 20,
+        credito: existingTransport ? existingTransport.credito : 0,
+        desconto: existingTransport ? existingTransport.desconto : 0,
+        credito_justificativa: existingTransport ? existingTransport.credito_justificativa : '',
+        desconto_justificativa: existingTransport ? existingTransport.desconto_justificativa : '',
       })
-    }
-
-    const receivesTransport = user.recebe_transporte === true
-
-    if (!receivesTransport && existingTransport) {
+    } else if (existingTransport) {
       transportDeletes.push(existingTransport.id)
     }
   })
@@ -159,6 +176,11 @@ export const syncAllUsersBeneficios = async (month: string) => {
     await supabase
       .from('beneficios_ticket')
       .upsert(ticketUpdates, { onConflict: 'colaborador_id,mes_ano' })
+  }
+  if (transportUpdates.length > 0) {
+    await supabase
+      .from('beneficios_transporte')
+      .upsert(transportUpdates, { onConflict: 'colaborador_id,mes_ano' })
   }
   if (transportDeletes.length > 0) {
     await supabase.from('beneficios_transporte').delete().in('id', transportDeletes)
