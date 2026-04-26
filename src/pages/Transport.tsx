@@ -241,7 +241,7 @@ export default function Transport() {
             sick: atestadoDaysCount[u.id] || 0,
             faltas: currentMonthFaltas[u.id] || 0,
             homeOffice: isStored ? (data.home_office ?? hoDates.length) : hoDates.length,
-            shifts: isStored ? data.plantoes || 0 : currentMonthPlantoes[u.id] || 0,
+            shifts: currentMonthPlantoes[u.id] || 0,
             credito: isStored ? data.credito : 0,
             desconto: isStored ? data.desconto : 0,
             credito_justificativa: isStored ? data.credito_justificativa : '',
@@ -402,6 +402,14 @@ export default function Transport() {
                     className="flex items-center justify-center gap-1 cursor-help"
                     title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
                   >
+                    Plantões <Info className="w-3 h-3 text-slate-400" />
+                  </div>
+                </TableHead>
+                <TableHead className="w-[100px] text-center">
+                  <div
+                    className="flex items-center justify-center gap-1 cursor-help"
+                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                  >
                     Atestados <Info className="w-3 h-3 text-slate-400" />
                   </div>
                 </TableHead>
@@ -420,14 +428,6 @@ export default function Transport() {
                     title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
                   >
                     Home Office <Info className="w-3 h-3 text-slate-400" />
-                  </div>
-                </TableHead>
-                <TableHead className="w-[100px] text-center">
-                  <div
-                    className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
-                  >
-                    Plantões <Info className="w-3 h-3 text-slate-400" />
                   </div>
                 </TableHead>
                 <TableHead className="w-[90px] text-center">Crédito</TableHead>
@@ -495,6 +495,17 @@ export default function Transport() {
                       </TableCell>
                       <TableCell>
                         <FieldWithInfo
+                          value={data.shifts || 0}
+                          onChange={(e: any) => handleInputChange(u.id, 'shifts', e.target.value)}
+                          multiplier={transportValue}
+                          type="deduction"
+                          title="Dias de Plantão"
+                          items={details.plantoes}
+                          emptyText="Sem plantões registrados"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <FieldWithInfo
                           value={data.sick || 0}
                           onChange={(e: any) => handleInputChange(u.id, 'sick', e.target.value)}
                           multiplier={transportValue}
@@ -537,17 +548,6 @@ export default function Transport() {
                           title="Dias de Home Office"
                           items={details.homeOffice}
                           emptyText="Sem registros globais"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <FieldWithInfo
-                          value={data.shifts || 0}
-                          onChange={(e: any) => handleInputChange(u.id, 'shifts', e.target.value)}
-                          multiplier={transportValue}
-                          type="deduction"
-                          title="Dias de Plantão"
-                          items={details.plantoes}
-                          emptyText="Sem plantões registrados"
                         />
                       </TableCell>
                       <TableCell>
