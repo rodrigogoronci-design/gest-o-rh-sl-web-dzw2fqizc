@@ -15,6 +15,7 @@ import {
   Settings,
   HeartPulse,
   ChevronRight,
+  Briefcase,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
@@ -63,28 +64,59 @@ export default function AppSidebar() {
       roles: ['admin', 'Admin', 'Gerente'],
     },
     {
-      title: 'Mural de Plantões',
-      path: '/app/mural',
-      icon: CalendarDays,
+      title: 'Gestão de Pessoas',
+      icon: Briefcase,
       roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
-    },
-    {
-      title: 'Admissão',
-      path: '/app/admissao',
-      icon: UserPlus,
-      roles: ['admin', 'Admin', 'Gerente'],
-    },
-    {
-      title: 'Controle de Ponto',
-      path: '/app/ponto',
-      icon: Clock,
-      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
-    },
-    {
-      title: 'Contra Cheque',
-      path: '/app/contracheque',
-      icon: Wallet,
-      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
+      items: [
+        {
+          title: 'Admissão',
+          path: '/app/admissao',
+          icon: UserPlus,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+        {
+          title: 'Contra Cheque',
+          path: '/app/contracheque',
+          icon: Wallet,
+          roles: [
+            'admin',
+            'Admin',
+            'Gerente',
+            'user',
+            'Colaborador',
+            'Personalizado',
+            'personalizado',
+          ],
+        },
+        {
+          title: 'Controle de Ponto',
+          path: '/app/ponto',
+          icon: Clock,
+          roles: [
+            'admin',
+            'Admin',
+            'Gerente',
+            'user',
+            'Colaborador',
+            'Personalizado',
+            'personalizado',
+          ],
+        },
+        {
+          title: 'Mural de Plantões',
+          path: '/app/mural',
+          icon: CalendarDays,
+          roles: [
+            'admin',
+            'Admin',
+            'Gerente',
+            'user',
+            'Colaborador',
+            'Personalizado',
+            'personalizado',
+          ],
+        },
+      ],
     },
     {
       title: 'Atestados',
