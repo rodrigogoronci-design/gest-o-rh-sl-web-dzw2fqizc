@@ -290,7 +290,7 @@ export default function Transport() {
       mes_ano: selectedMonth,
       dias_uteis: data.businessDays,
       home_office: data.homeOffice || 0,
-      plantoes: data.shifts || 0,
+      plantoes: 0,
       ferias: data.vacation,
       atestados: data.sick,
       faltas: data.faltas,
@@ -402,14 +402,6 @@ export default function Transport() {
                     className="flex items-center justify-center gap-1 cursor-help"
                     title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
                   >
-                    Plantões <Info className="w-3 h-3 text-slate-400" />
-                  </div>
-                </TableHead>
-                <TableHead className="w-[100px] text-center">
-                  <div
-                    className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
-                  >
                     Atestados <Info className="w-3 h-3 text-slate-400" />
                   </div>
                 </TableHead>
@@ -469,7 +461,6 @@ export default function Transport() {
                       (data.sick || 0) -
                       (data.faltas || 0) -
                       (data.homeOffice || 0) -
-                      (data.shifts || 0) -
                       (data.desconto || 0),
                   )
                   const totalValue = eligibleDays * transportValue
@@ -491,17 +482,6 @@ export default function Transport() {
                           }
                           multiplier={transportValue}
                           type="addition"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <FieldWithInfo
-                          value={data.shifts || 0}
-                          onChange={(e: any) => handleInputChange(u.id, 'shifts', e.target.value)}
-                          multiplier={transportValue}
-                          type="deduction"
-                          title="Dias de Plantão"
-                          items={details.plantoes}
-                          emptyText="Sem plantões registrados"
                         />
                       </TableCell>
                       <TableCell>

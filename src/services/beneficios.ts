@@ -165,7 +165,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
         ferias: userFerias,
         atestados: userAtestados,
         home_office: homeOfficeCount,
-        plantoes: userPlantoesPrev,
+        plantoes: 0,
         dias_uteis: existingTransport ? existingTransport.dias_uteis : 20,
         credito: existingTransport ? existingTransport.credito : 0,
         desconto: existingTransport ? existingTransport.desconto : 0,
