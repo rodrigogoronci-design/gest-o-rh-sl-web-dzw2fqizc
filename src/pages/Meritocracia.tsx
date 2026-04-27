@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -12,9 +12,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase/client'
 import useAppStore from '@/stores/useAppStore'
-import { Star, Award, TrendingUp, AlertTriangle } from 'lucide-react'
+import {
+  Star,
+  Award,
+  TrendingUp,
+  AlertTriangle,
+  FileSpreadsheet,
+  Upload,
+  CheckCircle2,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 function MeritocraciaDetailSheet({ user, onClose }: { user: any; onClose: () => void }) {
   if (!user) return null
@@ -215,11 +226,64 @@ function MeritocraciaDetailSheet({ user, onClose }: { user: any; onClose: () => 
   )
 }
 
+function ImportBox({ title, id }: { title: string; id: string }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploaded, setUploaded] = useState(false)
+
+  const handleUpload = () => {
+    if (!file) return
+    setUploading(true)
+    setTimeout(() => {
+      setUploading(false)
+      setUploaded(true)
+    }, 1500)
+  }
+
+  return (
+    <div className="border rounded-lg p-3 flex flex-col gap-2 bg-white shadow-sm hover:border-green-200 transition-colors">
+      <label htmlFor={id} className="font-medium text-xs text-slate-700 line-clamp-1" title={title}>
+        {title}
+      </label>
+      <div className="flex items-center gap-2">
+        <Input
+          id={id}
+          type="file"
+          accept=".xlsx,.xls"
+          className="text-[10px] h-8 px-2 py-1 file:text-[10px] file:font-medium file:text-slate-600 file:border-0 file:bg-transparent file:mr-2 cursor-pointer"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] || null)
+            setUploaded(false)
+          }}
+        />
+        <Button
+          size="icon"
+          variant={uploaded ? 'default' : 'secondary'}
+          className={cn('shrink-0 h-8 w-8', uploaded && 'bg-green-600 hover:bg-green-700')}
+          onClick={handleUpload}
+          disabled={!file || uploading || uploaded}
+          title="Importar Planilha"
+        >
+          {uploaded ? (
+            <CheckCircle2 className="w-4 h-4 text-white" />
+          ) : (
+            <Upload className="w-4 h-4" />
+          )}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export default function Meritocracia() {
   const { currentUser } = useAppStore()
   const [colaboradores, setColaboradores] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedUser, setSelectedUser] = useState<any | null>(null)
+
+  const currentDate = new Date()
+  const initialMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth)
 
   useEffect(() => {
     supabase
@@ -245,14 +309,35 @@ export default function Meritocracia() {
     return users
   }
 
+  const getMonthName = (monthStr: string) => {
+    try {
+      const [year, month] = monthStr.split('-')
+      const date = new Date(parseInt(year), parseInt(month) - 1, 1)
+      const name = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date)
+      return name.charAt(0).toUpperCase() + name.slice(1)
+    } catch (e) {
+      return monthStr
+    }
+  }
+
   if (loading)
     return <div className="p-8 text-center text-muted-foreground">Carregando dados...</div>
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Meritocracia</h1>
-        <p className="text-muted-foreground">Avaliação de desempenho e indicadores por setor.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Meritocracia</h1>
+          <p className="text-muted-foreground">Avaliação de desempenho e indicadores por setor.</p>
+        </div>
+        <div className="flex items-center gap-2 bg-white p-2 rounded-lg border shadow-sm">
+          <Input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="w-40 h-9"
+          />
+        </div>
       </div>
 
       <Tabs defaultValue={visibleSectors[0]} className="w-full">
@@ -265,41 +350,73 @@ export default function Meritocracia() {
         </TabsList>
 
         {visibleSectors.map((sector) => (
-          <TabsContent key={sector} value={sector} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {getSectorUsers(sector).map((user) => (
-                <Card
-                  key={user.id}
-                  className="cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => setSelectedUser(user)}
-                >
-                  <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                    <Avatar className="w-20 h-20 border-2 border-slate-100 shadow-sm">
-                      <AvatarImage src={user.avatar_url} />
-                      <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                        {user.nome?.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-semibold text-lg line-clamp-1">{user.nome}</h3>
-                      <Badge variant="outline" className="mt-1">
-                        {user.cargo || 'Membro da Equipe'}
-                      </Badge>
-                    </div>
-                    <div className="w-full pt-4 border-t flex justify-between text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Star className="w-4 h-4 text-amber-400" /> Pontuação
-                      </span>
-                      <span className="font-medium text-foreground">Ver Detalhes</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {getSectorUsers(sector).length === 0 && (
-                <div className="col-span-full py-12 text-center text-muted-foreground bg-slate-50 rounded-lg border border-dashed">
-                  Nenhum colaborador encontrado neste setor.
-                </div>
-              )}
+          <TabsContent key={sector} value={sector} className="space-y-6">
+            {sector === 'SUPORTE' && isAdminOrManager && (
+              <Card className="bg-slate-50/50 border-dashed">
+                <CardHeader className="pb-3 pt-4">
+                  <CardTitle className="text-base flex items-center gap-2 text-slate-800">
+                    <FileSpreadsheet className="w-5 h-5 text-green-600" />
+                    Importações de Dados - Suporte ({getMonthName(selectedMonth)})
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Faça o upload das planilhas do mês para processar as métricas de meritocracia da
+                    equipe.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <ImportBox id="imp-satisfacao" title="Resultados da Pesq. de Satisfação" />
+                    <ImportBox id="imp-sonax" title="Sonax Chamadas Entrantes" />
+                    <ImportBox id="imp-perm-tickets" title="Tempo de Perm. dos Tickets por Resp." />
+                    <ImportBox id="imp-trab-tickets" title="Tempo Trabalhado nos Tickets" />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div>
+              <h2 className="text-lg font-semibold mb-3 text-slate-800">Equipe de {sector}</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {getSectorUsers(sector).map((user) => (
+                  <Card
+                    key={user.id}
+                    className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all duration-200"
+                    onClick={() => setSelectedUser(user)}
+                  >
+                    <CardContent className="p-4 flex flex-col items-center text-center space-y-2">
+                      <Avatar className="w-14 h-14 border-2 border-slate-100 shadow-sm">
+                        <AvatarImage src={user.avatar_url} />
+                        <AvatarFallback className="text-lg bg-primary/10 text-primary">
+                          {user.nome?.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="w-full">
+                        <h3 className="font-semibold text-sm line-clamp-1" title={user.nome}>
+                          {user.nome}
+                        </h3>
+                        <Badge
+                          variant="secondary"
+                          className="mt-1 text-[10px] px-1.5 py-0 font-normal line-clamp-1 border-slate-200 h-4"
+                        >
+                          {user.cargo || 'Membro da Equipe'}
+                        </Badge>
+                      </div>
+                      <div className="w-full pt-2 mt-1 border-t border-slate-100 flex justify-between items-center text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1 font-medium">
+                          <Star className="w-3 h-3 text-amber-400" />
+                          <span>Pontuação</span>
+                        </span>
+                        <span className="font-medium text-primary hover:underline">Ver</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {getSectorUsers(sector).length === 0 && (
+                  <div className="col-span-full py-12 text-center text-muted-foreground bg-slate-50 rounded-lg border border-dashed">
+                    Nenhum colaborador encontrado neste setor.
+                  </div>
+                )}
+              </div>
             </div>
           </TabsContent>
         ))}
