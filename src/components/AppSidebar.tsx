@@ -126,83 +126,6 @@ export default function AppSidebar() {
       ],
     },
     {
-      title: 'Meritocracia',
-      icon: Star,
-      roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
-      items: [
-        {
-          title: 'Visão Geral',
-          path: '/app/meritocracia',
-          icon: LayoutDashboard,
-          roles: [
-            'admin',
-            'Admin',
-            'Gerente',
-            'user',
-            'Colaborador',
-            'Personalizado',
-            'personalizado',
-          ],
-        },
-        {
-          title: 'Suporte',
-          path: '/app/meritocracia/suporte',
-          icon: Users,
-          roles: [
-            'admin',
-            'Admin',
-            'Gerente',
-            'user',
-            'Colaborador',
-            'Personalizado',
-            'personalizado',
-          ],
-        },
-        {
-          title: 'Implantação',
-          path: '/app/meritocracia/implantacao',
-          icon: Users,
-          roles: [
-            'admin',
-            'Admin',
-            'Gerente',
-            'user',
-            'Colaborador',
-            'Personalizado',
-            'personalizado',
-          ],
-        },
-        {
-          title: 'Desenvolvimento',
-          path: '/app/meritocracia/desenvolvimento',
-          icon: Users,
-          roles: [
-            'admin',
-            'Admin',
-            'Gerente',
-            'user',
-            'Colaborador',
-            'Personalizado',
-            'personalizado',
-          ],
-        },
-        {
-          title: 'Administrativo',
-          path: '/app/meritocracia/administrativo',
-          icon: Users,
-          roles: [
-            'admin',
-            'Admin',
-            'Gerente',
-            'user',
-            'Colaborador',
-            'Personalizado',
-            'personalizado',
-          ],
-        },
-      ],
-    },
-    {
       title: 'Benefícios',
       icon: HeartPulse,
       roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
@@ -224,6 +147,91 @@ export default function AppSidebar() {
           path: '/app/plano-saude',
           icon: HeartPulse,
           roles: ['admin', 'Admin', 'Gerente'],
+        },
+        {
+          title: 'Meritocracia',
+          icon: Star,
+          roles: [
+            'admin',
+            'Admin',
+            'Gerente',
+            'user',
+            'Colaborador',
+            'Personalizado',
+            'personalizado',
+          ],
+          items: [
+            {
+              title: 'Visão Geral',
+              path: '/app/meritocracia',
+              icon: LayoutDashboard,
+              roles: [
+                'admin',
+                'Admin',
+                'Gerente',
+                'user',
+                'Colaborador',
+                'Personalizado',
+                'personalizado',
+              ],
+            },
+            {
+              title: 'Suporte',
+              path: '/app/meritocracia/suporte',
+              icon: Users,
+              roles: [
+                'admin',
+                'Admin',
+                'Gerente',
+                'user',
+                'Colaborador',
+                'Personalizado',
+                'personalizado',
+              ],
+            },
+            {
+              title: 'Implantação',
+              path: '/app/meritocracia/implantacao',
+              icon: Users,
+              roles: [
+                'admin',
+                'Admin',
+                'Gerente',
+                'user',
+                'Colaborador',
+                'Personalizado',
+                'personalizado',
+              ],
+            },
+            {
+              title: 'Desenvolvimento',
+              path: '/app/meritocracia/desenvolvimento',
+              icon: Users,
+              roles: [
+                'admin',
+                'Admin',
+                'Gerente',
+                'user',
+                'Colaborador',
+                'Personalizado',
+                'personalizado',
+              ],
+            },
+            {
+              title: 'Administrativo',
+              path: '/app/meritocracia/administrativo',
+              icon: Users,
+              roles: [
+                'admin',
+                'Admin',
+                'Gerente',
+                'user',
+                'Colaborador',
+                'Personalizado',
+                'personalizado',
+              ],
+            },
+          ],
         },
       ],
     },
@@ -257,9 +265,20 @@ export default function AppSidebar() {
   const filteredItems = menuItems
     .map((item) => {
       if (item.items) {
-        const filteredSubItems = item.items.filter((sub) =>
-          sub.roles.includes(currentUser?.role || ''),
-        )
+        const filteredSubItems = item.items
+          .map((sub: any) => {
+            if (sub.items) {
+              const filteredNested = sub.items.filter((nested: any) =>
+                nested.roles.includes(currentUser?.role || ''),
+              )
+              return { ...sub, items: filteredNested }
+            }
+            return sub
+          })
+          .filter((sub: any) => {
+            if (sub.items) return sub.items.length > 0
+            return sub.roles.includes(currentUser?.role || '')
+          })
         return { ...item, items: filteredSubItems }
       }
       return item
@@ -268,6 +287,50 @@ export default function AppSidebar() {
       if (item.items) return item.items.length > 0
       return item.roles.includes(currentUser?.role || '')
     })
+
+  const renderSubItem = (subItem: any) => {
+    if (subItem.items) {
+      return (
+        <Collapsible key={subItem.title} asChild className="group/sub-collapsible">
+          <SidebarMenuSubItem>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuSubButton className="w-full flex justify-between cursor-pointer font-medium text-slate-700">
+                <div className="flex items-center">
+                  <subItem.icon className="w-4 h-4 mr-2" />
+                  <span>{subItem.title}</span>
+                </div>
+                <ChevronRight className="w-3 h-3 ml-auto transition-transform duration-200 group-data-[state=open]/sub-collapsible:rotate-90" />
+              </SidebarMenuSubButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub className="pr-0 mr-0 border-l-0 ml-3 pl-3 border-sidebar-border border-l mt-1 space-y-1">
+                {subItem.items.map((nestedItem: any) => (
+                  <SidebarMenuSubItem key={nestedItem.title}>
+                    <SidebarMenuSubButton asChild isActive={location.pathname === nestedItem.path}>
+                      <Link to={nestedItem.path}>
+                        <nestedItem.icon className="w-3.5 h-3.5 mr-2" />
+                        <span>{nestedItem.title}</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                ))}
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </SidebarMenuSubItem>
+        </Collapsible>
+      )
+    }
+    return (
+      <SidebarMenuSubItem key={subItem.title}>
+        <SidebarMenuSubButton asChild isActive={location.pathname === subItem.path}>
+          <Link to={subItem.path}>
+            <subItem.icon className="w-4 h-4 mr-2" />
+            <span>{subItem.title}</span>
+          </Link>
+        </SidebarMenuSubButton>
+      </SidebarMenuSubItem>
+    )
+  }
 
   const sortedItems = filteredItems.sort((a, b) => {
     if (a.title === 'Dashboard') return -1
@@ -306,19 +369,7 @@ export default function AppSidebar() {
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <SidebarMenuSub>
-                          {item.items.map((subItem) => (
-                            <SidebarMenuSubItem key={subItem.title}>
-                              <SidebarMenuSubButton
-                                asChild
-                                isActive={location.pathname === subItem.path}
-                              >
-                                <Link to={subItem.path}>
-                                  <subItem.icon className="w-4 h-4 mr-2" />
-                                  <span>{subItem.title}</span>
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ))}
+                          {item.items.map((subItem: any) => renderSubItem(subItem))}
                         </SidebarMenuSub>
                       </CollapsibleContent>
                     </SidebarMenuItem>

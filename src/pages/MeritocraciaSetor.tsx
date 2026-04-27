@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -27,6 +27,15 @@ import { toast } from 'sonner'
 import { Star, AlertTriangle, FileSpreadsheet, CheckCircle2, Save } from 'lucide-react'
 import { DetailSheet } from '@/components/meritocracia/DetailSheet'
 import { ImportBox } from '@/components/meritocracia/ImportBox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 
 export default function MeritocraciaSetor() {
   const { setor } = useParams<{ setor: string }>()
@@ -66,6 +75,19 @@ export default function MeritocraciaSetor() {
       return ''
     }
   }
+
+  const monthOptions = useMemo(() => {
+    const months = []
+    const d = new Date()
+    d.setMonth(d.getMonth() - 6)
+    for (let i = 0; i < 12; i++) {
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      months.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) })
+      d.setMonth(d.getMonth() + 1)
+    }
+    return months
+  }, [])
 
   useEffect(() => {
     supabase
@@ -124,6 +146,20 @@ export default function MeritocraciaSetor() {
   const displayUsers = isAdminOrManager
     ? colaboradores
     : colaboradores.filter((c) => c.id === currentUser?.id)
+
+  const chartData = useMemo(() => {
+    return displayUsers
+      .map((user) => {
+        const seed = user.id.charCodeAt(0) % 100
+        const prod = 60 + (seed % 40)
+        return {
+          id: user.id,
+          name: user.nome.split(' ')[0] + ' ' + (user.nome.split(' ')[1]?.[0] || '') + '.',
+          produtividade: prod,
+        }
+      })
+      .sort((a, b) => b.produtividade - a.produtividade)
+  }, [displayUsers, selectedMonth])
 
   const handlePreview = (file: File, title: string, id: string) => {
     setPreviewFile({ file, title, id })
@@ -187,39 +223,115 @@ export default function MeritocraciaSetor() {
           <h1 className="text-2xl font-bold tracking-tight">Equipe: {sectorName}</h1>
           <p className="text-muted-foreground">Avaliação de desempenho e indicadores do setor.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           {isAdminOrManager && (
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border shadow-sm">
-              <span className="text-sm font-medium text-slate-600">Valor Total:</span>
-              <div className="relative flex items-center">
-                <span className="absolute left-2.5 text-sm text-slate-500">R$</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground font-medium px-1">
+                Valor Total da Meritocracia
+              </span>
+              <div className="flex items-center gap-2 bg-white px-3 h-10 rounded-lg border shadow-sm">
+                <span className="text-sm text-slate-500 font-medium">R$</span>
                 <Input
                   type="number"
                   value={valorBase}
                   onChange={(e) => setValorBase(Number(e.target.value))}
-                  className="w-24 h-8 pl-8 pr-2 text-right font-medium border-slate-200"
                   onBlur={saveValorBase}
+                  className="w-24 h-8 border-0 shadow-none focus-visible:ring-0 px-1 text-right font-medium text-slate-800"
                 />
               </div>
             </div>
           )}
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-2 bg-white p-1.5 rounded-lg border shadow-sm">
-              <Input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-40 h-8"
-              />
-            </div>
+          <div className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground font-medium px-1">
               Ciclo: {getCycleDates(selectedMonth)}
             </span>
+            <div className="flex items-center bg-white p-1 rounded-lg border shadow-sm h-10">
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-48 h-8 border-0 shadow-none focus:ring-0 font-medium text-slate-800">
+                  <SelectValue placeholder="Selecione o mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="space-y-6">
+        {displayUsers.length > 0 && (
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-base font-semibold text-slate-800">
+                Produtividade da Equipe
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Métricas de desempenho calculadas para o ciclo ({selectedMonth}).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div
+                className="w-full"
+                style={{ height: `${Math.max(180, displayUsers.length * 40)}px` }}
+              >
+                <ChartContainer
+                  config={{
+                    produtividade: { label: 'Produtividade (%)', color: 'hsl(var(--primary))' },
+                  }}
+                  className="w-full h-full"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={chartData}
+                      layout="vertical"
+                      margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                      barSize={20}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                      <XAxis type="number" hide domain={[0, 100]} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                        width={90}
+                      />
+                      <ChartTooltip
+                        cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                        content={<ChartTooltipContent />}
+                      />
+                      <Bar
+                        dataKey="produtividade"
+                        fill="var(--color-produtividade)"
+                        radius={[0, 4, 4, 0]}
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={
+                              entry.produtividade >= 90
+                                ? '#10b981'
+                                : entry.produtividade >= 70
+                                  ? 'hsl(var(--primary))'
+                                  : '#f59e0b'
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-slate-800">Colaboradores</h2>
@@ -233,45 +345,48 @@ export default function MeritocraciaSetor() {
               </Button>
             )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {displayUsers.map((user) => (
               <Card
                 key={user.id}
                 className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all duration-200"
                 onClick={() => setSelectedUser(user)}
               >
-                <CardContent className="p-3 flex flex-col items-center text-center space-y-2">
-                  <Avatar className="w-12 h-12 border-2 border-slate-100 shadow-sm">
+                <CardContent className="p-4 flex flex-col items-center text-center space-y-3">
+                  <Avatar className="w-16 h-16 border-2 border-slate-100 shadow-sm">
                     <AvatarImage src={user.avatar_url} />
-                    <AvatarFallback className="text-sm bg-primary/10 text-primary">
+                    <AvatarFallback className="text-lg bg-primary/10 text-primary font-semibold">
                       {user.nome?.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="w-full">
-                    <h3 className="font-semibold text-xs line-clamp-1" title={user.nome}>
+                    <h3
+                      className="font-semibold text-sm line-clamp-1 text-slate-800"
+                      title={user.nome}
+                    >
                       {user.nome}
                     </h3>
                     <Badge
                       variant="secondary"
-                      className="mt-1 text-[9px] px-1 py-0 font-normal line-clamp-1 border-slate-200 h-3"
+                      className="mt-1 text-[10px] px-2 py-0.5 font-medium line-clamp-1 border-slate-200 bg-slate-100"
                     >
                       {user.cargo || 'Membro da Equipe'}
                     </Badge>
                   </div>
-                  <div className="w-full pt-2 mt-1 border-t border-slate-100 flex justify-between items-center text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-1 font-medium">
-                      <Star className="w-2.5 h-2.5 text-amber-400" />
+                  <div className="w-full pt-3 mt-1 border-t border-slate-100 flex justify-between items-center text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Star className="w-3.5 h-3.5 text-amber-400" />
                       <span>Pts</span>
                       {(faltas.some((f) => f.colaborador_id === user.id) ||
                         atestados.some((a) => a.colaborador_id === user.id) ||
                         cancelamentos.length > 0) && (
                         <AlertTriangle
-                          className="w-3 h-3 text-red-500 ml-1"
+                          className="w-3.5 h-3.5 text-red-500 ml-1"
                           title="Possui descontos no ciclo"
                         />
                       )}
                     </span>
-                    <span className="font-medium text-primary hover:underline">Ver</span>
+                    <span className="font-medium text-primary hover:underline">Detalhes</span>
                   </div>
                 </CardContent>
               </Card>

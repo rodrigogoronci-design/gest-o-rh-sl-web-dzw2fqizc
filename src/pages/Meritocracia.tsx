@@ -4,7 +4,15 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { useMemo } from 'react'
 import { Star, TrendingUp, Clock, AlertTriangle, UserMinus, CheckCircle2 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export default function MeritocraciaDashboard() {
   const currentDate = new Date()
@@ -28,6 +36,19 @@ export default function MeritocraciaDashboard() {
       return ''
     }
   }
+
+  const monthOptions = useMemo(() => {
+    const months = []
+    const d = new Date()
+    d.setMonth(d.getMonth() - 6)
+    for (let i = 0; i < 12; i++) {
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      months.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) })
+      d.setMonth(d.getMonth() + 1)
+    }
+    return months
+  }, [])
 
   const fetchDados = async () => {
     setLoading(true)
@@ -97,32 +118,40 @@ export default function MeritocraciaDashboard() {
             Dashboard, configurações e lançamentos globais do ciclo.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border shadow-sm">
-            <span className="text-sm font-medium text-slate-600">Valor Total:</span>
-            <div className="relative flex items-center">
-              <span className="absolute left-2.5 text-sm text-slate-500">R$</span>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground font-medium px-1">
+              Valor Total da Meritocracia
+            </span>
+            <div className="flex items-center gap-2 bg-white px-3 h-10 rounded-lg border shadow-sm">
+              <span className="text-sm text-slate-500 font-medium">R$</span>
               <Input
                 type="number"
                 value={valorBase}
                 onChange={(e) => setValorBase(Number(e.target.value))}
                 onBlur={saveValorBase}
-                className="w-24 h-8 pl-8 pr-2 text-right font-medium border-slate-200"
+                className="w-24 h-8 border-0 shadow-none focus-visible:ring-0 px-1 text-right font-medium text-slate-800"
               />
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-2 bg-white p-1.5 rounded-lg border shadow-sm">
-              <Input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-40 h-8"
-              />
-            </div>
+          <div className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground font-medium px-1">
               Ciclo: {getCycleDates(selectedMonth)}
             </span>
+            <div className="flex items-center bg-white p-1 rounded-lg border shadow-sm h-10">
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-48 h-8 border-0 shadow-none focus:ring-0 font-medium text-slate-800">
+                  <SelectValue placeholder="Selecione o mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </div>
