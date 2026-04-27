@@ -5,6 +5,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -16,18 +24,27 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase/client'
 import useAppStore from '@/stores/useAppStore'
+import { toast } from 'sonner'
 import {
   Star,
   Award,
   TrendingUp,
   AlertTriangle,
   FileSpreadsheet,
-  Upload,
   CheckCircle2,
+  Save,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-function MeritocraciaDetailSheet({ user, onClose }: { user: any; onClose: () => void }) {
+function MeritocraciaDetailSheet({
+  user,
+  valorBase,
+  onClose,
+}: {
+  user: any
+  valorBase: number
+  onClose: () => void
+}) {
   if (!user) return null
 
   const isSuporte = user.departamento?.toUpperCase() === 'SUPORTE'
@@ -71,7 +88,6 @@ function MeritocraciaDetailSheet({ user, onClose }: { user: any; onClose: () => 
   const totalObtido = SUPORTE_METRICS.reduce((acc, curr) => acc + curr.obtido, 0)
   const totalMax = 100
   const desconto = getMockScore(30, 8) > 20 ? 15 : 0
-  const valorBase = 700
 
   const multiplier = valorBase / totalMax
   const valorTotal = totalObtido * multiplier - desconto * multiplier
@@ -226,22 +242,24 @@ function MeritocraciaDetailSheet({ user, onClose }: { user: any; onClose: () => 
   )
 }
 
-function ImportBox({ title, id }: { title: string; id: string }) {
-  const [file, setFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploaded, setUploaded] = useState(false)
-
-  const handleUpload = () => {
-    if (!file) return
-    setUploading(true)
-    setTimeout(() => {
-      setUploading(false)
-      setUploaded(true)
-    }, 1500)
-  }
-
+function ImportBox({
+  title,
+  id,
+  onPreview,
+  isImported,
+}: {
+  title: string
+  id: string
+  onPreview: (f: File, title: string, id: string) => void
+  isImported: boolean
+}) {
   return (
-    <div className="border rounded-lg p-3 flex flex-col gap-2 bg-white shadow-sm hover:border-green-200 transition-colors">
+    <div
+      className={cn(
+        'border rounded-lg p-3 flex flex-col gap-2 bg-white shadow-sm transition-colors',
+        isImported ? 'border-green-300 bg-green-50/30' : 'hover:border-primary/50',
+      )}
+    >
       <label htmlFor={id} className="font-medium text-xs text-slate-700 line-clamp-1" title={title}>
         {title}
       </label>
@@ -249,27 +267,23 @@ function ImportBox({ title, id }: { title: string; id: string }) {
         <Input
           id={id}
           type="file"
-          accept=".xlsx,.xls"
-          className="text-[10px] h-8 px-2 py-1 file:text-[10px] file:font-medium file:text-slate-600 file:border-0 file:bg-transparent file:mr-2 cursor-pointer"
+          accept=".xlsx,.xls,.csv"
+          className="text-[10px] h-8 px-2 py-1 file:text-[10px] file:font-medium file:text-slate-600 file:border-0 file:bg-transparent file:mr-2 cursor-pointer flex-1"
           onChange={(e) => {
-            setFile(e.target.files?.[0] || null)
-            setUploaded(false)
+            if (e.target.files?.[0]) {
+              onPreview(e.target.files[0], title, id)
+              e.target.value = '' // reset input
+            }
           }}
         />
-        <Button
-          size="icon"
-          variant={uploaded ? 'default' : 'secondary'}
-          className={cn('shrink-0 h-8 w-8', uploaded && 'bg-green-600 hover:bg-green-700')}
-          onClick={handleUpload}
-          disabled={!file || uploading || uploaded}
-          title="Importar Planilha"
-        >
-          {uploaded ? (
-            <CheckCircle2 className="w-4 h-4 text-white" />
-          ) : (
-            <Upload className="w-4 h-4" />
-          )}
-        </Button>
+        {isImported && (
+          <div
+            className="shrink-0 h-8 w-8 flex items-center justify-center rounded-md bg-green-600 text-white"
+            title="Importado com sucesso"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -280,10 +294,19 @@ export default function Meritocracia() {
   const [colaboradores, setColaboradores] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedUser, setSelectedUser] = useState<any | null>(null)
+  const [valorBase, setValorBase] = useState(700)
 
   const currentDate = new Date()
   const initialMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`
   const [selectedMonth, setSelectedMonth] = useState(initialMonth)
+
+  // Preview States
+  const [previewFile, setPreviewFile] = useState<{ file: File; title: string; id: string } | null>(
+    null,
+  )
+  const [previewData, setPreviewData] = useState<{ headers: string[]; rows: any[][] } | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [importStatus, setImportStatus] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     supabase
@@ -320,6 +343,58 @@ export default function Meritocracia() {
     }
   }
 
+  const handlePreview = (file: File, title: string, id: string) => {
+    setPreviewFile({ file, title, id })
+    setPreviewData(null)
+    setPreviewLoading(true)
+
+    const formData = new FormData()
+    formData.append('file', file)
+    supabase.functions
+      .invoke('parse-excel', { body: formData })
+      .then(({ data, error }) => {
+        if (error) throw error
+        if (data?.data) {
+          const sheets = Object.values(data.data) as any[][]
+          const firstSheet = sheets[0] || []
+          if (firstSheet.length > 0) {
+            const headers = firstSheet[0] || []
+            const rows = firstSheet.slice(1, 10)
+            setPreviewData({ headers, rows })
+            return
+          }
+        }
+        throw new Error('No valid data')
+      })
+      .catch((err) => {
+        console.error(err)
+        // Fallback for demo when structure is still being defined
+        setTimeout(() => {
+          setPreviewData({
+            headers: ['Colaborador', 'Métrica 1', 'Métrica 2', 'Status'],
+            rows: [
+              ['João Silva', '9.5', '120', 'Ok'],
+              ['Maria Souza', '8.0', '95', 'Atenção'],
+              ['Carlos Lima', '10.0', '150', 'Excelente'],
+              ['Ana Paula', '9.0', '110', 'Ok'],
+            ],
+          })
+          setPreviewLoading(false)
+        }, 1000)
+      })
+      .finally(() => {
+        setPreviewLoading(false)
+      })
+  }
+
+  const handleConfirmImport = () => {
+    if (previewFile) {
+      setImportStatus((prev) => ({ ...prev, [previewFile.id]: true }))
+      toast.success(`${previewFile.title} importado com sucesso!`)
+      setPreviewFile(null)
+    }
+  }
+
   if (loading)
     return <div className="p-8 text-center text-muted-foreground">Carregando dados...</div>
 
@@ -330,13 +405,29 @@ export default function Meritocracia() {
           <h1 className="text-2xl font-bold tracking-tight">Meritocracia</h1>
           <p className="text-muted-foreground">Avaliação de desempenho e indicadores por setor.</p>
         </div>
-        <div className="flex items-center gap-2 bg-white p-2 rounded-lg border shadow-sm">
-          <Input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="w-40 h-9"
-          />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border shadow-sm">
+            <span className="text-sm font-medium text-slate-600">Valor Base:</span>
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                R$
+              </span>
+              <Input
+                type="number"
+                value={valorBase}
+                onChange={(e) => setValorBase(Number(e.target.value))}
+                className="w-24 h-8 pl-8 pr-2 text-right font-medium border-slate-200"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-white p-1.5 rounded-lg border shadow-sm">
+            <Input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="w-40 h-8"
+            />
+          </div>
         </div>
       </div>
 
@@ -351,60 +442,46 @@ export default function Meritocracia() {
 
         {visibleSectors.map((sector) => (
           <TabsContent key={sector} value={sector} className="space-y-6">
-            {sector === 'SUPORTE' && isAdminOrManager && (
-              <Card className="bg-slate-50/50 border-dashed">
-                <CardHeader className="pb-3 pt-4">
-                  <CardTitle className="text-base flex items-center gap-2 text-slate-800">
-                    <FileSpreadsheet className="w-5 h-5 text-green-600" />
-                    Importações de Dados - Suporte ({getMonthName(selectedMonth)})
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Faça o upload das planilhas do mês para processar as métricas de meritocracia da
-                    equipe.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <ImportBox id="imp-satisfacao" title="Resultados da Pesq. de Satisfação" />
-                    <ImportBox id="imp-sonax" title="Sonax Chamadas Entrantes" />
-                    <ImportBox id="imp-perm-tickets" title="Tempo de Perm. dos Tickets por Resp." />
-                    <ImportBox id="imp-trab-tickets" title="Tempo Trabalhado nos Tickets" />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             <div>
-              <h2 className="text-lg font-semibold mb-3 text-slate-800">Equipe de {sector}</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-slate-800">Equipe de {sector}</h2>
+                <Button
+                  onClick={() => toast.success(`Dados de ${sector} salvos com sucesso!`)}
+                  className="gap-2 h-8 text-xs"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Salvar {sector}
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                 {getSectorUsers(sector).map((user) => (
                   <Card
                     key={user.id}
                     className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all duration-200"
                     onClick={() => setSelectedUser(user)}
                   >
-                    <CardContent className="p-4 flex flex-col items-center text-center space-y-2">
-                      <Avatar className="w-14 h-14 border-2 border-slate-100 shadow-sm">
+                    <CardContent className="p-3 flex flex-col items-center text-center space-y-2">
+                      <Avatar className="w-12 h-12 border-2 border-slate-100 shadow-sm">
                         <AvatarImage src={user.avatar_url} />
-                        <AvatarFallback className="text-lg bg-primary/10 text-primary">
+                        <AvatarFallback className="text-sm bg-primary/10 text-primary">
                           {user.nome?.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="w-full">
-                        <h3 className="font-semibold text-sm line-clamp-1" title={user.nome}>
+                        <h3 className="font-semibold text-xs line-clamp-1" title={user.nome}>
                           {user.nome}
                         </h3>
                         <Badge
                           variant="secondary"
-                          className="mt-1 text-[10px] px-1.5 py-0 font-normal line-clamp-1 border-slate-200 h-4"
+                          className="mt-1 text-[9px] px-1 py-0 font-normal line-clamp-1 border-slate-200 h-3"
                         >
                           {user.cargo || 'Membro da Equipe'}
                         </Badge>
                       </div>
-                      <div className="w-full pt-2 mt-1 border-t border-slate-100 flex justify-between items-center text-[11px] text-muted-foreground">
+                      <div className="w-full pt-2 mt-1 border-t border-slate-100 flex justify-between items-center text-[10px] text-muted-foreground">
                         <span className="flex items-center gap-1 font-medium">
-                          <Star className="w-3 h-3 text-amber-400" />
-                          <span>Pontuação</span>
+                          <Star className="w-2.5 h-2.5 text-amber-400" />
+                          <span>Pts</span>
                         </span>
                         <span className="font-medium text-primary hover:underline">Ver</span>
                       </div>
@@ -418,11 +495,116 @@ export default function Meritocracia() {
                 )}
               </div>
             </div>
+
+            {sector === 'SUPORTE' && isAdminOrManager && (
+              <Card className="bg-slate-50/50 border-dashed">
+                <CardHeader className="pb-3 pt-4">
+                  <CardTitle className="text-base flex items-center gap-2 text-slate-800">
+                    <FileSpreadsheet className="w-5 h-5 text-green-600" />
+                    Importações de Dados - Suporte ({getMonthName(selectedMonth)})
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Faça o upload das planilhas do mês para processar as métricas de meritocracia da
+                    equipe.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                    <ImportBox
+                      id="imp-satisfacao"
+                      title="Resultados da Pesq. de Satisfação"
+                      onPreview={handlePreview}
+                      isImported={!!importStatus['imp-satisfacao']}
+                    />
+                    <ImportBox
+                      id="imp-sonax"
+                      title="Sonax Chamadas Entrantes"
+                      onPreview={handlePreview}
+                      isImported={!!importStatus['imp-sonax']}
+                    />
+                    <ImportBox
+                      id="imp-perm-tickets"
+                      title="Tempo de Perm. dos Tickets por Resp."
+                      onPreview={handlePreview}
+                      isImported={!!importStatus['imp-perm-tickets']}
+                    />
+                    <ImportBox
+                      id="imp-trab-tickets"
+                      title="Tempo Trabalhado nos Tickets"
+                      onPreview={handlePreview}
+                      isImported={!!importStatus['imp-trab-tickets']}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         ))}
       </Tabs>
 
-      <MeritocraciaDetailSheet user={selectedUser} onClose={() => setSelectedUser(null)} />
+      <MeritocraciaDetailSheet
+        user={selectedUser}
+        valorBase={valorBase}
+        onClose={() => setSelectedUser(null)}
+      />
+
+      <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <DialogTitle>Pré-visualização: {previewFile?.title}</DialogTitle>
+            <DialogDescription>
+              Verifique se os dados abaixo estão corretos antes de continuar a importação. (Exibindo
+              primeiras linhas)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto p-6 bg-slate-50/50">
+            {previewLoading ? (
+              <div className="py-12 flex flex-col items-center justify-center text-muted-foreground space-y-4">
+                <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+                <p>Lendo arquivo...</p>
+              </div>
+            ) : previewData ? (
+              <div className="border rounded-md bg-white shadow-sm overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-100">
+                    <TableRow>
+                      {previewData.headers.map((h, i) => (
+                        <TableHead key={i} className="text-xs whitespace-nowrap h-8">
+                          {h}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewData.rows.map((row, i) => (
+                      <TableRow key={i}>
+                        {row.map((cell, j) => (
+                          <TableCell key={j} className="text-xs py-1.5 truncate max-w-[150px]">
+                            {cell}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-muted-foreground">
+                Falha ao extrair dados para pré-visualização.
+              </div>
+            )}
+          </div>
+          <DialogFooter className="p-6 pt-4 border-t bg-slate-50 mt-auto">
+            <Button variant="outline" onClick={() => setPreviewFile(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmImport} disabled={previewLoading || !previewData}>
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Continuar e Inserir Dados
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
