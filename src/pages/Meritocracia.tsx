@@ -39,10 +39,12 @@ import { cn } from '@/lib/utils'
 function MeritocraciaDetailSheet({
   user,
   valorBase,
+  cycleData,
   onClose,
 }: {
   user: any
   valorBase: number
+  cycleData: { faltas: any[]; atestados: any[] }
   onClose: () => void
 }) {
   if (!user) return null
@@ -54,6 +56,12 @@ function MeritocraciaDetailSheet({
     const val = (seed.charCodeAt(0) + seed.charCodeAt(seed.length - 1) + offset) % max
     return max - val
   }
+
+  const totalFaltas = cycleData.faltas.length
+  const totalAtestados = cycleData.atestados.reduce(
+    (acc, curr) => acc + (curr.quantidade_dias || 1),
+    0,
+  )
 
   const SUPORTE_METRICS = [
     {
@@ -87,10 +95,15 @@ function MeritocraciaDetailSheet({
 
   const totalObtido = SUPORTE_METRICS.reduce((acc, curr) => acc + curr.obtido, 0)
   const totalMax = 100
-  const desconto = getMockScore(30, 8) > 20 ? 15 : 0
+
+  // Regras de apuração baseadas no ciclo (Faltas e Atestados)
+  const descontoFaltas = totalFaltas * 10 // ex: 10 pontos por falta
+  const descontoAtestados = totalAtestados * 5 // ex: 5 pontos por dia de atestado
+  const descontoErros = getMockScore(30, 8) > 20 ? 15 : 0
+  const desconto = descontoFaltas + descontoAtestados + descontoErros
 
   const multiplier = valorBase / totalMax
-  const valorTotal = totalObtido * multiplier - desconto * multiplier
+  const valorTotal = Math.max(0, totalObtido * multiplier - desconto * multiplier)
 
   return (
     <Sheet open={!!user} onOpenChange={(open) => !open && onClose()}>
@@ -200,12 +213,32 @@ function MeritocraciaDetailSheet({
                     <TableBody>
                       <TableRow>
                         <TableCell className="font-medium text-slate-700">
+                          Faltas no Ciclo ({totalFaltas} dias)
+                        </TableCell>
+                        <TableCell className="text-center text-slate-500">10/dia</TableCell>
+                        <TableCell className="text-center text-slate-500">-</TableCell>
+                        <TableCell className="text-right font-bold text-red-600">
+                          {descontoFaltas}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium text-slate-700">
+                          Atestados no Ciclo ({totalAtestados} dias)
+                        </TableCell>
+                        <TableCell className="text-center text-slate-500">5/dia</TableCell>
+                        <TableCell className="text-center text-slate-500">-</TableCell>
+                        <TableCell className="text-right font-bold text-red-600">
+                          {descontoAtestados}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium text-slate-700">
                           Erros críticos/Retenção de Clientes
                         </TableCell>
                         <TableCell className="text-center text-slate-500">15</TableCell>
                         <TableCell className="text-center text-slate-500">30</TableCell>
                         <TableCell className="text-right font-bold text-red-600">
-                          {desconto}
+                          {descontoErros}
                         </TableCell>
                       </TableRow>
                       <TableRow className="bg-red-50">
@@ -213,7 +246,7 @@ function MeritocraciaDetailSheet({
                           TOTAL GERAL (Pontos)
                         </TableCell>
                         <TableCell className="text-right font-bold text-lg text-red-700">
-                          {totalObtido - desconto}
+                          {Math.max(0, totalObtido - desconto)}
                         </TableCell>
                       </TableRow>
                     </TableBody>
@@ -296,9 +329,26 @@ export default function Meritocracia() {
   const [selectedUser, setSelectedUser] = useState<any | null>(null)
   const [valorBase, setValorBase] = useState(700)
 
+  // Ciclo Data
+  const [faltas, setFaltas] = useState<any[]>([])
+  const [atestados, setAtestados] = useState<any[]>([])
+
   const currentDate = new Date()
   const initialMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`
   const [selectedMonth, setSelectedMonth] = useState(initialMonth)
+
+  const getCycleDates = (monthStr: string) => {
+    try {
+      const [year, month] = monthStr.split('-').map(Number)
+      const prevDate = new Date(year, month - 2, 25)
+      const currDate = new Date(year, month - 1, 24)
+      const formatDt = (d: Date) =>
+        d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      return `${formatDt(prevDate)} a ${formatDt(currDate)}`
+    } catch (e) {
+      return ''
+    }
+  }
 
   // Preview States
   const [previewFile, setPreviewFile] = useState<{ file: File; title: string; id: string } | null>(
@@ -318,6 +368,29 @@ export default function Meritocracia() {
         setLoading(false)
       })
   }, [])
+
+  useEffect(() => {
+    if (!selectedMonth) return
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const prevDate = new Date(year, month - 2, 25)
+    const currDate = new Date(year, month - 1, 24)
+
+    // Ajuste de timezone para evitar problemas de fuso
+    const startStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`
+    const endStr = `${currDate.getFullYear()}-${String(currDate.getMonth() + 1).padStart(2, '0')}-${String(currDate.getDate()).padStart(2, '0')}`
+
+    Promise.all([
+      supabase.from('faltas').select('*').gte('data', startStr).lte('data', endStr),
+      supabase
+        .from('atestados')
+        .select('*')
+        .gte('data_inicio', startStr)
+        .lte('data_inicio', endStr),
+    ]).then(([fRes, aRes]) => {
+      if (fRes.data) setFaltas(fRes.data)
+      if (aRes.data) setAtestados(aRes.data)
+    })
+  }, [selectedMonth])
 
   const isAdminOrManager = ['admin', 'Admin', 'Gerente', 'personalizado', 'Personalizado'].includes(
     currentUser?.role || '',
@@ -420,13 +493,18 @@ export default function Meritocracia() {
               />
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-white p-1.5 rounded-lg border shadow-sm">
-            <Input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-40 h-8"
-            />
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2 bg-white p-1.5 rounded-lg border shadow-sm">
+              <Input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-40 h-8"
+              />
+            </div>
+            <span className="text-xs text-muted-foreground font-medium px-1">
+              Ciclo: {getCycleDates(selectedMonth)}
+            </span>
           </div>
         </div>
       </div>
@@ -482,6 +560,13 @@ export default function Meritocracia() {
                         <span className="flex items-center gap-1 font-medium">
                           <Star className="w-2.5 h-2.5 text-amber-400" />
                           <span>Pts</span>
+                          {(faltas.some((f) => f.colaborador_id === user.id) ||
+                            atestados.some((a) => a.colaborador_id === user.id)) && (
+                            <AlertTriangle
+                              className="w-3 h-3 text-red-500 ml-1"
+                              title="Possui faltas ou atestados no ciclo"
+                            />
+                          )}
                         </span>
                         <span className="font-medium text-primary hover:underline">Ver</span>
                       </div>
@@ -545,6 +630,10 @@ export default function Meritocracia() {
       <MeritocraciaDetailSheet
         user={selectedUser}
         valorBase={valorBase}
+        cycleData={{
+          faltas: faltas.filter((f) => f.colaborador_id === selectedUser?.id),
+          atestados: atestados.filter((a) => a.colaborador_id === selectedUser?.id),
+        }}
         onClose={() => setSelectedUser(null)}
       />
 
