@@ -22,6 +22,7 @@ import Ponto from './pages/Ponto'
 import ContraCheque from './pages/ContraCheque'
 import Profile from './pages/Profile'
 import Meritocracia from './pages/Meritocracia'
+import MeritocraciaSetor from './pages/MeritocraciaSetor'
 import Admissao from './pages/Admissao'
 import Settings from './pages/Settings'
 import PlanoSaude from './pages/PlanoSaude'
@@ -86,6 +87,7 @@ const App = () => (
                 </Route>
                 <Route path="mural" element={<Mural />} />
                 <Route path="meritocracia" element={<Meritocracia />} />
+                <Route path="meritocracia/:setor" element={<MeritocraciaSetor />} />
                 <Route path="ponto" element={<Ponto />} />
                 <Route path="contracheque" element={<ContraCheque />} />
                 <Route path="perfil" element={<Profile />} />
