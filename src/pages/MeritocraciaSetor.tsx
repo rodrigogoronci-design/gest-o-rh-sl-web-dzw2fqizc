@@ -34,7 +34,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts'
+import {
+  ComposedChart,
+  Area,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Cell,
+  LabelList,
+} from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 
 export default function MeritocraciaSetor() {
@@ -275,10 +285,7 @@ export default function MeritocraciaSetor() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div
-                className="w-full"
-                style={{ height: `${Math.max(180, displayUsers.length * 40)}px` }}
-              >
+              <div className="w-full h-[320px]">
                 <ChartContainer
                   config={{
                     produtividade: { label: 'Produtividade (%)', color: 'hsl(var(--primary))' },
@@ -286,31 +293,43 @@ export default function MeritocraciaSetor() {
                   className="w-full h-full"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
+                    <ComposedChart
                       data={chartData}
-                      layout="vertical"
-                      margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-                      barSize={20}
+                      margin={{ top: 25, right: 10, left: -20, bottom: 20 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                      <XAxis type="number" hide domain={[0, 100]} />
-                      <YAxis
+                      <defs>
+                        <linearGradient id="colorProd" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis
                         dataKey="name"
-                        type="category"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                        width={90}
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        domain={[0, 100]}
                       />
                       <ChartTooltip
                         cursor={{ fill: 'rgba(0,0,0,0.05)' }}
                         content={<ChartTooltipContent />}
                       />
-                      <Bar
+                      <Area
+                        type="monotone"
                         dataKey="produtividade"
-                        fill="var(--color-produtividade)"
-                        radius={[0, 4, 4, 0]}
-                      >
+                        fill="url(#colorProd)"
+                        stroke="none"
+                      />
+                      <Bar dataKey="produtividade" radius={[4, 4, 0, 0]} maxBarSize={40}>
                         {chartData.map((entry, index) => (
                           <Cell
                             key={`cell-${index}`}
@@ -323,8 +342,14 @@ export default function MeritocraciaSetor() {
                             }
                           />
                         ))}
+                        <LabelList
+                          dataKey="produtividade"
+                          position="top"
+                          formatter={(val: number) => `${val}%`}
+                          style={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
+                        />
                       </Bar>
-                    </BarChart>
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </ChartContainer>
               </div>

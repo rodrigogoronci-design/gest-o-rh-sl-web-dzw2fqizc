@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Briefcase,
   Sliders,
+  Gift,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
@@ -127,27 +128,9 @@ export default function AppSidebar() {
     },
     {
       title: 'Benefícios',
-      icon: HeartPulse,
+      icon: Gift,
       roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
       items: [
-        {
-          title: 'Ticket Alimentação',
-          path: '/app/ticket',
-          icon: Utensils,
-          roles: ['admin', 'Admin', 'Gerente'],
-        },
-        {
-          title: 'Vale Transporte',
-          path: '/app/transporte',
-          icon: Bus,
-          roles: ['admin', 'Admin', 'Gerente'],
-        },
-        {
-          title: 'Plano de Saúde',
-          path: '/app/plano-saude',
-          icon: HeartPulse,
-          roles: ['admin', 'Admin', 'Gerente'],
-        },
         {
           title: 'Meritocracia',
           icon: Star,
@@ -232,6 +215,24 @@ export default function AppSidebar() {
               ],
             },
           ],
+        },
+        {
+          title: 'Plano de Saúde',
+          path: '/app/plano-saude',
+          icon: HeartPulse,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+        {
+          title: 'Ticket Alimentação',
+          path: '/app/ticket',
+          icon: Utensils,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+        {
+          title: 'Vale Transporte',
+          path: '/app/transporte',
+          icon: Bus,
+          roles: ['admin', 'Admin', 'Gerente'],
         },
       ],
     },
