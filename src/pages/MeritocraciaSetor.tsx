@@ -157,14 +157,6 @@ export default function MeritocraciaSetor() {
     ? colaboradores
     : colaboradores.filter((c) => c.id === currentUser?.id)
 
-  if (
-    !loading &&
-    !isAdminOrManager &&
-    currentUser?.departamento?.toLowerCase() !== setor?.toLowerCase()
-  ) {
-    return <Navigate to="/app/mural" replace />
-  }
-
   const chartData = useMemo(() => {
     return displayUsers
       .map((user) => {
@@ -178,6 +170,14 @@ export default function MeritocraciaSetor() {
       })
       .sort((a, b) => b.produtividade - a.produtividade)
   }, [displayUsers, selectedMonth])
+
+  if (
+    !loading &&
+    !isAdminOrManager &&
+    currentUser?.departamento?.toLowerCase() !== setor?.toLowerCase()
+  ) {
+    return <Navigate to="/app/mural" replace />
+  }
 
   const handlePreview = (file: File, title: string, id: string) => {
     setPreviewFile({ file, title, id })
