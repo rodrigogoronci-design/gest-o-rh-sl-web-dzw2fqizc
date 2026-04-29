@@ -35,8 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  ComposedChart,
-  Area,
+  BarChart,
   Bar,
   XAxis,
   YAxis,
@@ -115,9 +114,13 @@ export default function MeritocraciaSetor() {
       .order('nome')
       .then(({ data }) => {
         if (data) {
-          const filtered = data.filter(
-            (c) => c.departamento?.toLowerCase() === setor?.toLowerCase(),
-          )
+          const normalize = (str?: string | null) =>
+            (str || '')
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLowerCase()
+              .trim()
+          const filtered = data.filter((c) => normalize(c.departamento) === normalize(setor))
           setColaboradores(filtered)
         }
         setLoading(false)
@@ -151,7 +154,8 @@ export default function MeritocraciaSetor() {
     })
   }, [selectedMonth])
 
-  const isAdminOrManager = ['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '')
+  const normalizeRole = (r?: string | null) => (r || '').toLowerCase().trim()
+  const isAdminOrManager = ['admin', 'gerente'].includes(normalizeRole(currentUser?.role))
 
   const displayUsers = isAdminOrManager
     ? colaboradores
@@ -171,10 +175,17 @@ export default function MeritocraciaSetor() {
       .sort((a, b) => b.produtividade - a.produtividade)
   }, [displayUsers, selectedMonth])
 
+  const normalizeDept = (str?: string | null) =>
+    (str || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+
   if (
     !loading &&
     !isAdminOrManager &&
-    currentUser?.departamento?.toLowerCase() !== setor?.toLowerCase()
+    normalizeDept(currentUser?.departamento) !== normalizeDept(setor)
   ) {
     return <Navigate to="/app/mural" replace />
   }
@@ -293,7 +304,7 @@ export default function MeritocraciaSetor() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="w-full h-[320px]">
+              <div className="w-full" style={{ height: Math.max(300, chartData.length * 50 + 40) }}>
                 <ChartContainer
                   config={{
                     produtividade: { label: 'Produtividade (%)', color: 'hsl(var(--primary))' },
@@ -301,43 +312,36 @@ export default function MeritocraciaSetor() {
                   className="w-full h-full"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart
+                    <BarChart
                       data={chartData}
-                      margin={{ top: 25, right: 10, left: -20, bottom: 20 }}
+                      layout="vertical"
+                      margin={{ top: 10, right: 40, left: 10, bottom: 5 }}
                     >
-                      <defs>
-                        <linearGradient id="colorProd" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                      <XAxis
-                        dataKey="name"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 11, fill: '#64748b' }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={60}
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        horizontal={true}
+                        vertical={false}
+                        stroke="#f1f5f9"
                       />
+                      <XAxis type="number" domain={[0, 100]} hide />
                       <YAxis
+                        dataKey="name"
+                        type="category"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 11, fill: '#64748b' }}
-                        domain={[0, 100]}
+                        tick={{ fontSize: 12, fill: '#475569', fontWeight: 500 }}
+                        width={120}
                       />
                       <ChartTooltip
-                        cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                        cursor={{ fill: 'rgba(0,0,0,0.04)' }}
                         content={<ChartTooltipContent />}
                       />
-                      <Area
-                        type="monotone"
+                      <Bar
                         dataKey="produtividade"
-                        fill="url(#colorProd)"
-                        stroke="none"
-                      />
-                      <Bar dataKey="produtividade" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                        radius={[0, 4, 4, 0]}
+                        barSize={28}
+                        animationDuration={1000}
+                      >
                         {chartData.map((entry, index) => (
                           <Cell
                             key={`cell-${index}`}
@@ -346,18 +350,18 @@ export default function MeritocraciaSetor() {
                                 ? '#10b981'
                                 : entry.produtividade >= 70
                                   ? 'hsl(var(--primary))'
-                                  : '#f59e0b'
+                                  : '#f43f5e'
                             }
                           />
                         ))}
                         <LabelList
                           dataKey="produtividade"
-                          position="top"
+                          position="right"
                           formatter={(val: number) => `${val}%`}
-                          style={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
+                          style={{ fill: '#475569', fontSize: 11, fontWeight: 600 }}
                         />
                       </Bar>
-                    </ComposedChart>
+                    </BarChart>
                   </ResponsiveContainer>
                 </ChartContainer>
               </div>

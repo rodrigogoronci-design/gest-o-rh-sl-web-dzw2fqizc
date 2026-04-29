@@ -17,7 +17,7 @@ import {
   ChevronRight,
   Briefcase,
   Sliders,
-  Gift,
+  Award,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
@@ -128,7 +128,7 @@ export default function AppSidebar() {
     },
     {
       title: 'Benefícios',
-      icon: Gift,
+      icon: Award,
       roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
       items: [
         {
@@ -159,8 +159,8 @@ export default function AppSidebar() {
               ],
             },
             {
-              title: 'Suporte',
-              path: '/app/meritocracia/suporte',
+              title: 'Administrativo',
+              path: '/app/meritocracia/administrativo',
               icon: Users,
               roles: [
                 'admin',
@@ -171,22 +171,7 @@ export default function AppSidebar() {
                 'Personalizado',
                 'personalizado',
               ],
-              departments: ['SUPORTE'],
-            },
-            {
-              title: 'Implantação',
-              path: '/app/meritocracia/implantacao',
-              icon: Users,
-              roles: [
-                'admin',
-                'Admin',
-                'Gerente',
-                'user',
-                'Colaborador',
-                'Personalizado',
-                'personalizado',
-              ],
-              departments: ['IMPLANTAÇÃO'],
+              departments: ['ADMINISTRATIVO'],
             },
             {
               title: 'Desenvolvimento',
@@ -204,8 +189,8 @@ export default function AppSidebar() {
               departments: ['DESENVOLVIMENTO'],
             },
             {
-              title: 'Administrativo',
-              path: '/app/meritocracia/administrativo',
+              title: 'Implantação',
+              path: '/app/meritocracia/implantacao',
               icon: Users,
               roles: [
                 'admin',
@@ -216,7 +201,22 @@ export default function AppSidebar() {
                 'Personalizado',
                 'personalizado',
               ],
-              departments: ['ADMINISTRATIVO'],
+              departments: ['IMPLANTAÇÃO'],
+            },
+            {
+              title: 'Suporte',
+              path: '/app/meritocracia/suporte',
+              icon: Users,
+              roles: [
+                'admin',
+                'Admin',
+                'Gerente',
+                'user',
+                'Colaborador',
+                'Personalizado',
+                'personalizado',
+              ],
+              departments: ['SUPORTE'],
             },
           ],
         },
@@ -267,6 +267,13 @@ export default function AppSidebar() {
     },
   ]
 
+  const normalizeStr = (s?: string | null) =>
+    (s || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+
   const filteredItems = menuItems
     .map((item) => {
       if (item.items) {
@@ -274,24 +281,24 @@ export default function AppSidebar() {
           .map((sub: any) => {
             if (sub.items) {
               const filteredNested = sub.items.filter((nested: any) => {
-                const roleMatch = nested.roles.includes(currentUser?.role || '')
+                const userRole = normalizeStr(currentUser?.role)
+                const roleMatch = nested.roles.some((r: string) => normalizeStr(r) === userRole)
+                const userDept = normalizeStr(currentUser?.departamento)
                 const deptMatch =
                   !nested.departments ||
-                  ['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '') ||
-                  nested.departments
-                    .map((d: string) => d.toLowerCase())
-                    .includes(currentUser?.departamento?.toLowerCase() || '')
+                  ['admin', 'gerente'].includes(userRole) ||
+                  nested.departments.map((d: string) => normalizeStr(d)).includes(userDept)
                 return roleMatch && deptMatch
               })
               return { ...sub, items: filteredNested }
             }
-            const roleMatch = sub.roles.includes(currentUser?.role || '')
+            const userRole = normalizeStr(currentUser?.role)
+            const roleMatch = sub.roles.some((r: string) => normalizeStr(r) === userRole)
+            const userDept = normalizeStr(currentUser?.departamento)
             const deptMatch =
               !sub.departments ||
-              ['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '') ||
-              sub.departments
-                .map((d: string) => d.toLowerCase())
-                .includes(currentUser?.departamento?.toLowerCase() || '')
+              ['admin', 'gerente'].includes(userRole) ||
+              sub.departments.map((d: string) => normalizeStr(d)).includes(userDept)
             return roleMatch && deptMatch ? sub : null
           })
           .filter(Boolean)
@@ -305,7 +312,8 @@ export default function AppSidebar() {
     })
     .filter((item) => {
       if (item.items) return item.items.length > 0
-      return item.roles.includes(currentUser?.role || '')
+      const userRole = normalizeStr(currentUser?.role)
+      return item.roles.some((r: string) => normalizeStr(r) === userRole)
     })
 
   const renderSubItem = (subItem: any) => {
