@@ -120,7 +120,13 @@ export default function MeritocraciaSetor() {
               .replace(/[\u0300-\u036f]/g, '')
               .toLowerCase()
               .trim()
-          const filtered = data.filter((c) => normalize(c.departamento) === normalize(setor))
+
+          const targetDept = normalize(setor)
+          const filtered = data.filter((c) => {
+            const d = normalize(c.departamento)
+            if (!d || !targetDept) return false
+            return d === targetDept || d.includes(targetDept) || targetDept.includes(d)
+          })
           setColaboradores(filtered)
         }
         setLoading(false)
@@ -182,11 +188,14 @@ export default function MeritocraciaSetor() {
       .toLowerCase()
       .trim()
 
-  if (
-    !loading &&
-    !isAdminOrManager &&
-    normalizeDept(currentUser?.departamento) !== normalizeDept(setor)
-  ) {
+  const checkDeptMatch = () => {
+    const userDept = normalizeDept(currentUser?.departamento)
+    const routeDept = normalizeDept(setor)
+    if (!userDept || !routeDept) return false
+    return userDept === routeDept || userDept.includes(routeDept) || routeDept.includes(userDept)
+  }
+
+  if (!loading && !isAdminOrManager && !checkDeptMatch()) {
     return <Navigate to="/app/mural" replace />
   }
 

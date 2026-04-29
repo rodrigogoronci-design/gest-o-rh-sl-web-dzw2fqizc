@@ -274,6 +274,14 @@ export default function AppSidebar() {
       .toLowerCase()
       .trim()
 
+  const checkDeptMatch = (uDept: string, targetDepts: string[]) => {
+    if (!uDept) return false
+    return targetDepts.some((d) => {
+      const normD = normalizeStr(d)
+      return uDept === normD || uDept.includes(normD) || normD.includes(uDept)
+    })
+  }
+
   const filteredItems = menuItems
     .map((item) => {
       if (item.items) {
@@ -282,24 +290,30 @@ export default function AppSidebar() {
             if (sub.items) {
               const filteredNested = sub.items.filter((nested: any) => {
                 const userRole = normalizeStr(currentUser?.role)
-                const roleMatch = nested.roles.some((r: string) => normalizeStr(r) === userRole)
                 const userDept = normalizeStr(currentUser?.departamento)
-                const deptMatch =
-                  !nested.departments ||
-                  ['admin', 'gerente'].includes(userRole) ||
-                  nested.departments.map((d: string) => normalizeStr(d)).includes(userDept)
-                return roleMatch && deptMatch
+                const isAdmin = ['admin', 'gerente'].includes(userRole)
+                const isRoleMatch = nested.roles.some((r: string) => normalizeStr(r) === userRole)
+
+                if (nested.departments) {
+                  const isDeptMatch = checkDeptMatch(userDept, nested.departments)
+                  return isAdmin || isDeptMatch
+                }
+
+                return isAdmin || isRoleMatch
               })
               return { ...sub, items: filteredNested }
             }
             const userRole = normalizeStr(currentUser?.role)
-            const roleMatch = sub.roles.some((r: string) => normalizeStr(r) === userRole)
             const userDept = normalizeStr(currentUser?.departamento)
-            const deptMatch =
-              !sub.departments ||
-              ['admin', 'gerente'].includes(userRole) ||
-              sub.departments.map((d: string) => normalizeStr(d)).includes(userDept)
-            return roleMatch && deptMatch ? sub : null
+            const isAdmin = ['admin', 'gerente'].includes(userRole)
+            const isRoleMatch = sub.roles.some((r: string) => normalizeStr(r) === userRole)
+
+            if (sub.departments) {
+              const isDeptMatch = checkDeptMatch(userDept, sub.departments)
+              return isAdmin || isDeptMatch ? sub : null
+            }
+
+            return isAdmin || isRoleMatch ? sub : null
           })
           .filter(Boolean)
           .filter((sub: any) => {
@@ -313,7 +327,8 @@ export default function AppSidebar() {
     .filter((item) => {
       if (item.items) return item.items.length > 0
       const userRole = normalizeStr(currentUser?.role)
-      return item.roles.some((r: string) => normalizeStr(r) === userRole)
+      const isAdmin = ['admin', 'gerente'].includes(userRole)
+      return isAdmin || item.roles.some((r: string) => normalizeStr(r) === userRole)
     })
 
   const renderSubItem = (subItem: any) => {
