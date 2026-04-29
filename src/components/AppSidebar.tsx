@@ -171,6 +171,7 @@ export default function AppSidebar() {
                 'Personalizado',
                 'personalizado',
               ],
+              departments: ['SUPORTE'],
             },
             {
               title: 'Implantação',
@@ -185,6 +186,7 @@ export default function AppSidebar() {
                 'Personalizado',
                 'personalizado',
               ],
+              departments: ['IMPLANTAÇÃO'],
             },
             {
               title: 'Desenvolvimento',
@@ -199,6 +201,7 @@ export default function AppSidebar() {
                 'Personalizado',
                 'personalizado',
               ],
+              departments: ['DESENVOLVIMENTO'],
             },
             {
               title: 'Administrativo',
@@ -213,6 +216,7 @@ export default function AppSidebar() {
                 'Personalizado',
                 'personalizado',
               ],
+              departments: ['ADMINISTRATIVO'],
             },
           ],
         },
@@ -269,16 +273,31 @@ export default function AppSidebar() {
         const filteredSubItems = item.items
           .map((sub: any) => {
             if (sub.items) {
-              const filteredNested = sub.items.filter((nested: any) =>
-                nested.roles.includes(currentUser?.role || ''),
-              )
+              const filteredNested = sub.items.filter((nested: any) => {
+                const roleMatch = nested.roles.includes(currentUser?.role || '')
+                const deptMatch =
+                  !nested.departments ||
+                  ['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '') ||
+                  nested.departments
+                    .map((d: string) => d.toLowerCase())
+                    .includes(currentUser?.departamento?.toLowerCase() || '')
+                return roleMatch && deptMatch
+              })
               return { ...sub, items: filteredNested }
             }
-            return sub
+            const roleMatch = sub.roles.includes(currentUser?.role || '')
+            const deptMatch =
+              !sub.departments ||
+              ['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '') ||
+              sub.departments
+                .map((d: string) => d.toLowerCase())
+                .includes(currentUser?.departamento?.toLowerCase() || '')
+            return roleMatch && deptMatch ? sub : null
           })
+          .filter(Boolean)
           .filter((sub: any) => {
             if (sub.items) return sub.items.length > 0
-            return sub.roles.includes(currentUser?.role || '')
+            return true
           })
         return { ...item, items: filteredSubItems }
       }

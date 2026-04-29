@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useMemo } from 'react'
 import { Star, TrendingUp, Clock, AlertTriangle, UserMinus, CheckCircle2 } from 'lucide-react'
+import useAppStore from '@/stores/useAppStore'
 import {
   Select,
   SelectContent,
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/select'
 
 export default function MeritocraciaDashboard() {
+  const { currentUser } = useAppStore()
   const currentDate = new Date()
   const initialMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`
 
@@ -119,21 +121,23 @@ export default function MeritocraciaDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground font-medium px-1">
-              Valor Total da Meritocracia
-            </span>
-            <div className="flex items-center gap-2 bg-white px-3 h-10 rounded-lg border shadow-sm">
-              <span className="text-sm text-slate-500 font-medium">R$</span>
-              <Input
-                type="number"
-                value={valorBase}
-                onChange={(e) => setValorBase(Number(e.target.value))}
-                onBlur={saveValorBase}
-                className="w-24 h-8 border-0 shadow-none focus-visible:ring-0 px-1 text-right font-medium text-slate-800"
-              />
+          {['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '') && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground font-medium px-1">
+                Valor Total da Meritocracia
+              </span>
+              <div className="flex items-center gap-2 bg-white px-3 h-10 rounded-lg border shadow-sm">
+                <span className="text-sm text-slate-500 font-medium">R$</span>
+                <Input
+                  type="number"
+                  value={valorBase}
+                  onChange={(e) => setValorBase(Number(e.target.value))}
+                  onBlur={saveValorBase}
+                  className="w-24 h-8 border-0 shadow-none focus-visible:ring-0 px-1 text-right font-medium text-slate-800"
+                />
+              </div>
             </div>
-          </div>
+          )}
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground font-medium px-1">
               Ciclo: {getCycleDates(selectedMonth)}
@@ -230,21 +234,23 @@ export default function MeritocraciaDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4 flex-1 flex flex-col">
-              <div className="flex gap-2 mb-6">
-                <Input
-                  placeholder="Nome do cliente..."
-                  value={novoCliente}
-                  onChange={(e) => setNovoCliente(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddCancelamento()}
-                  className="h-9"
-                />
-                <Button
-                  onClick={handleAddCancelamento}
-                  className="h-9 whitespace-nowrap bg-red-600 hover:bg-red-700"
-                >
-                  Registrar
-                </Button>
-              </div>
+              {['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '') && (
+                <div className="flex gap-2 mb-6">
+                  <Input
+                    placeholder="Nome do cliente..."
+                    value={novoCliente}
+                    onChange={(e) => setNovoCliente(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddCancelamento()}
+                    className="h-9"
+                  />
+                  <Button
+                    onClick={handleAddCancelamento}
+                    className="h-9 whitespace-nowrap bg-red-600 hover:bg-red-700"
+                  >
+                    Registrar
+                  </Button>
+                </div>
+              )}
 
               <div className="space-y-3 flex-1 overflow-auto">
                 {loading ? (
@@ -269,12 +275,14 @@ export default function MeritocraciaDashboard() {
                         >
                           {c.cliente_nome}
                         </span>
-                        <button
-                          onClick={() => removeCancelamento(c.id)}
-                          className="text-[10px] text-red-500 hover:underline opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          Remover
-                        </button>
+                        {['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '') && (
+                          <button
+                            onClick={() => removeCancelamento(c.id)}
+                            className="text-[10px] text-red-500 hover:underline opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Remover
+                          </button>
+                        )}
                       </div>
                       <span className="text-[10px] text-slate-500 font-medium">
                         Data: {new Date(c.data_cancelamento).toLocaleDateString('pt-BR')}

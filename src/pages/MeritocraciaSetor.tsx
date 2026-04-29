@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Navigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -156,6 +156,14 @@ export default function MeritocraciaSetor() {
   const displayUsers = isAdminOrManager
     ? colaboradores
     : colaboradores.filter((c) => c.id === currentUser?.id)
+
+  if (
+    !loading &&
+    !isAdminOrManager &&
+    currentUser?.departamento?.toLowerCase() !== setor?.toLowerCase()
+  ) {
+    return <Navigate to="/app/mural" replace />
+  }
 
   const chartData = useMemo(() => {
     return displayUsers
