@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { Camera, Loader2, Save, LayoutDashboard, ShieldCheck } from 'lucide-react'
 
@@ -17,6 +18,8 @@ export default function Settings() {
 
   const [requireApproval, setRequireApproval] = useState(false)
   const [allowEditPonto, setAllowEditPonto] = useState(true)
+  const [allowedEscalaUsers, setAllowedEscalaUsers] = useState<string[]>([])
+  const [usersList, setUsersList] = useState<{ id: string; name: string; role: string }[]>([])
   const [savingPermissions, setSavingPermissions] = useState(false)
 
   useEffect(() => {
@@ -35,8 +38,17 @@ export default function Settings() {
           if (perms) {
             setRequireApproval(perms.requireApproval ?? false)
             setAllowEditPonto(perms.allowEditPonto ?? true)
+            setAllowedEscalaUsers(perms.allowedEscalaUsers ?? [])
           }
         }
+      })
+
+    supabase
+      .from('colaboradores')
+      .select('id, nome, role')
+      .eq('status', 'Ativo')
+      .then(({ data }) => {
+        if (data) setUsersList(data.map((d) => ({ id: d.id, name: d.nome, role: d.role })))
       })
   }, [])
 
@@ -81,6 +93,7 @@ export default function Settings() {
           valor: {
             requireApproval,
             allowEditPonto,
+            allowedEscalaUsers,
           },
         },
       ])
@@ -204,6 +217,41 @@ export default function Settings() {
                   </p>
                 </div>
                 <Switch checked={allowEditPonto} onCheckedChange={setAllowEditPonto} />
+              </div>
+
+              <div className="flex flex-col gap-3 rounded-lg border p-4 shadow-sm">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Permissão para Lançar Escala</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Selecione quais colaboradores podem gerenciar (lançar/editar) o Mural de
+                    Plantões. Administradores já possuem acesso total.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+                  {usersList
+                    .filter((u) => u.role !== 'Admin' && u.role !== 'Gerente')
+                    .map((u) => (
+                      <label
+                        key={u.id}
+                        className="flex items-center gap-3 border p-3 rounded-md cursor-pointer hover:bg-slate-50 transition-colors"
+                      >
+                        <Checkbox
+                          checked={allowedEscalaUsers.includes(u.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) setAllowedEscalaUsers((prev) => [...prev, u.id])
+                            else setAllowedEscalaUsers((prev) => prev.filter((id) => id !== u.id))
+                          }}
+                        />
+                        <span className="text-sm font-medium">{u.name}</span>
+                      </label>
+                    ))}
+                  {usersList.filter((u) => u.role !== 'Admin' && u.role !== 'Gerente').length ===
+                    0 && (
+                    <p className="text-sm text-muted-foreground col-span-full">
+                      Nenhum colaborador selecionável encontrado.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <Button onClick={handleSavePermissions} disabled={savingPermissions}>

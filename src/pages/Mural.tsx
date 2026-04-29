@@ -81,8 +81,23 @@ export default function Mural() {
   const [lotePeriodo, setLotePeriodo] = useState('Integral')
   const [loteDays, setLoteDays] = useState<Date[]>([])
   const [isLoteSaving, setIsLoteSaving] = useState(false)
+  const [allowedEscalaUsers, setAllowedEscalaUsers] = useState<string[]>([])
 
   const mesAno = format(selectedDate, 'yyyy-MM')
+
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      const { data } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('chave', 'app_permissions')
+        .maybeSingle()
+      if (data?.valor?.allowedEscalaUsers) {
+        setAllowedEscalaUsers(data.valor.allowedEscalaUsers)
+      }
+    }
+    fetchPermissions()
+  }, [])
 
   useEffect(() => {
     const fetchMonthData = async () => {
@@ -164,7 +179,8 @@ export default function Mural() {
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
   const isAdmin = currentUser?.role === 'admin'
-  const canEdit = isAdmin || escalaStatus === 'Rascunho'
+  const isAllowedToEdit = allowedEscalaUsers.includes(currentUser?.id || '')
+  const canEdit = isAdmin || (isAllowedToEdit && escalaStatus === 'Rascunho')
 
   const toggleFeriado = async (dateStr: string, isFeriado: boolean) => {
     if (isFeriado) {
@@ -404,7 +420,7 @@ export default function Mural() {
               </Dialog>
             )}
 
-            {!isAdmin && escalaStatus === 'Rascunho' && (
+            {!isAdmin && isAllowedToEdit && escalaStatus === 'Rascunho' && (
               <Button
                 onClick={() => updateEscalaStatus('Pendente')}
                 className="bg-primary text-white"
