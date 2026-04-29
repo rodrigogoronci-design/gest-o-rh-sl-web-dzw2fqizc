@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File
-
+    
     if (!file) throw new Error('Nenhum arquivo enviado.')
 
     const arrayBuffer = await file.arrayBuffer()
@@ -31,15 +31,12 @@ Deno.serve(async (req) => {
       throw new Error('Falha ao extrair texto do PDF.')
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        text: extractedText,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
-    )
+    return new Response(JSON.stringify({ 
+      success: true, 
+      text: extractedText 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
