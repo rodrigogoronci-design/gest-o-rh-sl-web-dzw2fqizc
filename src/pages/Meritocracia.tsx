@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useMemo } from 'react'
 import { Star, TrendingUp, Clock, AlertTriangle, UserMinus, CheckCircle2 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
+import { useAuth } from '@/hooks/use-auth'
 import {
   Select,
   SelectContent,
@@ -17,6 +18,7 @@ import {
 
 export default function MeritocraciaDashboard() {
   const { currentUser } = useAppStore()
+  const { user } = useAuth()
   const currentDate = new Date()
   const initialMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`
 
@@ -25,6 +27,7 @@ export default function MeritocraciaDashboard() {
   const [cancelamentos, setCancelamentos] = useState<any[]>([])
   const [novoCliente, setNovoCliente] = useState('')
   const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState<any>(null)
 
   const getCycleDates = (monthStr: string) => {
     try {
@@ -71,6 +74,21 @@ export default function MeritocraciaDashboard() {
     if (canc) setCancelamentos(canc)
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (user?.id) {
+      supabase
+        .from('colaboradores')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setProfile(data)
+        })
+    }
+  }, [user?.id])
+
+  const activeUser = profile || currentUser
 
   useEffect(() => {
     fetchDados()
@@ -121,7 +139,7 @@ export default function MeritocraciaDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          {['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '') && (
+          {['admin', 'Admin', 'Gerente'].includes(activeUser?.role || '') && (
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground font-medium px-1">
                 Valor Total da Meritocracia
@@ -234,7 +252,7 @@ export default function MeritocraciaDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4 flex-1 flex flex-col">
-              {['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '') && (
+              {['admin', 'Admin', 'Gerente'].includes(activeUser?.role || '') && (
                 <div className="flex gap-2 mb-6">
                   <Input
                     placeholder="Nome do cliente..."
@@ -275,7 +293,7 @@ export default function MeritocraciaDashboard() {
                         >
                           {c.cliente_nome}
                         </span>
-                        {['admin', 'Admin', 'Gerente'].includes(currentUser?.role || '') && (
+                        {['admin', 'Admin', 'Gerente'].includes(activeUser?.role || '') && (
                           <button
                             onClick={() => removeCancelamento(c.id)}
                             className="text-[10px] text-red-500 hover:underline opacity-0 group-hover:opacity-100 transition-opacity"

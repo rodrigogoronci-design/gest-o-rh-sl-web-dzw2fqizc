@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/hooks/use-auth'
 import {
   LayoutDashboard,
   CalendarDays,
@@ -38,12 +39,25 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@radix-ui/r
 
 export default function AppSidebar() {
   const { currentUser } = useAppStore()
+  const { user } = useAuth()
   const location = useLocation()
 
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [appName, setAppName] = useState<string>('Gestão RH SL Web')
+  const [profile, setProfile] = useState<any>(null)
 
   useEffect(() => {
+    if (user?.id) {
+      supabase
+        .from('colaboradores')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setProfile(data)
+        })
+    }
+
     supabase
       .from('configuracoes')
       .select('*')
@@ -267,6 +281,8 @@ export default function AppSidebar() {
     },
   ]
 
+  const activeUser = profile || currentUser
+
   const normalizeStr = (s?: string | null) =>
     (s || '')
       .normalize('NFD')
@@ -289,8 +305,8 @@ export default function AppSidebar() {
           .map((sub: any) => {
             if (sub.items) {
               const filteredNested = sub.items.filter((nested: any) => {
-                const userRole = normalizeStr(currentUser?.role)
-                const userDept = normalizeStr(currentUser?.departamento)
+                const userRole = normalizeStr(activeUser?.role)
+                const userDept = normalizeStr(activeUser?.departamento)
                 const isAdmin = ['admin', 'gerente'].includes(userRole)
                 const isRoleMatch = nested.roles.some((r: string) => normalizeStr(r) === userRole)
 
@@ -303,8 +319,8 @@ export default function AppSidebar() {
               })
               return { ...sub, items: filteredNested }
             }
-            const userRole = normalizeStr(currentUser?.role)
-            const userDept = normalizeStr(currentUser?.departamento)
+            const userRole = normalizeStr(activeUser?.role)
+            const userDept = normalizeStr(activeUser?.departamento)
             const isAdmin = ['admin', 'gerente'].includes(userRole)
             const isRoleMatch = sub.roles.some((r: string) => normalizeStr(r) === userRole)
 
@@ -326,7 +342,7 @@ export default function AppSidebar() {
     })
     .filter((item) => {
       if (item.items) return item.items.length > 0
-      const userRole = normalizeStr(currentUser?.role)
+      const userRole = normalizeStr(activeUser?.role)
       const isAdmin = ['admin', 'gerente'].includes(userRole)
       return isAdmin || item.roles.some((r: string) => normalizeStr(r) === userRole)
     })

@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase/client'
 import useAppStore from '@/stores/useAppStore'
+import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 import { Star, AlertTriangle, FileSpreadsheet, CheckCircle2, Save } from 'lucide-react'
 import { DetailSheet } from '@/components/meritocracia/DetailSheet'
@@ -49,9 +50,12 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 export default function MeritocraciaSetor() {
   const { setor } = useParams<{ setor: string }>()
   const { currentUser } = useAppStore()
+  const { user } = useAuth()
 
   const [colaboradores, setColaboradores] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profile, setProfile] = useState<any>(null)
   const [selectedUser, setSelectedUser] = useState<any | null>(null)
   const [valorBase, setValorBase] = useState(700)
 
@@ -97,6 +101,24 @@ export default function MeritocraciaSetor() {
     }
     return months
   }, [])
+
+  useEffect(() => {
+    if (user?.id) {
+      supabase
+        .from('colaboradores')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setProfile(data)
+          setProfileLoading(false)
+        })
+    } else {
+      setProfileLoading(false)
+    }
+  }, [user?.id])
+
+  const activeUser = profile || currentUser
 
   useEffect(() => {
     supabase
@@ -161,11 +183,11 @@ export default function MeritocraciaSetor() {
   }, [selectedMonth])
 
   const normalizeRole = (r?: string | null) => (r || '').toLowerCase().trim()
-  const isAdminOrManager = ['admin', 'gerente'].includes(normalizeRole(currentUser?.role))
+  const isAdminOrManager = ['admin', 'gerente'].includes(normalizeRole(activeUser?.role))
 
   const displayUsers = isAdminOrManager
     ? colaboradores
-    : colaboradores.filter((c) => c.id === currentUser?.id)
+    : colaboradores.filter((c) => c.id === activeUser?.id)
 
   const chartData = useMemo(() => {
     return displayUsers
@@ -189,14 +211,14 @@ export default function MeritocraciaSetor() {
       .trim()
 
   const checkDeptMatch = () => {
-    const userDept = normalizeDept(currentUser?.departamento)
+    const userDept = normalizeDept(activeUser?.departamento)
     const routeDept = normalizeDept(setor)
     if (!userDept || !routeDept) return false
     return userDept === routeDept || userDept.includes(routeDept) || routeDept.includes(userDept)
   }
 
-  if (!loading && !isAdminOrManager && !checkDeptMatch()) {
-    return <Navigate to="/app/mural" replace />
+  if (!loading && !profileLoading && !isAdminOrManager && !checkDeptMatch()) {
+    return <Navigate to="/app/meritocracia" replace />
   }
 
   const handlePreview = (file: File, title: string, id: string) => {
@@ -251,7 +273,7 @@ export default function MeritocraciaSetor() {
     toast.success('Valor base atualizado globalmente.')
   }
 
-  if (loading)
+  if (loading || profileLoading)
     return <div className="p-8 text-center text-muted-foreground">Carregando dados...</div>
 
   return (
