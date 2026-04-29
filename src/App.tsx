@@ -24,6 +24,7 @@ import Profile from './pages/Profile'
 import Meritocracia from './pages/Meritocracia'
 import MeritocraciaSetor from './pages/MeritocraciaSetor'
 import Admissao from './pages/Admissao'
+import Demissao from './pages/Demissao'
 import Settings from './pages/Settings'
 import PlanoSaude from './pages/PlanoSaude'
 
@@ -83,6 +84,7 @@ const App = () => (
                   <Route path="transporte" element={<Transport />} />
                   <Route path="plano-saude" element={<PlanoSaude />} />
                   <Route path="admissao" element={<Admissao />} />
+                  <Route path="demissao" element={<Demissao />} />
                   <Route path="configuracoes" element={<Settings />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />

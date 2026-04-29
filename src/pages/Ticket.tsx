@@ -63,6 +63,7 @@ export default function Ticket() {
   const [months, setMonths] = useState(() => buildMonthsList())
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [closedMonth, setClosedMonth] = useState('')
+  const [activeUsers, setActiveUsers] = useState<any[]>([])
   const [localData, setLocalData] = useState<Record<string, TicketRecord>>({})
   const [detailsData, setDetailsData] = useState<Record<string, Record<string, string[]>>>({})
   const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
@@ -128,6 +129,7 @@ export default function Ticket() {
         { data: plantoes },
         { data: tickets },
         { data: faltas },
+        { data: cols },
       ] = await Promise.all([
         supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
         supabase
@@ -138,10 +140,14 @@ export default function Ticket() {
         supabase.from('plantoes').select('*').gte('data', pStart).lte('data', pEnd),
         supabase.from('beneficios_ticket').select('*').eq('mes_ano', selectedMonth),
         supabase.from('faltas').select('*').gte('data', prevPStart).lte('data', prevPEnd),
+        supabase.from('colaboradores').select('*').order('nome'),
       ])
 
+      const freshUsers = cols || []
+      setActiveUsers(freshUsers)
+
       const dDetails: Record<string, Record<string, string[]>> = {}
-      users.forEach(
+      freshUsers.forEach(
         (u) => (dDetails[u.id] = { ferias: [], atestados: [], plantoes: [], faltas: [] }),
       )
 
@@ -202,8 +208,13 @@ export default function Ticket() {
       }, {})
 
       const initial: Record<string, TicketRecord> = {}
-      users
-        .filter((u) => u.role === 'user' || u.role === 'Colaborador')
+      freshUsers
+        .filter(
+          (u) =>
+            (u.role === 'user' || u.role === 'Colaborador') &&
+            u.status !== 'Inativo' &&
+            u.status !== 'Demitido',
+        )
         .forEach((u) => {
           const t = ticketsByColab[u.id]
           const isStored = !!t
@@ -415,8 +426,13 @@ export default function Ticket() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users
-                .filter((u) => u.role === 'user' || u.role === 'Colaborador')
+              {activeUsers
+                .filter(
+                  (u) =>
+                    (u.role === 'user' || u.role === 'Colaborador') &&
+                    u.status !== 'Inativo' &&
+                    u.status !== 'Demitido',
+                )
                 .map((u) => {
                   const data = localData[u.id] || {
                     regular: 0,
@@ -451,7 +467,9 @@ export default function Ticket() {
                       key={u.id}
                       className="[&>td]:py-2 [&>td]:px-3 hover:bg-slate-50/50 transition-colors border-b border-slate-100"
                     >
-                      <TableCell className="font-medium text-slate-700 text-xs">{u.name}</TableCell>
+                      <TableCell className="font-medium text-slate-700 text-xs">
+                        {u.nome || u.name}
+                      </TableCell>
                       <TableCell>
                         <FieldWithInfo
                           value={data.regular}

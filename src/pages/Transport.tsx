@@ -221,7 +221,10 @@ export default function Transport() {
       freshUsers
         .filter(
           (u: any) =>
-            (u.role === 'user' || u.role === 'Colaborador') && u.recebe_transporte === true,
+            (u.role === 'user' || u.role === 'Colaborador') &&
+            u.recebe_transporte === true &&
+            u.status !== 'Inativo' &&
+            u.status !== 'Demitido',
         )
         .forEach((u) => {
           const t = transportsByColab[u.id]
@@ -432,7 +435,10 @@ export default function Transport() {
               {activeUsers
                 .filter(
                   (u: any) =>
-                    (u.role === 'user' || u.role === 'Colaborador') && u.recebe_transporte === true,
+                    (u.role === 'user' || u.role === 'Colaborador') &&
+                    u.recebe_transporte === true &&
+                    u.status !== 'Inativo' &&
+                    u.status !== 'Demitido',
                 )
                 .map((u) => {
                   const data = localData[u.id] || {

@@ -13,6 +13,7 @@ import {
   Clock,
   Wallet,
   UserPlus,
+  UserMinus,
   Settings,
   HeartPulse,
   ChevronRight,
@@ -88,6 +89,12 @@ export default function AppSidebar() {
           title: 'Admissão',
           path: '/app/admissao',
           icon: UserPlus,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+        {
+          title: 'Demissão',
+          path: '/app/demissao',
+          icon: UserMinus,
           roles: ['admin', 'Admin', 'Gerente'],
         },
         {

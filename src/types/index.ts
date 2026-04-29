@@ -7,6 +7,9 @@ export interface User {
   role: Role
   basePassValue?: number
   recebe_transporte?: boolean
+  status?: string
+  data_demissao?: string
+  motivo_demissao?: string
 }
 
 export interface TicketRecord {

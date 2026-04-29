@@ -82,6 +82,7 @@ export default function Mural() {
   const [loteDays, setLoteDays] = useState<Date[]>([])
   const [isLoteSaving, setIsLoteSaving] = useState(false)
   const [allowedEscalaUsers, setAllowedEscalaUsers] = useState<string[]>([])
+  const [activeUsers, setActiveUsers] = useState<any[]>([])
 
   const mesAno = format(selectedDate, 'yyyy-MM')
 
@@ -120,13 +121,17 @@ export default function Mural() {
         { data: feriasData },
         { data: faltasData },
         { data: plantoesData },
+        { data: cols },
       ] = await Promise.all([
         supabase.from('feriados').select('data').gte('data', start).lte('data', end),
         supabase.from('dias_home_office').select('data').gte('data', start).lte('data', end),
         supabase.from('ferias').select('*').lte('data_inicio', end).gte('data_fim', start),
         supabase.from('faltas').select('*').gte('data', start).lte('data', end),
         supabase.from('plantoes').select('*').gte('data', start).lte('data', end),
+        supabase.from('colaboradores').select('*'),
       ])
+
+      if (cols) setActiveUsers(cols)
 
       if (feriadosData) {
         const fMap: Record<string, boolean> = {}
@@ -280,11 +285,14 @@ export default function Mural() {
     }
   }
 
-  const supportOptions = users.filter(
-    (u) =>
+  const supportOptions = users.filter((u) => {
+    const dbUser = activeUsers.find((c) => c.id === u.id)
+    if (dbUser && (dbUser.status === 'Inativo' || dbUser.status === 'Demitido')) return false
+    return (
       SUPPORT_TEAM.some((name) => u.name.toLowerCase().includes(name.toLowerCase())) ||
-      (u.departamento && u.departamento.toUpperCase() === 'SUPORTE'),
-  )
+      (u.departamento && u.departamento.toUpperCase() === 'SUPORTE')
+    )
+  })
 
   return (
     <div className="space-y-6">
@@ -515,7 +523,14 @@ export default function Mural() {
                             <div className="flex-1 flex flex-col gap-1 overflow-y-auto mt-1">
                               {dayShifts.map((userId) => {
                                 const u = users.find((u) => u.id === userId)
-                                if (!u || u.role === 'admin') return null
+                                const dbUser = activeUsers.find((c) => c.id === userId)
+                                if (
+                                  !u ||
+                                  u.role === 'admin' ||
+                                  (dbUser &&
+                                    (dbUser.status === 'Inativo' || dbUser.status === 'Demitido'))
+                                )
+                                  return null
                                 const periodo = plantoesPeriodo[dateStr]?.[userId] || 'Integral'
                                 return (
                                   <Badge
@@ -534,7 +549,14 @@ export default function Mural() {
                               })}
                               {dayFaltas.map((userId) => {
                                 const u = users.find((u) => u.id === userId)
-                                if (!u || u.role === 'admin') return null
+                                const dbUser = activeUsers.find((c) => c.id === userId)
+                                if (
+                                  !u ||
+                                  u.role === 'admin' ||
+                                  (dbUser &&
+                                    (dbUser.status === 'Inativo' || dbUser.status === 'Demitido'))
+                                )
+                                  return null
                                 return (
                                   <Badge
                                     key={`f-${userId}`}
@@ -574,8 +596,12 @@ export default function Mural() {
                           <ul className="list-disc pl-4 space-y-0.5">
                             {dayShifts.map((uid) => {
                               const u = users.find((u) => u.id === uid)
+                              const dbUser = activeUsers.find((c) => c.id === uid)
                               const p = plantoesPeriodo[dateStr]?.[uid] || 'Integral'
-                              return u && u.role !== 'admin' ? (
+                              return u &&
+                                u.role !== 'admin' &&
+                                (!dbUser ||
+                                  (dbUser.status !== 'Inativo' && dbUser.status !== 'Demitido')) ? (
                                 <li key={uid}>
                                   {u.name} ({p})
                                 </li>
@@ -590,7 +616,11 @@ export default function Mural() {
                           <ul className="list-disc pl-4 space-y-0.5">
                             {dayFaltas.map((uid) => {
                               const u = users.find((u) => u.id === uid)
-                              return u && u.role !== 'admin' ? (
+                              const dbUser = activeUsers.find((c) => c.id === uid)
+                              return u &&
+                                u.role !== 'admin' &&
+                                (!dbUser ||
+                                  (dbUser.status !== 'Inativo' && dbUser.status !== 'Demitido')) ? (
                                 <li key={`tt-f-${uid}`}>{u.name}</li>
                               ) : null
                             })}
@@ -656,12 +686,25 @@ export default function Mural() {
                         </h4>
                         {dayShifts.filter((uid) => {
                           const u = users.find((u) => u.id === uid)
-                          return u && u.role !== 'admin'
+                          const dbUser = activeUsers.find((c) => c.id === uid)
+                          return (
+                            u &&
+                            u.role !== 'admin' &&
+                            (!dbUser ||
+                              (dbUser.status !== 'Inativo' && dbUser.status !== 'Demitido'))
+                          )
                         }).length > 0 ? (
                           <div className="space-y-2">
                             {dayShifts.map((userId) => {
                               const u = users.find((u) => u.id === userId)
-                              if (!u || u.role === 'admin') return null
+                              const dbUser = activeUsers.find((c) => c.id === userId)
+                              if (
+                                !u ||
+                                u.role === 'admin' ||
+                                (dbUser &&
+                                  (dbUser.status === 'Inativo' || dbUser.status === 'Demitido'))
+                              )
+                                return null
                               const p = plantoesPeriodo[dateStr]?.[userId] || 'Integral'
                               return (
                                 <div
@@ -749,12 +792,25 @@ export default function Mural() {
                         <h4 className="font-semibold text-sm text-slate-700">Faltas neste dia</h4>
                         {dayFaltas.filter((uid) => {
                           const u = users.find((u) => u.id === uid)
-                          return u && u.role !== 'admin'
+                          const dbUser = activeUsers.find((c) => c.id === uid)
+                          return (
+                            u &&
+                            u.role !== 'admin' &&
+                            (!dbUser ||
+                              (dbUser.status !== 'Inativo' && dbUser.status !== 'Demitido'))
+                          )
                         }).length > 0 ? (
                           <div className="space-y-2">
                             {dayFaltas.map((userId) => {
                               const u = users.find((u) => u.id === userId)
-                              if (!u || u.role === 'admin') return null
+                              const dbUser = activeUsers.find((c) => c.id === userId)
+                              if (
+                                !u ||
+                                u.role === 'admin' ||
+                                (dbUser &&
+                                  (dbUser.status === 'Inativo' || dbUser.status === 'Demitido'))
+                              )
+                                return null
                               return (
                                 <div
                                   key={`falta-${userId}`}
@@ -791,7 +847,16 @@ export default function Mural() {
                               </SelectTrigger>
                               <SelectContent>
                                 {users
-                                  .filter((u) => u.role === 'user' && !dayFaltas.includes(u.id))
+                                  .filter((u) => {
+                                    const dbUser = activeUsers.find((c) => c.id === u.id)
+                                    return (
+                                      u.role === 'user' &&
+                                      !dayFaltas.includes(u.id) &&
+                                      (!dbUser ||
+                                        (dbUser.status !== 'Inativo' &&
+                                          dbUser.status !== 'Demitido'))
+                                    )
+                                  })
                                   .map((u) => (
                                     <SelectItem key={u.id} value={u.id}>
                                       {u.name}
