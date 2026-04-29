@@ -6,9 +6,28 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { toast } from 'sonner'
-import { Camera, Loader2, Save, LayoutDashboard, ShieldCheck } from 'lucide-react'
+import {
+  Camera,
+  Loader2,
+  Save,
+  LayoutDashboard,
+  ShieldCheck,
+  Check,
+  ChevronsUpDown,
+  X,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function Settings() {
   const [appName, setAppName] = useState('Gestão RH SL Web')
@@ -219,7 +238,7 @@ export default function Settings() {
                 <Switch checked={allowEditPonto} onCheckedChange={setAllowEditPonto} />
               </div>
 
-              <div className="flex flex-col gap-3 rounded-lg border p-4 shadow-sm">
+              <div className="flex flex-col gap-3 rounded-lg border p-4 shadow-sm overflow-visible">
                 <div className="space-y-0.5">
                   <Label className="text-base">Permissão para Lançar Escala</Label>
                   <p className="text-sm text-muted-foreground">
@@ -227,30 +246,98 @@ export default function Settings() {
                     Plantões. Administradores já possuem acesso total.
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">
-                  {usersList
-                    .filter((u) => u.role !== 'Admin' && u.role !== 'Gerente')
-                    .map((u) => (
-                      <label
-                        key={u.id}
-                        className="flex items-center gap-3 border p-3 rounded-md cursor-pointer hover:bg-slate-50 transition-colors"
+                <div className="mt-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between h-auto min-h-10 py-2 font-normal hover:bg-transparent"
                       >
-                        <Checkbox
-                          checked={allowedEscalaUsers.includes(u.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) setAllowedEscalaUsers((prev) => [...prev, u.id])
-                            else setAllowedEscalaUsers((prev) => prev.filter((id) => id !== u.id))
-                          }}
-                        />
-                        <span className="text-sm font-medium">{u.name}</span>
-                      </label>
-                    ))}
-                  {usersList.filter((u) => u.role !== 'Admin' && u.role !== 'Gerente').length ===
-                    0 && (
-                    <p className="text-sm text-muted-foreground col-span-full">
-                      Nenhum colaborador selecionável encontrado.
-                    </p>
-                  )}
+                        <div className="flex flex-wrap gap-1">
+                          {allowedEscalaUsers.length > 0 ? (
+                            allowedEscalaUsers.map((id) => {
+                              const user = usersList.find((u) => u.id === id)
+                              if (!user) return null
+                              return (
+                                <Badge variant="secondary" key={id} className="mr-1">
+                                  {user.name}
+                                  <div
+                                    role="button"
+                                    tabIndex={0}
+                                    className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        setAllowedEscalaUsers((prev) =>
+                                          prev.filter((uId) => uId !== id),
+                                        )
+                                      }
+                                    }}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                    }}
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      setAllowedEscalaUsers((prev) =>
+                                        prev.filter((uId) => uId !== id),
+                                      )
+                                    }}
+                                  >
+                                    <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                  </div>
+                                </Badge>
+                              )
+                            })
+                          ) : (
+                            <span className="text-muted-foreground">
+                              Selecione os colaboradores...
+                            </span>
+                          )}
+                        </div>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar colaborador..." />
+                        <CommandList>
+                          <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
+                          <CommandGroup>
+                            {usersList
+                              .filter((u) => u.role !== 'Admin' && u.role !== 'Gerente')
+                              .map((u) => {
+                                const isSelected = allowedEscalaUsers.includes(u.id)
+                                return (
+                                  <CommandItem
+                                    key={u.id}
+                                    value={u.name}
+                                    onSelect={() => {
+                                      if (isSelected) {
+                                        setAllowedEscalaUsers((prev) =>
+                                          prev.filter((id) => id !== u.id),
+                                        )
+                                      } else {
+                                        setAllowedEscalaUsers((prev) => [...prev, u.id])
+                                      }
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        'mr-2 h-4 w-4',
+                                        isSelected ? 'opacity-100' : 'opacity-0',
+                                      )}
+                                    />
+                                    {u.name}
+                                  </CommandItem>
+                                )
+                              })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 
