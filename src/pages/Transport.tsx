@@ -292,8 +292,7 @@ export default function Transport() {
           const calcShifts = currentMonthShifts[u.id] || 0
           const calcHolidays = currentMonthHolidayShifts[u.id] || 0
 
-          const hasAnyPlantao = calcReg + calcShifts + calcHolidays > 0
-          const defaultReg = hasAnyPlantao ? calcReg : bDays
+          const defaultReg = bDays
 
           initial[u.id] = {
             businessDays: isStored ? t.dias_uteis : defaultReg,
@@ -348,11 +347,7 @@ export default function Transport() {
     if (field === 'sick') checkWarning('sick', preCalculatedAtestados[userId] || 0, 'atestados')
     if (field === 'faltas') checkWarning('faltas', preCalculatedFaltas[userId] || 0, 'faltas')
     if (field === 'businessDays') {
-      const hasAny =
-        preCalculatedRegular[userId] || preCalculatedShifts[userId] || preCalculatedHolidays[userId]
-          ? true
-          : false
-      const expected = hasAny ? preCalculatedRegular[userId] || 0 : totalBusinessDays
+      const expected = totalBusinessDays
       checkWarning('businessDays', expected, 'dias úteis')
     }
     if (field === 'holidaysWorked')
@@ -494,7 +489,7 @@ export default function Transport() {
                 <TableHead className="w-[110px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Dias úteis padrão do mês (${format(parseISO(prevPStart), 'dd/MM')} a ${format(parseISO(prevPEnd), 'dd/MM')}): ${totalBusinessDays} dias. Exclui finais de semana e feriados.`}
+                    title={`Padrão do ciclo (${format(parseISO(prevPStart), 'dd/MM')} a ${format(parseISO(prevPEnd), 'dd/MM')}): ${totalBusinessDays} dias. (Todos os dias menos sábados, domingos e feriados)`}
                   >
                     Dias Úteis <Info className="w-3 h-3 text-slate-400" />
                   </div>
@@ -563,14 +558,7 @@ export default function Transport() {
                     feriados: [],
                   }
 
-                  const hasAny =
-                    preCalculatedRegular[u.id] ||
-                    preCalculatedShifts[u.id] ||
-                    preCalculatedHolidays[u.id]
-                      ? true
-                      : false
-                  const expectedReg = hasAny ? preCalculatedRegular[u.id] || 0 : totalBusinessDays
-
+                  const expectedReg = totalBusinessDays
                   const eligibleDays = Math.max(
                     0,
                     data.businessDays +
@@ -603,9 +591,9 @@ export default function Transport() {
                           multiplier={transportValue}
                           type="addition"
                           isWarning={data.businessDays !== expectedReg}
-                          title="Dias Úteis Trabalhados (Mural)"
+                          title="Dias Úteis (Padrão do mês)"
                           items={details.diasUteis?.length > 0 ? details.diasUteis : []}
-                          emptyText="Nenhum dia útil no mural. (Padrão: dias do mês)"
+                          emptyText={`Padrão da escala: ${totalBusinessDays} dias.`}
                         />
                       </TableCell>
                       <TableCell>

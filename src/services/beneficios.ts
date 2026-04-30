@@ -193,8 +193,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
       }
     })
 
-    const hasAnyPlantao = userBusinessShifts + userShifts + userHolidayShifts > 0
-    const defaultReg = hasAnyPlantao ? userBusinessShifts : bDays
+    const defaultReg = bDays
 
     const existingTicket = ticketsData.find((t) => t.colaborador_id === userId)
     const existingTransport = transportsData.find((t) => t.colaborador_id === userId)
@@ -238,8 +237,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
       }
     })
 
-    const hasAnyPrevPlantao = userPrevBusinessShifts + userPrevShifts + userPrevHolidayShifts > 0
-    const defaultPrevReg = hasAnyPrevPlantao ? userPrevBusinessShifts : prevBDays
+    const defaultPrevReg = prevBDays
 
     if (receivesTransport) {
       transportUpdates.push({
