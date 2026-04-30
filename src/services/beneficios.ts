@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
-import { eachDayOfInterval, format, subMonths, addMonths, setDate } from 'date-fns'
+import { eachDayOfInterval, format, subMonths, addMonths, setDate, parseISO } from 'date-fns'
 
 export const loadBeneficiosData = async (month: string) => {
   const [cols, plantoes, tickets, transports] = await Promise.all([
@@ -83,6 +83,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
     hoData,
     plantoesPrev,
     feriadosDataDb,
+    feriadosPrevDataDb,
   ] = await Promise.all([
     supabase.from('colaboradores').select('id, role, recebe_transporte'),
     supabase.from('faltas').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
@@ -102,6 +103,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
       .lte('data', prevEndStr),
     supabase.from('plantoes').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
     supabase.from('feriados').select('*').gte('data', startStr).lte('data', endStr),
+    supabase.from('feriados').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
   ])
 
   const users = cols.data || []
@@ -118,6 +120,9 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const feriadosData = feriadosDataDb.data || []
   const holidaysStrs = feriadosData.map((f: any) => f.data)
 
+  const feriadosPrevData = feriadosPrevDataDb.data || []
+  const prevHolidaysStrs = feriadosPrevData.map((f: any) => f.data)
+
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd })
   const daysStrs = days.map((d) => format(d, 'yyyy-MM-dd'))
 
@@ -127,6 +132,16 @@ export const syncAllUsersBeneficios = async (month: string) => {
     const dStr = format(d, 'yyyy-MM-dd')
     if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dStr)) {
       bDays++
+    }
+  })
+
+  const daysPrev = eachDayOfInterval({ start: prevPeriodStart, end: prevPeriodEnd })
+  let prevBDays = 0
+  daysPrev.forEach((d) => {
+    const dayOfWeek = d.getDay()
+    const dStr = format(d, 'yyyy-MM-dd')
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !prevHolidaysStrs.includes(dStr)) {
+      prevBDays++
     }
   })
 
@@ -140,7 +155,6 @@ export const syncAllUsersBeneficios = async (month: string) => {
     const userId = user.id
 
     const userFaltas = faltasData.filter((f) => f.colaborador_id === userId).length
-    const userPlantoes = plantoesData.filter((p) => p.colaborador_id === userId).length
 
     let userFerias = 0
     const userFeriasList = feriasData.filter((f) => f.colaborador_id === userId)
@@ -159,6 +173,29 @@ export const syncAllUsersBeneficios = async (month: string) => {
       userAtestados += a.quantidade_dias || 1
     })
 
+    const userPlantoesData = plantoesData.filter((p) => p.colaborador_id === userId)
+    let userShifts = 0
+    let userBusinessShifts = 0
+    let userHolidayShifts = 0
+
+    userPlantoesData.forEach((p) => {
+      const dStr = p.data
+      const d = parseISO(dStr)
+      const dayOfWeek = d.getDay()
+      const isHoliday = holidaysStrs.includes(dStr)
+
+      if (isHoliday) {
+        userHolidayShifts++
+      } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+        userShifts++
+      } else {
+        userBusinessShifts++
+      }
+    })
+
+    const hasAnyPlantao = userBusinessShifts + userShifts + userHolidayShifts > 0
+    const defaultReg = hasAnyPlantao ? userBusinessShifts : bDays
+
     const existingTicket = ticketsData.find((t) => t.colaborador_id === userId)
     const existingTransport = transportsData.find((t) => t.colaborador_id === userId)
 
@@ -168,9 +205,11 @@ export const syncAllUsersBeneficios = async (month: string) => {
       faltas: userFaltas,
       ferias: userFerias,
       atestados: userAtestados,
-      plantoes: userPlantoes,
-      dias_uteis: existingTicket ? existingTicket.dias_uteis : bDays,
-      feriados_trabalhados: existingTicket ? (existingTicket as any).feriados_trabalhados || 0 : 0,
+      plantoes: userShifts,
+      dias_uteis: existingTicket ? existingTicket.dias_uteis : defaultReg,
+      feriados_trabalhados: existingTicket
+        ? (existingTicket as any).feriados_trabalhados || 0
+        : userHolidayShifts,
       credito: existingTicket ? existingTicket.credito : 0,
       desconto: existingTicket ? existingTicket.desconto : 0,
       credito_justificativa: existingTicket ? existingTicket.credito_justificativa : '',
@@ -179,7 +218,28 @@ export const syncAllUsersBeneficios = async (month: string) => {
 
     const receivesTransport = user.recebe_transporte === true
 
-    const userPlantoesPrev = plantoesPrevData.filter((p) => p.colaborador_id === userId).length
+    const userPlantoesPrevFiltered = plantoesPrevData.filter((p) => p.colaborador_id === userId)
+    let userPrevShifts = 0
+    let userPrevBusinessShifts = 0
+    let userPrevHolidayShifts = 0
+
+    userPlantoesPrevFiltered.forEach((p) => {
+      const dStr = p.data
+      const d = parseISO(dStr)
+      const dayOfWeek = d.getDay()
+      const isHoliday = prevHolidaysStrs.includes(dStr)
+
+      if (isHoliday) {
+        userPrevHolidayShifts++
+      } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+        userPrevShifts++
+      } else {
+        userPrevBusinessShifts++
+      }
+    })
+
+    const hasAnyPrevPlantao = userPrevBusinessShifts + userPrevShifts + userPrevHolidayShifts > 0
+    const defaultPrevReg = hasAnyPrevPlantao ? userPrevBusinessShifts : prevBDays
 
     if (receivesTransport) {
       transportUpdates.push({
@@ -189,11 +249,11 @@ export const syncAllUsersBeneficios = async (month: string) => {
         ferias: userFerias,
         atestados: userAtestados,
         home_office: homeOfficeCount,
-        plantoes: 0,
-        dias_uteis: existingTransport ? existingTransport.dias_uteis : bDays,
+        plantoes: userPrevShifts,
+        dias_uteis: existingTransport ? existingTransport.dias_uteis : defaultPrevReg,
         feriados_trabalhados: existingTransport
           ? (existingTransport as any).feriados_trabalhados || 0
-          : 0,
+          : userPrevHolidayShifts,
         credito: existingTransport ? existingTransport.credito : 0,
         desconto: existingTransport ? existingTransport.desconto : 0,
         credito_justificativa: existingTransport ? existingTransport.credito_justificativa : '',

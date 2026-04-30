@@ -66,9 +66,15 @@ export default function Ticket() {
   const [activeUsers, setActiveUsers] = useState<any[]>([])
   const [localData, setLocalData] = useState<Record<string, TicketRecord>>({})
   const [detailsData, setDetailsData] = useState<Record<string, Record<string, string[]>>>({})
+
   const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
   const [preCalculatedAtestados, setPreCalculatedAtestados] = useState<Record<string, number>>({})
   const [preCalculatedFaltas, setPreCalculatedFaltas] = useState<Record<string, number>>({})
+
+  const [preCalculatedRegular, setPreCalculatedRegular] = useState<Record<string, number>>({})
+  const [preCalculatedShifts, setPreCalculatedShifts] = useState<Record<string, number>>({})
+  const [preCalculatedHolidays, setPreCalculatedHolidays] = useState<Record<string, number>>({})
+
   const [totalBusinessDays, setTotalBusinessDays] = useState(20)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -163,7 +169,15 @@ export default function Ticket() {
 
       const dDetails: Record<string, Record<string, string[]>> = {}
       freshUsers.forEach(
-        (u) => (dDetails[u.id] = { ferias: [], atestados: [], plantoes: [], faltas: [] }),
+        (u) =>
+          (dDetails[u.id] = {
+            ferias: [],
+            atestados: [],
+            plantoes: [],
+            faltas: [],
+            diasUteis: [],
+            feriados: [],
+          }),
       )
 
       const calcDays = (records: any[], startStr: string, endStr: string, type: string) => {
@@ -202,11 +216,36 @@ export default function Ticket() {
       setPreCalculatedAtestados(atestadoDaysCount)
 
       const currentMonthShifts: Record<string, number> = {}
+      const currentMonthBusinessShifts: Record<string, number> = {}
+      const currentMonthHolidayShifts: Record<string, number> = {}
+
       plantoes?.forEach((p) => {
-        currentMonthShifts[p.colaborador_id] = (currentMonthShifts[p.colaborador_id] || 0) + 1
-        if (dDetails[p.colaborador_id])
-          dDetails[p.colaborador_id].plantoes.push(format(parseISO(p.data), 'dd/MM/yyyy'))
+        if (!p.colaborador_id) return
+        const dStr = p.data
+        const d = parseISO(dStr)
+        const dayOfWeek = d.getDay()
+        const isHoliday = holidaysStrs.includes(dStr)
+
+        if (isHoliday) {
+          currentMonthHolidayShifts[p.colaborador_id] =
+            (currentMonthHolidayShifts[p.colaborador_id] || 0) + 1
+          if (dDetails[p.colaborador_id])
+            dDetails[p.colaborador_id].feriados.push(format(d, 'dd/MM/yyyy'))
+        } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+          currentMonthShifts[p.colaborador_id] = (currentMonthShifts[p.colaborador_id] || 0) + 1
+          if (dDetails[p.colaborador_id])
+            dDetails[p.colaborador_id].plantoes.push(format(d, 'dd/MM/yyyy'))
+        } else {
+          currentMonthBusinessShifts[p.colaborador_id] =
+            (currentMonthBusinessShifts[p.colaborador_id] || 0) + 1
+          if (dDetails[p.colaborador_id])
+            dDetails[p.colaborador_id].diasUteis.push(format(d, 'dd/MM/yyyy'))
+        }
       })
+
+      setPreCalculatedRegular(currentMonthBusinessShifts)
+      setPreCalculatedShifts(currentMonthShifts)
+      setPreCalculatedHolidays(currentMonthHolidayShifts)
 
       const currentMonthFaltas: Record<string, number> = {}
       faltas?.forEach((f) => {
@@ -233,28 +272,25 @@ export default function Ticket() {
         .forEach((u) => {
           const t = ticketsByColab[u.id]
           const isStored = !!t
-          const data = t || {
-            dias_uteis: bDays,
-            plantoes: 0,
-            atestados: 0,
-            feriados_trabalhados: 0,
-            ferias: 0,
-            faltas: 0,
-            credito: 0,
-            desconto: 0,
-          }
+
+          const calcReg = currentMonthBusinessShifts[u.id] || 0
+          const calcShifts = currentMonthShifts[u.id] || 0
+          const calcHolidays = currentMonthHolidayShifts[u.id] || 0
+
+          const hasAnyPlantao = calcReg + calcShifts + calcHolidays > 0
+          const defaultReg = hasAnyPlantao ? calcReg : bDays
 
           initial[u.id] = {
-            regular: isStored ? data.dias_uteis : bDays,
-            shifts: currentMonthShifts[u.id] || 0,
+            regular: isStored ? t.dias_uteis : defaultReg,
+            shifts: calcShifts,
+            holidaysWorked: isStored ? t.feriados_trabalhados || 0 : calcHolidays,
             vacation: vacationDaysCount[u.id] || 0,
             sick: atestadoDaysCount[u.id] || 0,
             faltas: currentMonthFaltas[u.id] || 0,
-            holidaysWorked: isStored ? data.feriados_trabalhados || 0 : 0,
-            credito: isStored ? data.credito : 0,
-            desconto: isStored ? data.desconto : 0,
-            credito_justificativa: isStored ? data.credito_justificativa : '',
-            desconto_justificativa: isStored ? data.desconto_justificativa : '',
+            credito: isStored ? t.credito : 0,
+            desconto: isStored ? t.desconto : 0,
+            credito_justificativa: isStored ? t.credito_justificativa : '',
+            desconto_justificativa: isStored ? t.desconto_justificativa : '',
           }
         })
       setLocalData(initial)
@@ -280,7 +316,7 @@ export default function Ticket() {
       if (num !== preCalc && !toastShownRef.current[`${userId}-${f}`]) {
         toast({
           title: 'Atenção: Edição Manual',
-          description: `Você está alterando os dias de ${label} importados automaticamente.`,
+          description: `Você está alterando os dias de ${label} calculados automaticamente.`,
           variant: 'destructive',
         })
         toastShownRef.current[`${userId}-${f}`] = true
@@ -291,6 +327,16 @@ export default function Ticket() {
       checkWarning('vacation', preCalculatedVacations[userId] || 0, 'férias')
     if (field === 'sick') checkWarning('sick', preCalculatedAtestados[userId] || 0, 'atestados')
     if (field === 'faltas') checkWarning('faltas', preCalculatedFaltas[userId] || 0, 'faltas')
+    if (field === 'regular') {
+      const hasAny =
+        preCalculatedRegular[userId] || preCalculatedShifts[userId] || preCalculatedHolidays[userId]
+          ? true
+          : false
+      const expected = hasAny ? preCalculatedRegular[userId] || 0 : totalBusinessDays
+      checkWarning('regular', expected, 'dias úteis')
+    }
+    if (field === 'holidaysWorked')
+      checkWarning('holidaysWorked', preCalculatedHolidays[userId] || 0, 'feriados trabalhados')
 
     setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: num } }))
   }
@@ -421,7 +467,7 @@ export default function Ticket() {
                 <TableHead className="w-[110px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Dias úteis calculados (${format(parseISO(pStart), 'dd/MM')} a ${format(parseISO(pEnd), 'dd/MM')}): ${totalBusinessDays} dias. Exclui finais de semana e feriados.`}
+                    title={`Dias úteis padrão do mês (${format(parseISO(pStart), 'dd/MM')} a ${format(parseISO(pEnd), 'dd/MM')}): ${totalBusinessDays} dias. Exclui finais de semana e feriados.`}
                   >
                     Dias Úteis <Info className="w-3 h-3 text-slate-400" />
                   </div>
@@ -470,15 +516,23 @@ export default function Ticket() {
                     credito: 0,
                     desconto: 0,
                   }
-                  const preCalcVacation = preCalculatedVacations[u.id] || 0
-                  const preCalcSick = preCalculatedAtestados[u.id] || 0
-                  const preCalcFaltas = preCalculatedFaltas[u.id] || 0
                   const details = detailsData[u.id] || {
                     ferias: [],
                     atestados: [],
                     plantoes: [],
                     faltas: [],
+                    diasUteis: [],
+                    feriados: [],
                   }
+
+                  const hasAny =
+                    preCalculatedRegular[u.id] ||
+                    preCalculatedShifts[u.id] ||
+                    preCalculatedHolidays[u.id]
+                      ? true
+                      : false
+                  const expectedReg = hasAny ? preCalculatedRegular[u.id] || 0 : totalBusinessDays
+
                   const eligibleDays = Math.max(
                     0,
                     data.regular +
@@ -504,6 +558,10 @@ export default function Ticket() {
                           onChange={(e: any) => handleInputChange(u.id, 'regular', e.target.value)}
                           multiplier={ticketValue}
                           type="addition"
+                          isWarning={data.regular !== expectedReg}
+                          title="Dias Úteis Trabalhados (Mural)"
+                          items={details.diasUteis?.length > 0 ? details.diasUteis : []}
+                          emptyText="Nenhum dia útil no mural. (Padrão: dias do mês)"
                         />
                       </TableCell>
                       <TableCell>
@@ -512,9 +570,9 @@ export default function Ticket() {
                           readOnly
                           multiplier={ticketValue}
                           type="addition"
-                          title="Dias de Plantão"
-                          items={details.plantoes}
-                          emptyText="Sem plantões registrados"
+                          title="Finais de Semana (Mural)"
+                          items={details.plantoes?.length > 0 ? details.plantoes : []}
+                          emptyText="Nenhum plantão de fim de semana"
                         />
                       </TableCell>
                       <TableCell>
@@ -523,7 +581,7 @@ export default function Ticket() {
                           onChange={(e: any) => handleInputChange(u.id, 'sick', e.target.value)}
                           multiplier={ticketValue}
                           type="deduction"
-                          isWarning={data.sick !== preCalcSick}
+                          isWarning={data.sick !== (preCalculatedAtestados[u.id] || 0)}
                           title="Períodos de Atestados"
                           items={details.atestados}
                           emptyText="Sem atestados registrados"
@@ -537,6 +595,10 @@ export default function Ticket() {
                           }
                           multiplier={ticketValue}
                           type="addition"
+                          isWarning={data.holidaysWorked !== (preCalculatedHolidays[u.id] || 0)}
+                          title="Feriados Trabalhados (Mural)"
+                          items={details.feriados?.length > 0 ? details.feriados : []}
+                          emptyText="Nenhum feriado trabalhado"
                         />
                       </TableCell>
                       <TableCell>
@@ -545,7 +607,7 @@ export default function Ticket() {
                           onChange={(e: any) => handleInputChange(u.id, 'vacation', e.target.value)}
                           multiplier={ticketValue}
                           type="deduction"
-                          isWarning={data.vacation !== preCalcVacation}
+                          isWarning={data.vacation !== (preCalculatedVacations[u.id] || 0)}
                           title="Períodos de Férias"
                           items={details.ferias}
                           emptyText="Sem férias registradas"
@@ -557,7 +619,7 @@ export default function Ticket() {
                           onChange={(e: any) => handleInputChange(u.id, 'faltas', e.target.value)}
                           multiplier={ticketValue}
                           type="deduction"
-                          isWarning={data.faltas !== preCalcFaltas}
+                          isWarning={data.faltas !== (preCalculatedFaltas[u.id] || 0)}
                           title="Dias de Falta"
                           items={details.faltas}
                           emptyText="Sem faltas registradas"

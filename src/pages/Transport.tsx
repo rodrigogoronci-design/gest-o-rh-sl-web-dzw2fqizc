@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Navigate } from 'react-router-dom'
 import { format, parseISO, eachDayOfInterval } from 'date-fns'
 import { supabase } from '@/lib/supabase/client'
@@ -62,10 +62,22 @@ export default function Transport() {
   const [months, setMonths] = useState(() => buildMonthsList())
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [closedMonth, setClosedMonth] = useState('')
-  const [localData, setLocalData] = useState<Record<string, TransportRecord>>({})
+  const [localData, setLocalData] = useState<
+    Record<string, TransportRecord & { holidaysWorked?: number }>
+  >({})
   const [detailsData, setDetailsData] = useState<Record<string, Record<string, string[]>>>({})
+
+  const [preCalculatedRegular, setPreCalculatedRegular] = useState<Record<string, number>>({})
+  const [preCalculatedShifts, setPreCalculatedShifts] = useState<Record<string, number>>({})
+  const [preCalculatedHolidays, setPreCalculatedHolidays] = useState<Record<string, number>>({})
+  const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
+  const [preCalculatedAtestados, setPreCalculatedAtestados] = useState<Record<string, number>>({})
+  const [preCalculatedFaltas, setPreCalculatedFaltas] = useState<Record<string, number>>({})
+
+  const [totalBusinessDays, setTotalBusinessDays] = useState(20)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const toastShownRef = useRef<Record<string, boolean>>({})
 
   const year = parseInt(selectedMonth.split('-')[0])
   const month = parseInt(selectedMonth.split('-')[1]) - 1
@@ -127,6 +139,7 @@ export default function Transport() {
         { data: ferias },
         { data: atestados },
         { data: plantoes },
+        { data: feriadosDb },
       ] = await Promise.all([
         supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
         supabase.from('colaboradores').select('*').order('nome'),
@@ -144,7 +157,23 @@ export default function Transport() {
           .gte('data_inicio', prevPStart)
           .lte('data_inicio', prevPEnd),
         supabase.from('plantoes').select('*').gte('data', prevPStart).lte('data', prevPEnd),
+        supabase.from('feriados').select('*').gte('data', prevPStart).lte('data', prevPEnd),
       ])
+
+      const holidaysStrs = (feriadosDb || []).map((f: any) => f.data)
+      const daysInPeriod = eachDayOfInterval({
+        start: parseISO(prevPStart),
+        end: parseISO(prevPEnd),
+      })
+      let bDays = 0
+      daysInPeriod.forEach((d) => {
+        const dayOfWeek = d.getDay()
+        const dStr = format(d, 'yyyy-MM-dd')
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dStr)) {
+          bDays++
+        }
+      })
+      setTotalBusinessDays(bDays)
 
       const freshUsers = cols || []
       setActiveUsers(freshUsers)
@@ -159,6 +188,8 @@ export default function Transport() {
           faltas: [],
           homeOffice: hoDates,
           plantoes: [],
+          diasUteis: [],
+          feriados: [],
         }
       })
 
@@ -194,6 +225,9 @@ export default function Transport() {
       const vacationDaysCount = calcDays(ferias || [], pStart, pEnd, 'ferias')
       const atestadoDaysCount = calcDays(atestados || [], prevPStart, prevPEnd, 'atestados')
 
+      setPreCalculatedVacations(vacationDaysCount)
+      setPreCalculatedAtestados(atestadoDaysCount)
+
       const currentMonthFaltas: Record<string, number> = {}
       faltas?.forEach((f) => {
         currentMonthFaltas[f.colaborador_id] = (currentMonthFaltas[f.colaborador_id] || 0) + 1
@@ -201,15 +235,39 @@ export default function Transport() {
           dDetails[f.colaborador_id].faltas.push(format(parseISO(f.data), 'dd/MM/yyyy'))
         }
       })
+      setPreCalculatedFaltas(currentMonthFaltas)
 
-      const currentMonthPlantoes: Record<string, number> = {}
+      const currentMonthShifts: Record<string, number> = {}
+      const currentMonthBusinessShifts: Record<string, number> = {}
+      const currentMonthHolidayShifts: Record<string, number> = {}
+
       plantoes?.forEach((p) => {
-        currentMonthPlantoes[p.colaborador_id] = (currentMonthPlantoes[p.colaborador_id] || 0) + 1
-        if (dDetails[p.colaborador_id]) {
-          dDetails[p.colaborador_id].plantoes.push(format(parseISO(p.data), 'dd/MM/yyyy'))
+        if (!p.colaborador_id) return
+        const dStr = p.data
+        const d = parseISO(dStr)
+        const dayOfWeek = d.getDay()
+        const isHoliday = holidaysStrs.includes(dStr)
+
+        if (isHoliday) {
+          currentMonthHolidayShifts[p.colaborador_id] =
+            (currentMonthHolidayShifts[p.colaborador_id] || 0) + 1
+          if (dDetails[p.colaborador_id])
+            dDetails[p.colaborador_id].feriados.push(format(d, 'dd/MM/yyyy'))
+        } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+          currentMonthShifts[p.colaborador_id] = (currentMonthShifts[p.colaborador_id] || 0) + 1
+          if (dDetails[p.colaborador_id])
+            dDetails[p.colaborador_id].plantoes.push(format(d, 'dd/MM/yyyy'))
+        } else {
+          currentMonthBusinessShifts[p.colaborador_id] =
+            (currentMonthBusinessShifts[p.colaborador_id] || 0) + 1
+          if (dDetails[p.colaborador_id])
+            dDetails[p.colaborador_id].diasUteis.push(format(d, 'dd/MM/yyyy'))
         }
       })
 
+      setPreCalculatedRegular(currentMonthBusinessShifts)
+      setPreCalculatedShifts(currentMonthShifts)
+      setPreCalculatedHolidays(currentMonthHolidayShifts)
       setDetailsData(dDetails)
 
       const transportsByColab = (transports || []).reduce((acc: any, t: any) => {
@@ -217,7 +275,7 @@ export default function Transport() {
         return acc
       }, {})
 
-      const initial: Record<string, TransportRecord> = {}
+      const initial: Record<string, TransportRecord & { holidaysWorked?: number }> = {}
       freshUsers
         .filter(
           (u: any) =>
@@ -229,26 +287,26 @@ export default function Transport() {
         .forEach((u) => {
           const t = transportsByColab[u.id]
           const isStored = !!t
-          const data = t || {
-            dias_uteis: 20,
-            atestados: 0,
-            ferias: 0,
-            faltas: 0,
-            credito: 0,
-            desconto: 0,
-          }
+
+          const calcReg = currentMonthBusinessShifts[u.id] || 0
+          const calcShifts = currentMonthShifts[u.id] || 0
+          const calcHolidays = currentMonthHolidayShifts[u.id] || 0
+
+          const hasAnyPlantao = calcReg + calcShifts + calcHolidays > 0
+          const defaultReg = hasAnyPlantao ? calcReg : bDays
 
           initial[u.id] = {
-            businessDays: isStored ? data.dias_uteis : 20,
+            businessDays: isStored ? t.dias_uteis : defaultReg,
             vacation: vacationDaysCount[u.id] || 0,
             sick: atestadoDaysCount[u.id] || 0,
             faltas: currentMonthFaltas[u.id] || 0,
-            homeOffice: isStored ? (data.home_office ?? hoDates.length) : hoDates.length,
-            shifts: currentMonthPlantoes[u.id] || 0,
-            credito: isStored ? data.credito : 0,
-            desconto: isStored ? data.desconto : 0,
-            credito_justificativa: isStored ? data.credito_justificativa : '',
-            desconto_justificativa: isStored ? data.desconto_justificativa : '',
+            homeOffice: isStored ? (t.home_office ?? hoDates.length) : hoDates.length,
+            shifts: calcShifts,
+            holidaysWorked: isStored ? t.feriados_trabalhados || 0 : calcHolidays,
+            credito: isStored ? t.credito : 0,
+            desconto: isStored ? t.desconto : 0,
+            credito_justificativa: isStored ? t.credito_justificativa : '',
+            desconto_justificativa: isStored ? t.desconto_justificativa : '',
           }
         })
       setLocalData(initial)
@@ -262,12 +320,44 @@ export default function Transport() {
     return <Navigate to="/app/mural" replace />
   }
 
-  const handleInputChange = (userId: string, field: keyof TransportRecord, value: string) => {
+  const handleInputChange = (
+    userId: string,
+    field: keyof TransportRecord | 'holidaysWorked',
+    value: string,
+  ) => {
+    if (field === 'shifts') return
     if (field === 'credito_justificativa' || field === 'desconto_justificativa') {
       setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: value } }))
       return
     }
     const num = parseInt(value) || 0
+
+    const checkWarning = (f: string, preCalc: number, label: string) => {
+      if (num !== preCalc && !toastShownRef.current[`${userId}-${f}`]) {
+        toast({
+          title: 'Atenção: Edição Manual',
+          description: `Você está alterando os dias de ${label} calculados automaticamente.`,
+          variant: 'destructive',
+        })
+        toastShownRef.current[`${userId}-${f}`] = true
+      }
+    }
+
+    if (field === 'vacation')
+      checkWarning('vacation', preCalculatedVacations[userId] || 0, 'férias')
+    if (field === 'sick') checkWarning('sick', preCalculatedAtestados[userId] || 0, 'atestados')
+    if (field === 'faltas') checkWarning('faltas', preCalculatedFaltas[userId] || 0, 'faltas')
+    if (field === 'businessDays') {
+      const hasAny =
+        preCalculatedRegular[userId] || preCalculatedShifts[userId] || preCalculatedHolidays[userId]
+          ? true
+          : false
+      const expected = hasAny ? preCalculatedRegular[userId] || 0 : totalBusinessDays
+      checkWarning('businessDays', expected, 'dias úteis')
+    }
+    if (field === 'holidaysWorked')
+      checkWarning('holidaysWorked', preCalculatedHolidays[userId] || 0, 'feriados trabalhados')
+
     setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: num } }))
   }
 
@@ -293,7 +383,8 @@ export default function Transport() {
       mes_ano: selectedMonth,
       dias_uteis: data.businessDays,
       home_office: data.homeOffice || 0,
-      plantoes: 0,
+      plantoes: data.shifts || 0,
+      feriados_trabalhados: data.holidaysWorked || 0,
       ferias: data.vacation,
       atestados: data.sick,
       faltas: data.faltas,
@@ -357,7 +448,8 @@ export default function Transport() {
               <CalendarIcon className="w-3.5 h-3.5 text-slate-500" />
               <span>Ciclo:</span>
               <strong className="text-slate-700">
-                {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
+                {format(parseISO(prevPStart), 'dd/MM/yyyy')} a{' '}
+                {format(parseISO(prevPEnd), 'dd/MM/yyyy')}
               </strong>
             </div>
           </div>
@@ -399,20 +491,29 @@ export default function Transport() {
             <TableHeader className="bg-slate-50/90 sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200">
               <TableRow className="[&>th]:py-2 [&>th]:px-3 text-[11px] uppercase tracking-wider text-slate-500 font-semibold border-0 whitespace-nowrap">
                 <TableHead className="min-w-[160px]">Colaborador</TableHead>
-                <TableHead className="w-[90px] text-center">Dias Úteis</TableHead>
+                <TableHead className="w-[110px] text-center">
+                  <div
+                    className="flex items-center justify-center gap-1 cursor-help"
+                    title={`Dias úteis padrão do mês (${format(parseISO(prevPStart), 'dd/MM')} a ${format(parseISO(prevPEnd), 'dd/MM')}): ${totalBusinessDays} dias. Exclui finais de semana e feriados.`}
+                  >
+                    Dias Úteis <Info className="w-3 h-3 text-slate-400" />
+                  </div>
+                </TableHead>
+                <TableHead className="w-[90px] text-center">Plantões</TableHead>
                 <TableHead className="w-[100px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                    title={`Ciclo: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
                   >
                     Atestados <Info className="w-3 h-3 text-slate-400" />
                   </div>
                 </TableHead>
+                <TableHead className="w-[90px] text-center">Feriados</TableHead>
                 <TableHead className="w-[90px] text-center">Férias</TableHead>
                 <TableHead className="w-[100px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                    title={`Ciclo: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
                   >
                     Faltas <Info className="w-3 h-3 text-slate-400" />
                   </div>
@@ -420,7 +521,7 @@ export default function Transport() {
                 <TableHead className="w-[110px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                    title={`Ciclo: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
                   >
                     Home Office <Info className="w-3 h-3 text-slate-400" />
                   </div>
@@ -448,6 +549,7 @@ export default function Transport() {
                     faltas: 0,
                     homeOffice: 0,
                     shifts: 0,
+                    holidaysWorked: 0,
                     credito: 0,
                     desconto: 0,
                   }
@@ -457,11 +559,23 @@ export default function Transport() {
                     faltas: [],
                     homeOffice: [],
                     plantoes: [],
+                    diasUteis: [],
+                    feriados: [],
                   }
+
+                  const hasAny =
+                    preCalculatedRegular[u.id] ||
+                    preCalculatedShifts[u.id] ||
+                    preCalculatedHolidays[u.id]
+                      ? true
+                      : false
+                  const expectedReg = hasAny ? preCalculatedRegular[u.id] || 0 : totalBusinessDays
 
                   const eligibleDays = Math.max(
                     0,
                     data.businessDays +
+                      (data.shifts || 0) +
+                      (data.holidaysWorked || 0) +
                       (data.credito || 0) -
                       data.vacation -
                       (data.sick || 0) -
@@ -488,6 +602,21 @@ export default function Transport() {
                           }
                           multiplier={transportValue}
                           type="addition"
+                          isWarning={data.businessDays !== expectedReg}
+                          title="Dias Úteis Trabalhados (Mural)"
+                          items={details.diasUteis?.length > 0 ? details.diasUteis : []}
+                          emptyText="Nenhum dia útil no mural. (Padrão: dias do mês)"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <FieldWithInfo
+                          value={data.shifts || 0}
+                          readOnly
+                          multiplier={transportValue}
+                          type="addition"
+                          title="Finais de Semana (Mural)"
+                          items={details.plantoes?.length > 0 ? details.plantoes : []}
+                          emptyText="Nenhum plantão de fim de semana"
                         />
                       </TableCell>
                       <TableCell>
@@ -496,9 +625,24 @@ export default function Transport() {
                           onChange={(e: any) => handleInputChange(u.id, 'sick', e.target.value)}
                           multiplier={transportValue}
                           type="deduction"
+                          isWarning={data.sick !== (preCalculatedAtestados[u.id] || 0)}
                           title="Períodos de Atestados"
                           items={details.atestados}
                           emptyText="Sem atestados registrados"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <FieldWithInfo
+                          value={data.holidaysWorked || 0}
+                          onChange={(e: any) =>
+                            handleInputChange(u.id, 'holidaysWorked', e.target.value)
+                          }
+                          multiplier={transportValue}
+                          type="addition"
+                          isWarning={data.holidaysWorked !== (preCalculatedHolidays[u.id] || 0)}
+                          title="Feriados Trabalhados (Mural)"
+                          items={details.feriados?.length > 0 ? details.feriados : []}
+                          emptyText="Nenhum feriado trabalhado"
                         />
                       </TableCell>
                       <TableCell>
@@ -507,6 +651,7 @@ export default function Transport() {
                           onChange={(e: any) => handleInputChange(u.id, 'vacation', e.target.value)}
                           multiplier={transportValue}
                           type="deduction"
+                          isWarning={data.vacation !== (preCalculatedVacations[u.id] || 0)}
                           title="Períodos de Férias"
                           items={details.ferias}
                           emptyText="Sem férias registradas"
@@ -518,6 +663,7 @@ export default function Transport() {
                           onChange={(e: any) => handleInputChange(u.id, 'faltas', e.target.value)}
                           multiplier={transportValue}
                           type="deduction"
+                          isWarning={data.faltas !== (preCalculatedFaltas[u.id] || 0)}
                           title="Dias de Falta"
                           items={details.faltas}
                           emptyText="Sem faltas registradas"
