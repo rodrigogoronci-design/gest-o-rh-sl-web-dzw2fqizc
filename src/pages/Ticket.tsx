@@ -69,6 +69,7 @@ export default function Ticket() {
   const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
   const [preCalculatedAtestados, setPreCalculatedAtestados] = useState<Record<string, number>>({})
   const [preCalculatedFaltas, setPreCalculatedFaltas] = useState<Record<string, number>>({})
+  const [totalBusinessDays, setTotalBusinessDays] = useState(20)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const toastShownRef = useRef<Record<string, boolean>>({})
@@ -130,6 +131,7 @@ export default function Ticket() {
         { data: tickets },
         { data: faltas },
         { data: cols },
+        { data: feriadosDb },
       ] = await Promise.all([
         supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
         supabase
@@ -141,7 +143,20 @@ export default function Ticket() {
         supabase.from('beneficios_ticket').select('*').eq('mes_ano', selectedMonth),
         supabase.from('faltas').select('*').gte('data', prevPStart).lte('data', prevPEnd),
         supabase.from('colaboradores').select('*').order('nome'),
+        supabase.from('feriados').select('*').gte('data', pStart).lte('data', pEnd),
       ])
+
+      const holidaysStrs = (feriadosDb || []).map((f: any) => f.data)
+      const daysInPeriod = eachDayOfInterval({ start: parseISO(pStart), end: parseISO(pEnd) })
+      let bDays = 0
+      daysInPeriod.forEach((d) => {
+        const dayOfWeek = d.getDay()
+        const dStr = format(d, 'yyyy-MM-dd')
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dStr)) {
+          bDays++
+        }
+      })
+      setTotalBusinessDays(bDays)
 
       const freshUsers = cols || []
       setActiveUsers(freshUsers)
@@ -219,9 +234,10 @@ export default function Ticket() {
           const t = ticketsByColab[u.id]
           const isStored = !!t
           const data = t || {
-            dias_uteis: 20,
+            dias_uteis: bDays,
             plantoes: 0,
             atestados: 0,
+            feriados_trabalhados: 0,
             ferias: 0,
             faltas: 0,
             credito: 0,
@@ -229,11 +245,12 @@ export default function Ticket() {
           }
 
           initial[u.id] = {
-            regular: isStored ? data.dias_uteis : 20,
+            regular: isStored ? data.dias_uteis : bDays,
             shifts: currentMonthShifts[u.id] || 0,
             vacation: vacationDaysCount[u.id] || 0,
             sick: atestadoDaysCount[u.id] || 0,
             faltas: currentMonthFaltas[u.id] || 0,
+            holidaysWorked: isStored ? data.feriados_trabalhados || 0 : 0,
             credito: isStored ? data.credito : 0,
             desconto: isStored ? data.desconto : 0,
             credito_justificativa: isStored ? data.credito_justificativa : '',
@@ -299,6 +316,7 @@ export default function Ticket() {
       dias_uteis: data.regular,
       plantoes: data.shifts,
       atestados: data.sick,
+      feriados_trabalhados: data.holidaysWorked || 0,
       ferias: data.vacation,
       faltas: data.faltas,
       credito: data.credito || 0,
@@ -400,7 +418,14 @@ export default function Ticket() {
             <TableHeader className="bg-slate-50/90 sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200">
               <TableRow className="[&>th]:py-2 [&>th]:px-3 text-[11px] uppercase tracking-wider text-slate-500 font-semibold border-0 whitespace-nowrap">
                 <TableHead className="min-w-[160px]">Colaborador</TableHead>
-                <TableHead className="w-[90px] text-center">Dias Úteis</TableHead>
+                <TableHead className="w-[110px] text-center">
+                  <div
+                    className="flex items-center justify-center gap-1 cursor-help"
+                    title={`Dias úteis calculados (${format(parseISO(pStart), 'dd/MM')} a ${format(parseISO(pEnd), 'dd/MM')}): ${totalBusinessDays} dias. Exclui finais de semana e feriados.`}
+                  >
+                    Dias Úteis <Info className="w-3 h-3 text-slate-400" />
+                  </div>
+                </TableHead>
                 <TableHead className="w-[90px] text-center">Plantões</TableHead>
                 <TableHead className="w-[100px] text-center">
                   <div
@@ -410,6 +435,7 @@ export default function Ticket() {
                     Atestados <Info className="w-3 h-3 text-slate-400" />
                   </div>
                 </TableHead>
+                <TableHead className="w-[90px] text-center">Feriados</TableHead>
                 <TableHead className="w-[90px] text-center">Férias</TableHead>
                 <TableHead className="w-[100px] text-center">
                   <div
@@ -438,6 +464,7 @@ export default function Ticket() {
                     regular: 0,
                     shifts: 0,
                     sick: 0,
+                    holidaysWorked: 0,
                     vacation: 0,
                     faltas: 0,
                     credito: 0,
@@ -456,6 +483,7 @@ export default function Ticket() {
                     0,
                     data.regular +
                       data.shifts +
+                      (data.holidaysWorked || 0) +
                       (data.credito || 0) -
                       (data.sick + data.vacation + (data.faltas || 0) + (data.desconto || 0)),
                   )
@@ -499,6 +527,16 @@ export default function Ticket() {
                           title="Períodos de Atestados"
                           items={details.atestados}
                           emptyText="Sem atestados registrados"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <FieldWithInfo
+                          value={data.holidaysWorked || 0}
+                          onChange={(e: any) =>
+                            handleInputChange(u.id, 'holidaysWorked', e.target.value)
+                          }
+                          multiplier={ticketValue}
+                          type="addition"
                         />
                       </TableCell>
                       <TableCell>

@@ -72,26 +72,37 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const prevStartStr = format(prevPeriodStart, 'yyyy-MM-dd')
   const prevEndStr = format(prevPeriodEnd, 'yyyy-MM-dd')
 
-  const [cols, faltas, ferias, atestados, plantoes, tickets, transports, hoData, plantoesPrev] =
-    await Promise.all([
-      supabase.from('colaboradores').select('id, role, recebe_transporte'),
-      supabase.from('faltas').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
-      supabase.from('ferias').select('*').lte('data_inicio', endStr).gte('data_fim', startStr),
-      supabase
-        .from('atestados')
-        .select('*')
-        .gte('data_inicio', prevStartStr)
-        .lte('data_inicio', prevEndStr),
-      supabase.from('plantoes').select('*').gte('data', startStr).lte('data', endStr),
-      supabase.from('beneficios_ticket').select('*').eq('mes_ano', month),
-      supabase.from('beneficios_transporte').select('*').eq('mes_ano', month),
-      supabase
-        .from('dias_home_office')
-        .select('data')
-        .gte('data', prevStartStr)
-        .lte('data', prevEndStr),
-      supabase.from('plantoes').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
-    ])
+  const [
+    cols,
+    faltas,
+    ferias,
+    atestados,
+    plantoes,
+    tickets,
+    transports,
+    hoData,
+    plantoesPrev,
+    feriadosDataDb,
+  ] = await Promise.all([
+    supabase.from('colaboradores').select('id, role, recebe_transporte'),
+    supabase.from('faltas').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
+    supabase.from('ferias').select('*').lte('data_inicio', endStr).gte('data_fim', startStr),
+    supabase
+      .from('atestados')
+      .select('*')
+      .gte('data_inicio', prevStartStr)
+      .lte('data_inicio', prevEndStr),
+    supabase.from('plantoes').select('*').gte('data', startStr).lte('data', endStr),
+    supabase.from('beneficios_ticket').select('*').eq('mes_ano', month),
+    supabase.from('beneficios_transporte').select('*').eq('mes_ano', month),
+    supabase
+      .from('dias_home_office')
+      .select('data')
+      .gte('data', prevStartStr)
+      .lte('data', prevEndStr),
+    supabase.from('plantoes').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
+    supabase.from('feriados').select('*').gte('data', startStr).lte('data', endStr),
+  ])
 
   const users = cols.data || []
   const faltasData = faltas.data || []
@@ -104,8 +115,20 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const plantoesPrevData = plantoesPrev.data || []
   const homeOfficeCount = hoDataResult.length
 
+  const feriadosData = feriadosDataDb.data || []
+  const holidaysStrs = feriadosData.map((f: any) => f.data)
+
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd })
   const daysStrs = days.map((d) => format(d, 'yyyy-MM-dd'))
+
+  let bDays = 0
+  days.forEach((d) => {
+    const dayOfWeek = d.getDay()
+    const dStr = format(d, 'yyyy-MM-dd')
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dStr)) {
+      bDays++
+    }
+  })
 
   const ticketUpdates: any[] = []
   const transportUpdates: any[] = []
@@ -146,7 +169,8 @@ export const syncAllUsersBeneficios = async (month: string) => {
       ferias: userFerias,
       atestados: userAtestados,
       plantoes: userPlantoes,
-      dias_uteis: existingTicket ? existingTicket.dias_uteis : 20,
+      dias_uteis: existingTicket ? existingTicket.dias_uteis : bDays,
+      feriados_trabalhados: existingTicket ? (existingTicket as any).feriados_trabalhados || 0 : 0,
       credito: existingTicket ? existingTicket.credito : 0,
       desconto: existingTicket ? existingTicket.desconto : 0,
       credito_justificativa: existingTicket ? existingTicket.credito_justificativa : '',
@@ -166,7 +190,10 @@ export const syncAllUsersBeneficios = async (month: string) => {
         atestados: userAtestados,
         home_office: homeOfficeCount,
         plantoes: 0,
-        dias_uteis: existingTransport ? existingTransport.dias_uteis : 20,
+        dias_uteis: existingTransport ? existingTransport.dias_uteis : bDays,
+        feriados_trabalhados: existingTransport
+          ? (existingTransport as any).feriados_trabalhados || 0
+          : 0,
         credito: existingTransport ? existingTransport.credito : 0,
         desconto: existingTransport ? existingTransport.desconto : 0,
         credito_justificativa: existingTransport ? existingTransport.credito_justificativa : '',

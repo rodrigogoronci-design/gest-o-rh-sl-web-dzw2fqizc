@@ -16,6 +16,7 @@ export interface TicketRecord {
   regular: number
   shifts: number
   sick: number
+  holidaysWorked: number
   vacation: number
   faltas: number
   credito?: number
