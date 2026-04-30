@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File
-
+    
     if (!file) {
       throw new Error('Nenhum arquivo enviado.')
     }
@@ -26,33 +26,26 @@ Deno.serve(async (req) => {
     }
 
     const uint8Array = new Uint8Array(arrayBuffer)
-
-    let workbook
+    
+    let workbook;
     const result: any = {}
 
     try {
-      workbook = XLSX.read(uint8Array, {
-        type: 'array',
-        cellDates: true,
-        cellNF: false,
-        cellText: false,
-      })
-
+      workbook = XLSX.read(uint8Array, { type: 'array', cellDates: true, cellNF: false, cellText: false })
+      
       for (const sheetName of workbook.SheetNames) {
         const sheet = workbook.Sheets[sheetName]
-        const rows = XLSX.utils.sheet_to_json(sheet, {
-          header: 1,
+        const rows = XLSX.utils.sheet_to_json(sheet, { 
+          header: 1, 
           defval: '',
           blankrows: false,
-          raw: true,
+          raw: true 
         })
         result[sheetName] = rows
       }
     } catch (parseError) {
       console.error('XLSX parse error', parseError)
-      throw new Error(
-        'Falha ao decodificar o arquivo Excel (binário): ' + (parseError as Error).message,
-      )
+      throw new Error('Falha ao decodificar o arquivo Excel (binário): ' + (parseError as Error).message);
     }
 
     return new Response(JSON.stringify({ success: true, data: result }), {
