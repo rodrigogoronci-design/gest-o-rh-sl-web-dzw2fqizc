@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null
   signUp: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
-  signOut: () => Promise<{ error: any }>
+  signOut: (reason?: 'logout' | 'timeout') => Promise<{ error: any }>
   loading: boolean
 }
 
@@ -50,11 +50,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (!error && data?.user) {
+      await supabase
+        .from('auditoria_acessos' as any)
+        .insert({ user_id: data.user.id, acao: 'login' })
+    }
     return { error }
   }
 
-  const signOut = async () => {
+  const signOut = async (reason: 'logout' | 'timeout' = 'logout') => {
+    if (user) {
+      await supabase.from('auditoria_acessos' as any).insert({ user_id: user.id, acao: reason })
+    }
     const { error } = await supabase.auth.signOut()
     return { error }
   }

@@ -27,6 +27,7 @@ import Admissao from './pages/Admissao'
 import Demissao from './pages/Demissao'
 import Settings from './pages/Settings'
 import PlanoSaude from './pages/PlanoSaude'
+import Acessos from './pages/Acessos'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -86,6 +87,7 @@ const App = () => (
                   <Route path="admissao" element={<Admissao />} />
                   <Route path="demissao" element={<Demissao />} />
                   <Route path="configuracoes" element={<Settings />} />
+                  <Route path="acessos" element={<Acessos />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />
                 <Route path="meritocracia" element={<Meritocracia />} />

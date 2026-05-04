@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
     const formData = await req.formData()
     const file = formData.get('file') as File
-    
+
     if (!file) throw new Error('Nenhum arquivo enviado.')
 
     const arrayBuffer = await file.arrayBuffer()
@@ -53,14 +53,19 @@ Deno.serve(async (req) => {
     }
 
     let modulos: string[] = []
-    const planoMatch = extractedText.match(/(?:Plano|Módulos?|Serviços? contratados?|Contratação):\s*([^\.\n]+)/i)
+    const planoMatch = extractedText.match(
+      /(?:Plano|Módulos?|Serviços? contratados?|Contratação):\s*([^\.\n]+)/i,
+    )
     if (planoMatch) {
-      modulos = planoMatch[1].split(',').map((m: string) => m.trim()).filter(Boolean)
+      modulos = planoMatch[1]
+        .split(',')
+        .map((m: string) => m.trim())
+        .filter(Boolean)
     }
-    
+
     if (modulos.length === 0) {
-       const possibleModules = ['CRM', 'Financeiro', 'Gestão de Contratos', 'RH', 'Suporte']
-       modulos = possibleModules.sort(() => 0.5 - Math.random()).slice(0, 2)
+      const possibleModules = ['CRM', 'Financeiro', 'Gestão de Contratos', 'RH', 'Suporte']
+      modulos = possibleModules.sort(() => 0.5 - Math.random()).slice(0, 2)
     }
 
     const fileName = `${crypto.randomUUID()}.pdf`
@@ -73,12 +78,15 @@ Deno.serve(async (req) => {
     const { data: publicUrlData } = supabase.storage.from('contratos').getPublicUrl(fileName)
     const contrato_url = publicUrlData.publicUrl
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      data: { nome, cnpj, contrato_url, valor_total, modulos } 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: { nome, cnpj, contrato_url, valor_total, modulos },
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    )
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,

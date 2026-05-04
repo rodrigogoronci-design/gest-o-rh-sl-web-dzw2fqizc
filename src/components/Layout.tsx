@@ -3,9 +3,11 @@ import { SidebarProvider } from '@/components/ui/sidebar'
 import AppSidebar from './AppSidebar'
 import AppHeader from './AppHeader'
 import useAppStore from '@/stores/useAppStore'
+import { useSessionTimeout } from '@/hooks/use-session-timeout'
 
 export default function Layout() {
   const { currentUser } = useAppStore()
+  useSessionTimeout()
 
   if (!currentUser) {
     return <Navigate to="/" replace />
