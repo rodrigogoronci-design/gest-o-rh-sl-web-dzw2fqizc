@@ -12,7 +12,8 @@ export default function Index() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const { signIn, session, user } = useAuth()
+  const [isRecovering, setIsRecovering] = useState(false)
+  const { signIn, resetPassword, session, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -25,6 +26,21 @@ export default function Index() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isRecovering) {
+      setIsLoading(true)
+      try {
+        const { error } = await resetPassword(email)
+        if (error) throw error
+        toast.success('Se o email existir, um link de recuperação foi enviado.')
+        setIsRecovering(false)
+      } catch (error: any) {
+        toast.error('Erro ao solicitar recuperação. Tente novamente.')
+      } finally {
+        setIsLoading(false)
+      }
+      return
+    }
+
     setIsLoading(true)
     try {
       const { error } = await signIn(email, password)
@@ -64,24 +80,52 @@ export default function Index() {
                   disabled={isLoading}
                 />
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Senha</Label>
+              {!isRecovering && (
+                <div className="space-y-2 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Senha</Label>
+                    <button
+                      type="button"
+                      onClick={() => setIsRecovering(true)}
+                      className="text-sm font-medium text-primary hover:underline focus:outline-none"
+                    >
+                      Esqueceu a senha?
+                    </button>
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required={!isRecovering}
+                    className="h-11"
+                    disabled={isLoading}
+                  />
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="h-11"
-                  disabled={isLoading}
-                />
+              )}
+              <div className="pt-2 space-y-3">
+                <Button type="submit" className="w-full h-11 text-base" disabled={isLoading}>
+                  {isLoading
+                    ? isRecovering
+                      ? 'Enviando...'
+                      : 'Autenticando...'
+                    : isRecovering
+                      ? 'Enviar link de recuperação'
+                      : 'Entrar no Sistema'}
+                </Button>
+                {isRecovering && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full h-11"
+                    onClick={() => setIsRecovering(false)}
+                    disabled={isLoading}
+                  >
+                    Voltar para o login
+                  </Button>
+                )}
               </div>
-              <Button type="submit" className="w-full h-11 text-base" disabled={isLoading}>
-                {isLoading ? 'Autenticando...' : 'Entrar no Sistema'}
-              </Button>
             </form>
           </CardContent>
         </Card>
