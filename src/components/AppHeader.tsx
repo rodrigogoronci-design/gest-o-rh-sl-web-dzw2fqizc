@@ -17,7 +17,7 @@ import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 
 export default function AppHeader() {
-  const { currentUser, logout } = useAppStore()
+  const { currentUser, logout, setCurrentUser } = useAppStore() as any
   const { signOut } = useAuth()
   const navigate = useNavigate()
   const [avatarUrl, setAvatarUrl] = useState('')
@@ -37,7 +37,11 @@ export default function AppHeader() {
 
   const handleLogout = async () => {
     await signOut()
-    logout()
+    if (typeof logout === 'function') {
+      logout()
+    } else if (typeof setCurrentUser === 'function') {
+      setCurrentUser(null)
+    }
     navigate('/')
   }
 
