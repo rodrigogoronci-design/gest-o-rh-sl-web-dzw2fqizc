@@ -50,7 +50,7 @@ const AdminRoute = () => {
         .single()
         .then(({ data }) => {
           const role = data?.role?.toLowerCase() || ''
-          setIsAdmin(role === 'admin' || role === 'gerente')
+          setIsAdmin(role === 'admin' || role === 'administrador' || role === 'gerente')
         })
     }
   }, [user])

@@ -20,6 +20,7 @@ import {
   Briefcase,
   Sliders,
   Award,
+  ShieldAlert,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
@@ -278,6 +279,12 @@ export default function AppSidebar() {
           icon: Users,
           roles: ['admin', 'Admin', 'Gerente'],
         },
+        {
+          title: 'Auditoria de Acessos',
+          path: '/app/acessos',
+          icon: ShieldAlert,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
       ],
     },
     {
@@ -314,7 +321,7 @@ export default function AppSidebar() {
               const filteredNested = sub.items.filter((nested: any) => {
                 const userRole = normalizeStr(activeUser?.role)
                 const userDept = normalizeStr(activeUser?.departamento)
-                const isAdmin = ['admin', 'gerente'].includes(userRole)
+                const isAdmin = ['admin', 'administrador', 'gerente'].includes(userRole)
                 const isRoleMatch = nested.roles.some((r: string) => normalizeStr(r) === userRole)
 
                 if (nested.departments) {
@@ -328,7 +335,7 @@ export default function AppSidebar() {
             }
             const userRole = normalizeStr(activeUser?.role)
             const userDept = normalizeStr(activeUser?.departamento)
-            const isAdmin = ['admin', 'gerente'].includes(userRole)
+            const isAdmin = ['admin', 'administrador', 'gerente'].includes(userRole)
             const isRoleMatch = sub.roles.some((r: string) => normalizeStr(r) === userRole)
 
             if (sub.departments) {
@@ -350,7 +357,7 @@ export default function AppSidebar() {
     .filter((item) => {
       if (item.items) return item.items.length > 0
       const userRole = normalizeStr(activeUser?.role)
-      const isAdmin = ['admin', 'gerente'].includes(userRole)
+      const isAdmin = ['admin', 'administrador', 'gerente'].includes(userRole)
       return isAdmin || item.roles.some((r: string) => normalizeStr(r) === userRole)
     })
 
