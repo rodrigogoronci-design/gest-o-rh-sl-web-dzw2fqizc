@@ -21,6 +21,11 @@ export default function Profile() {
   const [isSaving, setIsSaving] = useState(false)
   const [colabId, setColabId] = useState('')
 
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+
   useEffect(() => {
     if (user) {
       loadProfile()
@@ -46,6 +51,49 @@ export default function Profile() {
       const file = e.target.files[0]
       setAvatarFile(file)
       setAvatarPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: 'Erro',
+        description: 'As novas senhas não coincidem.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsChangingPassword(true)
+    try {
+      if (user?.email) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: currentPassword,
+        })
+        if (signInError) {
+          throw new Error('Senha atual incorreta.')
+        }
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      })
+
+      if (error) throw error
+
+      toast({
+        title: 'Senha atualizada',
+        description: 'Sua senha foi alterada com sucesso.',
+      })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+    } finally {
+      setIsChangingPassword(false)
     }
   }
 
@@ -134,6 +182,51 @@ export default function Profile() {
             <div className="flex justify-end">
               <Button type="submit" disabled={isSaving}>
                 {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Segurança</CardTitle>
+          <CardDescription>Atualize sua senha de acesso.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4 max-w-sm">
+            <div className="space-y-2">
+              <Label>Senha Atual</Label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nova Senha</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Confirmar Nova Senha</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button type="submit" disabled={isChangingPassword} variant="secondary">
+                {isChangingPassword ? 'Alterando...' : 'Alterar Senha'}
               </Button>
             </div>
           </form>
