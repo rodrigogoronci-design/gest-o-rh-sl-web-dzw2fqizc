@@ -14,9 +14,11 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
 
 export default function AppHeader() {
   const { currentUser, logout } = useAppStore()
+  const { signOut } = useAuth()
   const navigate = useNavigate()
   const [avatarUrl, setAvatarUrl] = useState('')
 
@@ -33,7 +35,8 @@ export default function AppHeader() {
     }
   }, [currentUser])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut()
     logout()
     navigate('/')
   }
