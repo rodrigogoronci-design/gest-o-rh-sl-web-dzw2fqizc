@@ -133,6 +133,20 @@ export default function AppSidebar() {
           ],
         },
         {
+          title: 'Apropriação de Horas',
+          path: '/app/apropriacao',
+          icon: Clock,
+          roles: [
+            'admin',
+            'Admin',
+            'Gerente',
+            'user',
+            'Colaborador',
+            'Personalizado',
+            'personalizado',
+          ],
+        },
+        {
           title: 'Mural de Plantões',
           path: '/app/mural',
           icon: CalendarDays,

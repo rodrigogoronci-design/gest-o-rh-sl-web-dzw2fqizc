@@ -19,6 +19,7 @@ import Atestados from './pages/Atestados'
 import Reports from './pages/Reports'
 import Historico from './pages/Historico'
 import Ponto from './pages/Ponto'
+import Apropriacao from './pages/Apropriacao'
 import ContraCheque from './pages/ContraCheque'
 import Profile from './pages/Profile'
 import Meritocracia from './pages/Meritocracia'
@@ -94,6 +95,7 @@ const App = () => (
                 <Route path="meritocracia" element={<Meritocracia />} />
                 <Route path="meritocracia/:setor" element={<MeritocraciaSetor />} />
                 <Route path="ponto" element={<Ponto />} />
+                <Route path="apropriacao" element={<Apropriacao />} />
                 <Route path="contracheque" element={<ContraCheque />} />
                 <Route path="perfil" element={<Profile />} />
               </Route>
