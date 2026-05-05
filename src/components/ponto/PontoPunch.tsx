@@ -46,7 +46,6 @@ export function PontoPunch({ colaborador, deviceId }: any) {
   const [loadingRegistros, setLoadingRegistros] = useState(true)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [manualTime, setManualTime] = useState('')
   const [tipoRegistro, setTipoRegistro] = useState('entrada')
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -181,10 +180,6 @@ export function PontoPunch({ colaborador, deviceId }: any) {
   }
 
   const registerPoint = async () => {
-    if (!manualTime) {
-      toast.error('Informe o horário válido')
-      return
-    }
     if (isMobile && !location) {
       toast.error('Localização é obrigatória no celular')
       return
@@ -208,8 +203,6 @@ export function PontoPunch({ colaborador, deviceId }: any) {
       }
 
       const recordDate = new Date()
-      const [hours, minutes] = manualTime.split(':').map(Number)
-      recordDate.setHours(hours, minutes, 0, 0)
 
       if (status !== 'inconsistencia') {
         const checkTolerance = (expectedStr: string) => {
@@ -486,8 +479,6 @@ export function PontoPunch({ colaborador, deviceId }: any) {
         open={isModalOpen}
         onOpenChange={(open) => {
           if (open) {
-            const now = new Date()
-            setManualTime(now.toTimeString().slice(0, 5))
             setTipoRegistro(getNextTipoRegistro())
           }
           setIsModalOpen(open)
@@ -524,22 +515,11 @@ export function PontoPunch({ colaborador, deviceId }: any) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-slate-600">Tipo de Registro</Label>
-                <div className="h-12 bg-slate-100 border border-slate-200 rounded-md flex items-center px-3 text-slate-700 font-medium cursor-not-allowed opacity-80">
-                  {tipoLabels[tipoRegistro] || tipoRegistro}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-slate-600">Horário</Label>
-                <Input
-                  type="time"
-                  value={manualTime}
-                  onChange={(e) => setManualTime(e.target.value)}
-                  className="h-12 bg-slate-50 border-slate-200 text-lg font-mono text-center"
-                />
+            <div className="space-y-2 text-center">
+              <p className="text-sm text-slate-500">Confirme o registro para o momento atual</p>
+              <div className="h-14 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center px-4 text-slate-800 font-bold text-lg">
+                {tipoLabels[tipoRegistro] || tipoRegistro} às{' '}
+                {time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
           </div>
