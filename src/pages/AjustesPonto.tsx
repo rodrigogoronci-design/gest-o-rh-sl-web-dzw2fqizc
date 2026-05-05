@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react'
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  addMonths,
+  subMonths,
+  eachDayOfInterval,
+  isWeekend,
+  startOfDay,
+} from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
@@ -43,6 +52,7 @@ export default function AjustesPonto() {
   const [statusFilter, setStatusFilter] = useState('todos')
 
   const [ajustes, setAjustes] = useState<any[]>([])
+  const [faltasCalculadas, setFaltasCalculadas] = useState<any[]>([])
   const [colaboradores, setColaboradores] = useState<any[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
 
@@ -113,28 +123,125 @@ export default function AjustesPonto() {
         .lte('data', end)
         .order('created_at', { ascending: false })
 
-      if (statusFilter !== 'todos') {
+      if (statusFilter !== 'todos' && statusFilter !== 'falta') {
         query = query.eq('status', statusFilter)
       }
 
+      let teamIds: string[] = []
       if (!manager) {
         query = query.eq('colaborador_id', myColab?.id)
+        teamIds = myColab?.id ? [myColab.id] : []
       } else if (role === 'gerente') {
         const { data: teamColabs } = await supabase
           .from('colaboradores')
           .select('id')
           .eq('departamento', myColab?.departamento)
-        const teamIds = teamColabs?.map((c) => c.id) || []
+        teamIds = teamColabs?.map((c) => c.id) || []
         if (teamIds.length > 0) {
           query = query.in('colaborador_id', teamIds)
         } else {
           query = query.eq('colaborador_id', myColab?.id)
+          teamIds = myColab?.id ? [myColab.id] : []
         }
+      } else {
+        const { data: allColabs } = await supabase.from('colaboradores').select('id')
+        teamIds = allColabs?.map((c) => c.id) || []
       }
 
       const { data, error } = await query
       if (error) throw error
       setAjustes(data || [])
+
+      let colabIdsToFetch = teamIds
+
+      if (colabIdsToFetch.length > 0) {
+        const [pontoRes, afastamentosRes, feriadosRes, feriasRes, teamColabsRes] =
+          await Promise.all([
+            supabase
+              .from('registro_ponto')
+              .select('colaborador_id, data_hora')
+              .in('colaborador_id', colabIdsToFetch)
+              .gte('data_hora', start)
+              .lte('data_hora', end),
+            supabase
+              .from('afastamentos')
+              .select('colaborador_id, data_inicio, data_fim')
+              .in('colaborador_id', colabIdsToFetch)
+              .lte('data_inicio', end)
+              .gte('data_fim', start),
+            supabase.from('feriados').select('data').gte('data', start).lte('data', end),
+            supabase
+              .from('ferias')
+              .select('colaborador_id, data_inicio, data_fim')
+              .in('colaborador_id', colabIdsToFetch)
+              .lte('data_inicio', end)
+              .gte('data_fim', start),
+            supabase.from('colaboradores').select('id, nome').in('id', colabIdsToFetch),
+          ])
+
+        const today = startOfDay(new Date())
+        const intervalEnd = new Date(end) > today ? today : new Date(end)
+        let faltasArr: any[] = []
+
+        if (new Date(start) <= intervalEnd) {
+          const days = eachDayOfInterval({ start: new Date(start), end: intervalEnd })
+          const pontos = pontoRes.data || []
+          const afastamentos = afastamentosRes.data || []
+          const feriados = feriadosRes.data?.map((f) => f.data) || []
+          const ferias = feriasRes.data || []
+          const teamColabs = teamColabsRes.data || []
+
+          for (const day of days) {
+            if (isWeekend(day)) continue
+            if (day > today) continue
+
+            const dayStr = format(day, 'yyyy-MM-dd')
+            if (feriados.includes(dayStr)) continue
+
+            for (const colab of teamColabs) {
+              const emAfastamento = afastamentos.some(
+                (a) =>
+                  a.colaborador_id === colab.id && dayStr >= a.data_inicio && dayStr <= a.data_fim,
+              )
+              if (emAfastamento) continue
+
+              const emFerias = ferias.some(
+                (f) =>
+                  f.colaborador_id === colab.id && dayStr >= f.data_inicio && dayStr <= f.data_fim,
+              )
+              if (emFerias) continue
+
+              const hasPoints = pontos.some(
+                (p) =>
+                  p.colaborador_id === colab.id &&
+                  format(new Date(p.data_hora), 'yyyy-MM-dd') === dayStr,
+              )
+              if (hasPoints) continue
+
+              faltasArr.push({
+                id: `falta-${colab.id}-${dayStr}`,
+                colaborador_id: colab.id,
+                colaboradores: { nome: colab.nome },
+                data: dayStr,
+                tipo: 'falta',
+                motivo: 'Falta Injustificada',
+                justificativa: 'Ausência de registro no dia',
+                status: 'falta',
+                documento_url: null,
+                horas: 8,
+              })
+            }
+          }
+        }
+
+        const ajustesValidos = data?.filter((a) => a.status !== 'reprovado') || []
+        faltasArr = faltasArr.filter(
+          (f) =>
+            !ajustesValidos.some((a) => a.colaborador_id === f.colaborador_id && a.data === f.data),
+        )
+
+        setFaltasCalculadas(faltasArr)
+      }
     } catch (error) {
       console.error(error)
       toast.error('Erro ao carregar ajustes')
@@ -230,9 +337,12 @@ export default function AjustesPonto() {
     }
   }
 
-  const filteredAjustes = ajustes.filter((a) =>
-    activeTab === 'atraso' ? a.tipo === 'ponto_atraso' : a.tipo === 'motivo_ajuste',
-  )
+  const filteredAjustes =
+    statusFilter === 'falta'
+      ? faltasCalculadas
+      : ajustes.filter((a) =>
+          activeTab === 'atraso' ? a.tipo === 'ponto_atraso' : a.tipo === 'motivo_ajuste',
+        )
 
   const StatusBadge = ({ status }: { status: string }) => {
     switch (status) {
@@ -240,6 +350,8 @@ export default function AjustesPonto() {
         return <Badge className="bg-green-500 hover:bg-green-600">Aprovado</Badge>
       case 'reprovado':
         return <Badge variant="destructive">Reprovado</Badge>
+      case 'falta':
+        return <Badge className="bg-red-500 hover:bg-red-600 text-white">Falta</Badge>
       default:
         return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">Pendente</Badge>
     }
@@ -285,6 +397,7 @@ export default function AjustesPonto() {
                 <SelectItem value="pendente">Pendentes</SelectItem>
                 <SelectItem value="aprovado">Aprovados</SelectItem>
                 <SelectItem value="reprovado">Reprovados</SelectItem>
+                <SelectItem value="falta">Faltas</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
@@ -314,7 +427,7 @@ export default function AjustesPonto() {
                     <TableRow>
                       <TableHead>Data</TableHead>
                       <TableHead>Funcionário</TableHead>
-                      {activeTab === 'atraso' ? (
+                      {activeTab === 'atraso' && statusFilter !== 'falta' ? (
                         <TableHead>Hora</TableHead>
                       ) : (
                         <>
@@ -337,12 +450,12 @@ export default function AjustesPonto() {
                         <TableCell className="font-medium">
                           {a.colaboradores?.nome || 'Desconhecido'}
                         </TableCell>
-                        {activeTab === 'atraso' ? (
+                        {activeTab === 'atraso' && statusFilter !== 'falta' ? (
                           <TableCell>{a.motivo}</TableCell>
                         ) : (
                           <>
                             <TableCell>{a.motivo}</TableCell>
-                            <TableCell>{a.horas}h</TableCell>
+                            <TableCell>{a.horas ? `${a.horas}h` : '-'}</TableCell>
                           </>
                         )}
                         <TableCell className="max-w-[200px] truncate" title={a.justificativa}>
@@ -385,6 +498,21 @@ export default function AjustesPonto() {
                                 <X className="w-4 h-4" />
                               </Button>
                             </>
+                          ) : a.status === 'falta' ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setFormData((f) => ({
+                                  ...f,
+                                  colaborador_id: a.colaborador_id,
+                                  data: a.data,
+                                }))
+                                setIsModalOpen(true)
+                              }}
+                            >
+                              Justificar
+                            </Button>
                           ) : (
                             <span className="text-slate-400 text-sm">-</span>
                           )}
@@ -411,13 +539,14 @@ export default function AjustesPonto() {
                         <StatusBadge status={a.status} />
                       </div>
                       <div className="text-sm text-slate-700 space-y-1">
-                        {activeTab === 'atraso' ? (
+                        {activeTab === 'atraso' && statusFilter !== 'falta' ? (
                           <p>
                             <span className="font-medium">Hora:</span> {a.motivo}
                           </p>
                         ) : (
                           <p>
-                            <span className="font-medium">Motivo:</span> {a.motivo} ({a.horas}h)
+                            <span className="font-medium">Motivo:</span> {a.motivo}{' '}
+                            {a.horas ? `(${a.horas}h)` : ''}
                           </p>
                         )}
                         <p className="text-xs text-slate-600 mt-1">{a.justificativa}</p>
@@ -448,6 +577,25 @@ export default function AjustesPonto() {
                             onClick={() => handleApprove(a.id, 'reprovado')}
                           >
                             <X className="w-4 h-4 mr-1" /> Reprovar
+                          </Button>
+                        </div>
+                      )}
+                      {a.status === 'falta' && (
+                        <div className="mt-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => {
+                              setFormData((f) => ({
+                                ...f,
+                                colaborador_id: a.colaborador_id,
+                                data: a.data,
+                              }))
+                              setIsModalOpen(true)
+                            }}
+                          >
+                            Justificar
                           </Button>
                         </div>
                       )}
