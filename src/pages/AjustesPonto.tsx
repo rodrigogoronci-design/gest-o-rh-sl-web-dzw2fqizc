@@ -7,7 +7,6 @@ import {
   subMonths,
   eachDayOfInterval,
   isWeekend,
-  startOfDay,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '@/lib/supabase/client'
@@ -24,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -43,26 +42,37 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
-import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, Plus, Check, X, FileText, FileEdit } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Check,
+  X,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+} from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 export default function AjustesPonto() {
   const { user } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [activeTab, setActiveTab] = useState('atraso')
-  const [statusFilter, setStatusFilter] = useState('todos')
+  const [activeTab, setActiveTab] = useState('faltas')
 
   const [ajustes, setAjustes] = useState<any[]>([])
   const [faltasCalculadas, setFaltasCalculadas] = useState<any[]>([])
   const [colaboradores, setColaboradores] = useState<any[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
+  const [myColabId, setMyColabId] = useState<string | null>(null)
 
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const [selectedFaltas, setSelectedFaltas] = useState<string[]>([])
+  const [selectedPendentes, setSelectedPendentes] = useState<string[]>([])
+
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
   const [bulkFormData, setBulkFormData] = useState({
     motivo: '',
@@ -71,45 +81,17 @@ export default function AjustesPonto() {
     file: null as File | null,
   })
 
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [newAjusteType, setNewAjusteType] = useState('motivo')
   const [formData, setFormData] = useState({
     colaborador_id: '',
     data: format(new Date(), 'yyyy-MM-dd'),
     hora: '',
     motivo: '',
-    horas: '',
+    horas: '8',
     justificativa: '',
     file: null as File | null,
   })
-
-  useEffect(() => {
-    if (user) {
-      const fetchColabs = async () => {
-        const { data: myColab } = await supabase
-          .from('colaboradores')
-          .select('role, departamento, id')
-          .eq('user_id', user.id)
-          .single()
-
-        const role = myColab?.role?.toLowerCase() || ''
-        const manager = role === 'admin' || role === 'administrador' || role === 'gerente'
-        setIsAdmin(manager)
-
-        let query = supabase.from('colaboradores').select('id, nome').order('nome')
-        if (!manager) {
-          query = query.eq('id', myColab?.id)
-        } else if (role === 'gerente') {
-          query = query.eq('departamento', myColab?.departamento)
-        }
-
-        const { data } = await query
-        setColaboradores(data || [])
-        if (data && data.length > 0) {
-          setFormData((f) => ({ ...f, colaborador_id: data[0].id }))
-        }
-      }
-      fetchColabs()
-    }
-  }, [user])
 
   const fetchAjustes = async () => {
     if (!user) return
@@ -118,82 +100,75 @@ export default function AjustesPonto() {
       const startStr = format(startOfMonth(currentDate), 'yyyy-MM-dd')
       const endStr = format(endOfMonth(currentDate), 'yyyy-MM-dd')
 
-      const { data: myColab } = await supabase
+      const { data: myColab, error: myColabErr } = await supabase
         .from('colaboradores')
-        .select('role, departamento, id')
+        .select('id, role, departamento')
         .eq('user_id', user.id)
         .maybeSingle()
 
+      if (myColabErr) throw new Error('Erro ao buscar perfil: ' + myColabErr.message)
+
       const role = myColab?.role?.toLowerCase() || ''
       const manager = role === 'admin' || role === 'administrador' || role === 'gerente'
+      setIsAdmin(manager)
+      setMyColabId(myColab?.id || null)
 
-      let teamIds: string[] = []
       if (!manager) {
-        teamIds = myColab?.id ? [myColab.id] : []
-      } else if (role === 'gerente') {
-        const { data: teamColabs } = await supabase
-          .from('colaboradores')
-          .select('id')
-          .eq('departamento', myColab?.departamento)
-        teamIds = teamColabs?.map((c) => c.id) || []
-        if (teamIds.length === 0 && myColab?.id) {
-          teamIds = [myColab.id]
-        }
-      } else {
-        const { data: allColabs } = await supabase.from('colaboradores').select('id')
-        teamIds = allColabs?.map((c) => c.id) || []
+        setIsLoading(false)
+        return
       }
 
-      if (teamIds.length === 0) {
+      const { data: teamColabs, error: teamErr } = await supabase
+        .from('colaboradores')
+        .select('id, nome, status, data_admissao, data_demissao')
+        .order('nome')
+
+      if (teamErr) throw new Error('Erro ao buscar equipe: ' + teamErr.message)
+      setColaboradores(teamColabs || [])
+
+      if (!teamColabs || teamColabs.length === 0) {
         setAjustes([])
         setFaltasCalculadas([])
         setIsLoading(false)
         return
       }
 
-      const { data: todosAjustes, error } = await supabase
-        .from('ajustes_ponto')
-        .select('*, colaboradores(nome)')
-        .gte('data', startStr)
-        .lte('data', endStr)
-        .in('colaborador_id', teamIds)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setAjustes(todosAjustes || [])
-
-      let colabIdsToFetch = teamIds
-
-      const [pontoRes, afastamentosRes, feriadosRes, feriasRes, teamColabsRes] = await Promise.all([
+      const [ajustesRes, pontosRes, afastamentosRes, feriadosRes, feriasRes] = await Promise.all([
+        supabase
+          .from('ajustes_ponto')
+          .select('*, colaboradores(nome)')
+          .gte('data', startStr)
+          .lte('data', endStr)
+          .order('created_at', { ascending: false }),
         supabase
           .from('registro_ponto')
           .select('colaborador_id, data_hora')
-          .in('colaborador_id', colabIdsToFetch)
           .gte('data_hora', `${startStr}T00:00:00.000Z`)
           .lte('data_hora', `${endStr}T23:59:59.999Z`),
         supabase
           .from('afastamentos')
           .select('colaborador_id, data_inicio, data_fim')
-          .in('colaborador_id', colabIdsToFetch)
           .lte('data_inicio', endStr)
           .gte('data_fim', startStr),
         supabase.from('feriados').select('data').gte('data', startStr).lte('data', endStr),
         supabase
           .from('ferias')
           .select('colaborador_id, data_inicio, data_fim')
-          .in('colaborador_id', colabIdsToFetch)
           .lte('data_inicio', endStr)
           .gte('data_fim', startStr),
-        supabase
-          .from('colaboradores')
-          .select('id, nome, status, data_admissao, data_demissao')
-          .in('id', colabIdsToFetch),
       ])
+
+      const todosAjustes = ajustesRes.data || []
+      const pontos = pontosRes.data || []
+      const afastamentos = afastamentosRes.data || []
+      const feriados = feriadosRes.data?.map((f) => f.data) || []
+      const ferias = feriasRes.data || []
 
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
       const yesterdayStr = format(yesterday, 'yyyy-MM-dd')
       const intervalEndStr = endStr > yesterdayStr ? yesterdayStr : endStr
+
       let faltasArr: any[] = []
 
       if (startStr <= intervalEndStr) {
@@ -204,19 +179,14 @@ export default function AjustesPonto() {
           end: new Date(ey, em - 1, ed),
         })
 
-        const pontos = pontoRes.data || []
-        const afastamentos = afastamentosRes.data || []
-        const feriados = feriadosRes.data?.map((f) => f.data) || []
-        const ferias = feriasRes.data || []
-        const teamColabs = (teamColabsRes.data || []).filter((c) => c.status !== 'Inativo')
+        const validColabs = teamColabs.filter((c) => c.status !== 'Inativo')
 
         for (const day of days) {
           if (isWeekend(day)) continue
-
           const dayStr = format(day, 'yyyy-MM-dd')
           if (feriados.includes(dayStr)) continue
 
-          for (const colab of teamColabs) {
+          for (const colab of validColabs) {
             if (colab.data_admissao && colab.data_admissao > dayStr) continue
             if (colab.data_demissao && colab.data_demissao < dayStr) continue
 
@@ -232,11 +202,10 @@ export default function AjustesPonto() {
             )
             if (emFerias) continue
 
-            const hasPoints = pontos.some(
-              (p) =>
-                p.colaborador_id === colab.id &&
-                format(new Date(p.data_hora), 'yyyy-MM-dd') === dayStr,
-            )
+            const hasPoints = pontos.some((p) => {
+              const pDate = format(new Date(p.data_hora), 'yyyy-MM-dd')
+              return p.colaborador_id === colab.id && pDate === dayStr
+            })
             if (hasPoints) continue
 
             faltasArr.push({
@@ -245,17 +214,16 @@ export default function AjustesPonto() {
               colaboradores: { nome: colab.nome },
               data: dayStr,
               tipo: 'falta',
-              motivo: 'Falta Injustificada',
-              justificativa: 'Ausência de registro no dia',
+              motivo: 'Ausência de Marcação',
+              justificativa: 'Sistema não localizou ponto neste dia',
               status: 'falta',
-              documento_url: null,
               horas: 8,
             })
           }
         }
       }
 
-      const ajustesValidos = (todosAjustes || []).filter(
+      const ajustesValidos = todosAjustes.filter(
         (a) => a.status === 'aprovado' || a.status === 'pendente',
       )
       faltasArr = faltasArr.filter(
@@ -263,10 +231,11 @@ export default function AjustesPonto() {
           !ajustesValidos.some((a) => a.colaborador_id === f.colaborador_id && a.data === f.data),
       )
 
+      setAjustes(todosAjustes)
       setFaltasCalculadas(faltasArr)
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
-      toast.error('Erro ao carregar ajustes')
+      toast.error(error.message || 'Erro ao carregar ajustes')
     } finally {
       setIsLoading(false)
     }
@@ -278,29 +247,10 @@ export default function AjustesPonto() {
 
   useEffect(() => {
     setSelectedFaltas([])
-  }, [statusFilter, currentDate])
+    setSelectedPendentes([])
+  }, [activeTab, currentDate])
 
-  const handleApprove = async (id: string, status: string) => {
-    try {
-      const { data: myColab } = await supabase
-        .from('colaboradores')
-        .select('id')
-        .eq('user_id', user!.id)
-        .single()
-      const { error } = await supabase
-        .from('ajustes_ponto')
-        .update({ status, aprovado_por: myColab?.id })
-        .eq('id', id)
-
-      if (error) throw error
-      toast.success(`Ajuste ${status === 'aprovado' ? 'aprovado' : 'reprovado'} com sucesso!`)
-      fetchAjustes()
-    } catch (error) {
-      toast.error('Erro ao atualizar status')
-    }
-  }
-
-  const handleBulkSubmit = async (e: React.FormEvent) => {
+  const handleBulkJustify = async (e: React.FormEvent) => {
     e.preventDefault()
     if (selectedFaltas.length === 0) return
     if (!bulkFormData.motivo) {
@@ -333,34 +283,56 @@ export default function AjustesPonto() {
           motivo: bulkFormData.motivo,
           horas: bulkFormData.horas ? parseFloat(bulkFormData.horas) : 8,
           justificativa: bulkFormData.justificativa,
-          status: 'pendente',
+          status: isAdmin ? 'aprovado' : 'pendente',
+          aprovado_por: isAdmin ? myColabId : null,
           documento_url: fileUrl,
         }))
 
       const { error } = await supabase.from('ajustes_ponto').insert(itemsToInsert)
       if (error) throw error
 
-      toast.success(`${itemsToInsert.length} ajustes registrados com sucesso`)
+      toast.success(`${itemsToInsert.length} ocorrências ajustadas com sucesso`)
       setIsBulkModalOpen(false)
       setSelectedFaltas([])
       setBulkFormData({ motivo: '', horas: '8', justificativa: '', file: null })
       fetchAjustes()
-    } catch (error) {
-      console.error(error)
-      toast.error('Erro ao salvar ajustes em lote')
+    } catch (error: any) {
+      toast.error('Erro ao salvar: ' + error.message)
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleBulkApprove = async (status: 'aprovado' | 'reprovado') => {
+    if (selectedPendentes.length === 0) return
+    setIsSaving(true)
+    try {
+      const { error } = await supabase
+        .from('ajustes_ponto')
+        .update({ status, aprovado_por: myColabId })
+        .in('id', selectedPendentes)
+
+      if (error) throw error
+
+      toast.success(
+        `${selectedPendentes.length} solicitações ${status === 'aprovado' ? 'aprovadas' : 'reprovadas'}`,
+      )
+      setSelectedPendentes([])
+      fetchAjustes()
+    } catch (error: any) {
+      toast.error('Erro ao atualizar: ' + error.message)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.colaborador_id) {
       toast.error('Selecione um funcionário')
       return
     }
-
-    if (activeTab === 'motivo' && !formData.motivo) {
+    if (newAjusteType === 'motivo' && !formData.motivo) {
       toast.error('Selecione um motivo')
       return
     }
@@ -374,21 +346,20 @@ export default function AjustesPonto() {
         const { error: uploadError } = await supabase.storage
           .from('anexos_ajustes')
           .upload(fileName, formData.file)
-
         if (!uploadError) {
           const { data } = supabase.storage.from('anexos_ajustes').getPublicUrl(fileName)
           fileUrl = data.publicUrl
         }
       }
 
-      const tipo = activeTab === 'atraso' ? 'ponto_atraso' : 'motivo_ajuste'
-
+      const tipo = newAjusteType === 'atraso' ? 'ponto_atraso' : 'motivo_ajuste'
       const payload: any = {
         colaborador_id: formData.colaborador_id,
         data: formData.data,
         tipo,
         justificativa: formData.justificativa,
-        status: 'pendente',
+        status: isAdmin ? 'aprovado' : 'pendente',
+        aprovado_por: isAdmin ? myColabId : null,
       }
 
       if (tipo === 'ponto_atraso') {
@@ -397,34 +368,24 @@ export default function AjustesPonto() {
         payload.motivo = formData.motivo
         payload.horas = formData.horas ? parseFloat(formData.horas) : null
       }
-
-      if (fileUrl) {
-        payload.documento_url = fileUrl
-      }
+      if (fileUrl) payload.documento_url = fileUrl
 
       const { error } = await supabase.from('ajustes_ponto').insert(payload)
       if (error) throw error
 
       toast.success('Ajuste registrado com sucesso')
       setIsModalOpen(false)
+      setFormData((f) => ({ ...f, hora: '', motivo: '', justificativa: '', file: null }))
       fetchAjustes()
-      setFormData((f) => ({ ...f, hora: '', motivo: '', horas: '', justificativa: '', file: null }))
-    } catch (error) {
-      toast.error('Erro ao salvar ajuste')
+    } catch (error: any) {
+      toast.error('Erro ao salvar ajuste: ' + error.message)
     } finally {
       setIsSaving(false)
     }
   }
 
-  const filteredAjustes =
-    statusFilter === 'falta'
-      ? faltasCalculadas
-      : ajustes.filter((a) => {
-          const isCorrectTab =
-            activeTab === 'atraso' ? a.tipo === 'ponto_atraso' : a.tipo === 'motivo_ajuste'
-          const isCorrectStatus = statusFilter === 'todos' ? true : a.status === statusFilter
-          return isCorrectTab && isCorrectStatus
-        })
+  const pendentes = ajustes.filter((a) => a.status === 'pendente')
+  const historico = ajustes.filter((a) => a.status === 'aprovado' || a.status === 'reprovado')
 
   const StatusBadge = ({ status }: { status: string }) => {
     switch (status) {
@@ -439,14 +400,21 @@ export default function AjustesPonto() {
     }
   }
 
+  if (!isAdmin) {
+    return (
+      <div className="p-8 text-center text-slate-500">
+        Acesso negado. Esta área é restrita a gestores e administradores.
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-8 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-6 p-4 md:p-8 max-w-7xl mx-auto w-full pb-24">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Ajustes de Ponto</h1>
-          <p className="text-slate-500 mt-1">Lançamento e aprovação de acertos de ponto.</p>
+          <p className="text-slate-500 mt-1">Gestão de não conformidades e correções de ponto.</p>
         </div>
-
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
             <ChevronLeft className="h-4 w-4" />
@@ -460,328 +428,313 @@ export default function AjustesPonto() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="p-4 sm:p-6 pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 mb-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-            <TabsList>
-              <TabsTrigger value="atraso">Ponto em Atraso</TabsTrigger>
-              <TabsTrigger value="motivo">Motivos de Ajuste</TabsTrigger>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="shadow-sm border-l-4 border-l-red-500">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Faltas Identificadas</p>
+              <h3 className="text-3xl font-bold text-slate-900">{faltasCalculadas.length}</h3>
+            </div>
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm border-l-4 border-l-yellow-500">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Ajustes Pendentes</p>
+              <h3 className="text-3xl font-bold text-slate-900">{pendentes.length}</h3>
+            </div>
+            <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center">
+              <Clock className="w-6 h-6" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm border-l-4 border-l-green-500">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Ajustes Aprovados</p>
+              <h3 className="text-3xl font-bold text-slate-900">
+                {historico.filter((a) => a.status === 'aprovado').length}
+              </h3>
+            </div>
+            <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-0 shadow-elevation">
+        <CardHeader className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="bg-slate-100/80 p-1 flex-wrap h-auto justify-start">
+              <TabsTrigger value="faltas" className="gap-2">
+                Faltas ({faltasCalculadas.length})
+              </TabsTrigger>
+              <TabsTrigger value="pendentes" className="gap-2">
+                Pendentes ({pendentes.length})
+              </TabsTrigger>
+              <TabsTrigger value="historico" className="gap-2">
+                Histórico ({historico.length})
+              </TabsTrigger>
             </TabsList>
           </Tabs>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="pendente">Pendentes</SelectItem>
-                <SelectItem value="aprovado">Aprovados</SelectItem>
-                <SelectItem value="reprovado">Reprovados</SelectItem>
-                <SelectItem value="falta">Faltas</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Ajuste
-            </Button>
-          </div>
+          <Button onClick={() => setIsModalOpen(true)} className="shrink-0" variant="secondary">
+            <Plus className="w-4 h-4 mr-2" /> Novo Ajuste Manual
+          </Button>
         </CardHeader>
-
-        <CardContent className="p-0 sm:p-6 pt-0">
+        <CardContent className="p-0">
           {isLoading ? (
-            <div className="space-y-4 p-4">
+            <div className="space-y-4 p-6">
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
-            </div>
-          ) : filteredAjustes.length === 0 ? (
-            <div className="p-12 flex flex-col items-center justify-center text-center text-slate-500 animate-in fade-in duration-300">
-              <FileEdit className="w-12 h-12 mb-4 text-slate-300" />
-              <p className="text-lg font-medium text-slate-900">
-                {statusFilter === 'falta'
-                  ? 'Nenhuma falta encontrada para este período'
-                  : 'Nenhum ajuste para este período'}
-              </p>
             </div>
           ) : (
-            <>
-              <div className="hidden md:block">
+            <div className="overflow-x-auto">
+              {activeTab === 'faltas' && (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {statusFilter === 'falta' && (
-                        <TableHead className="w-12">
-                          <Checkbox
-                            checked={
-                              faltasCalculadas.length > 0 &&
-                              selectedFaltas.length === faltasCalculadas.length
-                            }
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedFaltas(faltasCalculadas.map((f) => f.id))
-                              } else {
-                                setSelectedFaltas([])
-                              }
-                            }}
-                            aria-label="Selecionar todas as faltas"
-                          />
-                        </TableHead>
-                      )}
+                      <TableHead className="w-12 pl-6">
+                        <Checkbox
+                          checked={
+                            faltasCalculadas.length > 0 &&
+                            selectedFaltas.length === faltasCalculadas.length
+                          }
+                          onCheckedChange={(c) =>
+                            c
+                              ? setSelectedFaltas(faltasCalculadas.map((f) => f.id))
+                              : setSelectedFaltas([])
+                          }
+                        />
+                      </TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Funcionário</TableHead>
-                      {activeTab === 'atraso' && statusFilter !== 'falta' ? (
-                        <TableHead>Hora</TableHead>
-                      ) : (
-                        <>
-                          <TableHead>Motivo</TableHead>
-                          <TableHead>Horas</TableHead>
-                        </>
-                      )}
-                      <TableHead>Justificativa</TableHead>
-                      <TableHead>Comprovante</TableHead>
+                      <TableHead>Detalhes</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAjustes.map((a) => (
-                      <TableRow
-                        key={a.id}
-                        data-state={selectedFaltas.includes(a.id) ? 'selected' : undefined}
-                      >
-                        {statusFilter === 'falta' && (
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedFaltas.includes(a.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedFaltas((prev) => [...prev, a.id])
-                                } else {
-                                  setSelectedFaltas((prev) => prev.filter((id) => id !== a.id))
-                                }
-                              }}
-                              aria-label={`Selecionar falta de ${a.colaboradores?.nome}`}
-                            />
-                          </TableCell>
-                        )}
-                        <TableCell className="whitespace-nowrap">
-                          {format(new Date(a.data), 'dd/MM/yyyy')}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {a.colaboradores?.nome || 'Desconhecido'}
-                        </TableCell>
-                        {activeTab === 'atraso' && statusFilter !== 'falta' ? (
-                          <TableCell>{a.motivo}</TableCell>
-                        ) : (
-                          <>
-                            <TableCell>{a.motivo}</TableCell>
-                            <TableCell>{a.horas ? `${a.horas}h` : '-'}</TableCell>
-                          </>
-                        )}
-                        <TableCell className="max-w-[200px] truncate" title={a.justificativa}>
-                          {a.justificativa}
-                        </TableCell>
-                        <TableCell>
-                          {a.documento_url ? (
-                            <a
-                              href={a.documento_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-primary hover:underline flex items-center"
-                            >
-                              <FileText className="w-4 h-4 mr-1" /> Ver
-                            </a>
-                          ) : (
-                            '-'
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={a.status} />
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          {isAdmin && a.status === 'pendente' ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-green-600 border-green-200 hover:bg-green-50 mr-2"
-                                onClick={() => handleApprove(a.id, 'aprovado')}
-                              >
-                                <Check className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 border-red-200 hover:bg-red-50"
-                                onClick={() => handleApprove(a.id, 'reprovado')}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </>
-                          ) : a.status === 'falta' ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setFormData((f) => ({
-                                  ...f,
-                                  colaborador_id: a.colaborador_id,
-                                  data: a.data,
-                                }))
-                                setIsModalOpen(true)
-                              }}
-                            >
-                              Justificar
-                            </Button>
-                          ) : (
-                            <span className="text-slate-400 text-sm">-</span>
-                          )}
+                    {faltasCalculadas.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-12 text-slate-500">
+                          Nenhuma falta identificada no período.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      faltasCalculadas.map((f) => (
+                        <TableRow key={f.id}>
+                          <TableCell className="pl-6">
+                            <Checkbox
+                              checked={selectedFaltas.includes(f.id)}
+                              onCheckedChange={(c) =>
+                                c
+                                  ? setSelectedFaltas([...selectedFaltas, f.id])
+                                  : setSelectedFaltas(selectedFaltas.filter((id) => id !== f.id))
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium whitespace-nowrap">
+                            {format(new Date(f.data), 'dd/MM/yyyy')}
+                          </TableCell>
+                          <TableCell>{f.colaboradores?.nome}</TableCell>
+                          <TableCell className="text-slate-500">{f.motivo}</TableCell>
+                          <TableCell>
+                            <StatusBadge status={f.status} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
-              </div>
+              )}
 
-              <div className="md:hidden flex flex-col gap-3 p-4 bg-slate-50">
-                {filteredAjustes.map((a) => (
-                  <Card
-                    key={a.id}
-                    className={cn('shadow-sm', selectedFaltas.includes(a.id) && 'border-primary')}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex justify-between items-start mb-2 border-b pb-2 gap-2">
-                        {statusFilter === 'falta' && (
-                          <div className="mt-1">
+              {activeTab === 'pendentes' && (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12 pl-6">
+                        <Checkbox
+                          checked={
+                            pendentes.length > 0 && selectedPendentes.length === pendentes.length
+                          }
+                          onCheckedChange={(c) =>
+                            c
+                              ? setSelectedPendentes(pendentes.map((p) => p.id))
+                              : setSelectedPendentes([])
+                          }
+                        />
+                      </TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Funcionário</TableHead>
+                      <TableHead>Solicitação</TableHead>
+                      <TableHead>Comprovante</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendentes.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-12 text-slate-500">
+                          Nenhuma solicitação pendente no período.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      pendentes.map((p) => (
+                        <TableRow key={p.id}>
+                          <TableCell className="pl-6">
                             <Checkbox
-                              checked={selectedFaltas.includes(a.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedFaltas((prev) => [...prev, a.id])
-                                } else {
-                                  setSelectedFaltas((prev) => prev.filter((id) => id !== a.id))
-                                }
-                              }}
+                              checked={selectedPendentes.includes(p.id)}
+                              onCheckedChange={(c) =>
+                                c
+                                  ? setSelectedPendentes([...selectedPendentes, p.id])
+                                  : setSelectedPendentes(
+                                      selectedPendentes.filter((id) => id !== p.id),
+                                    )
+                              }
                             />
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <span className="font-semibold text-sm block">
-                            {format(new Date(a.data), 'dd/MM/yyyy')}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {a.colaboradores?.nome || 'Desconhecido'}
-                          </span>
-                        </div>
-                        <StatusBadge status={a.status} />
-                      </div>
-                      <div className="text-sm text-slate-700 space-y-1">
-                        {activeTab === 'atraso' && statusFilter !== 'falta' ? (
-                          <p>
-                            <span className="font-medium">Hora:</span> {a.motivo}
-                          </p>
-                        ) : (
-                          <p>
-                            <span className="font-medium">Motivo:</span> {a.motivo}{' '}
-                            {a.horas ? `(${a.horas}h)` : ''}
-                          </p>
-                        )}
-                        <p className="text-xs text-slate-600 mt-1">{a.justificativa}</p>
-                        {a.documento_url && (
-                          <a
-                            href={a.documento_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-primary hover:underline text-xs flex items-center mt-2"
-                          >
-                            <FileText className="w-3 h-3 mr-1" /> Ver Comprovante
-                          </a>
-                        )}
-                      </div>
-                      {isAdmin && a.status === 'pendente' && (
-                        <div className="mt-3 flex gap-2">
-                          <Button
-                            size="sm"
-                            className="w-full bg-green-600 hover:bg-green-700 text-white"
-                            onClick={() => handleApprove(a.id, 'aprovado')}
-                          >
-                            <Check className="w-4 h-4 mr-1" /> Aprovar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="w-full"
-                            onClick={() => handleApprove(a.id, 'reprovado')}
-                          >
-                            <X className="w-4 h-4 mr-1" /> Reprovar
-                          </Button>
-                        </div>
-                      )}
-                      {a.status === 'falta' && (
-                        <div className="mt-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => {
-                              setFormData((f) => ({
-                                ...f,
-                                colaborador_id: a.colaborador_id,
-                                data: a.data,
-                              }))
-                              setIsModalOpen(true)
-                            }}
-                          >
-                            Justificar
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </>
+                          </TableCell>
+                          <TableCell className="font-medium whitespace-nowrap">
+                            {format(new Date(p.data), 'dd/MM/yyyy')}
+                          </TableCell>
+                          <TableCell>{p.colaboradores?.nome}</TableCell>
+                          <TableCell>
+                            <div className="font-medium">
+                              {p.tipo === 'ponto_atraso' ? `Atraso: ${p.motivo}` : p.motivo}
+                            </div>
+                            <div className="text-xs text-slate-500">{p.justificativa}</div>
+                          </TableCell>
+                          <TableCell>
+                            {p.documento_url ? (
+                              <a
+                                href={p.documento_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary hover:underline flex items-center text-sm"
+                              >
+                                <FileText className="w-4 h-4 mr-1" /> Ver anexo
+                              </a>
+                            ) : (
+                              '-'
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={p.status} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+
+              {activeTab === 'historico' && (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="pl-6">Data</TableHead>
+                      <TableHead>Funcionário</TableHead>
+                      <TableHead>Ajuste Realizado</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historico.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-12 text-slate-500">
+                          Nenhum histórico para o período.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      historico.map((h) => (
+                        <TableRow key={h.id}>
+                          <TableCell className="pl-6 font-medium whitespace-nowrap">
+                            {format(new Date(h.data), 'dd/MM/yyyy')}
+                          </TableCell>
+                          <TableCell>{h.colaboradores?.nome}</TableCell>
+                          <TableCell>
+                            <div className="font-medium">
+                              {h.tipo === 'ponto_atraso' ? `Atraso: ${h.motivo}` : h.motivo}
+                            </div>
+                            <div className="text-xs text-slate-500">{h.justificativa}</div>
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={h.status} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
 
-      {selectedFaltas.length > 0 && statusFilter === 'falta' && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white border border-slate-200 shadow-xl rounded-full px-4 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 fade-in">
-          <Badge
-            variant="secondary"
-            className="text-sm px-3 py-1 font-medium bg-slate-100 text-slate-800"
-          >
-            {selectedFaltas.length} {selectedFaltas.length === 1 ? 'selecionado' : 'selecionados'}
+      {((activeTab === 'faltas' && selectedFaltas.length > 0) ||
+        (activeTab === 'pendentes' && selectedPendentes.length > 0)) && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-800 shadow-2xl shadow-slate-900/20 rounded-full px-4 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 fade-in text-white">
+          <Badge className="bg-slate-800 hover:bg-slate-800 text-white font-medium border-0 px-3 py-1">
+            {activeTab === 'faltas' ? selectedFaltas.length : selectedPendentes.length} selecionados
           </Badge>
-          <div className="h-6 w-px bg-slate-200"></div>
-          <Button
-            onClick={() => setIsBulkModalOpen(true)}
-            size="sm"
-            className="rounded-full px-6 shadow-sm"
-          >
-            Justificar em Lote
-          </Button>
+          <div className="h-6 w-px bg-slate-700"></div>
+
+          {activeTab === 'faltas' && (
+            <Button
+              onClick={() => setIsBulkModalOpen(true)}
+              size="sm"
+              className="rounded-full px-6 bg-white text-slate-900 hover:bg-slate-100 shadow-none"
+            >
+              Justificar Lote
+            </Button>
+          )}
+
+          {activeTab === 'pendentes' && (
+            <>
+              <Button
+                size="sm"
+                onClick={() => handleBulkApprove('aprovado')}
+                className="rounded-full bg-green-500 hover:bg-green-600 text-white border-0 shadow-none"
+              >
+                <Check className="w-4 h-4 mr-2" /> Aprovar
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleBulkApprove('reprovado')}
+                variant="destructive"
+                className="rounded-full shadow-none border-0"
+              >
+                <X className="w-4 h-4 mr-2" /> Reprovar
+              </Button>
+            </>
+          )}
+
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setSelectedFaltas([])}
-            className="rounded-full h-8 w-8 text-slate-500 hover:text-slate-900"
+            onClick={() =>
+              activeTab === 'faltas' ? setSelectedFaltas([]) : setSelectedPendentes([])
+            }
+            className="rounded-full h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800"
           >
             <X className="w-4 h-4" />
           </Button>
         </div>
       )}
 
+      {/* Bulk Justify Modal */}
       <Dialog open={isBulkModalOpen} onOpenChange={setIsBulkModalOpen}>
         <DialogContent className="w-[90vw] max-w-md">
           <DialogHeader>
             <DialogTitle>Justificar Faltas em Lote</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleBulkSubmit} className="space-y-4 mt-2">
+          <form onSubmit={handleBulkJustify} className="space-y-4 mt-2">
             <div className="space-y-2">
-              <Label>Motivo</Label>
+              <Label>Motivo / Ação</Label>
               <Select
                 value={bulkFormData.motivo}
                 onValueChange={(v) => setBulkFormData((f) => ({ ...f, motivo: v }))}
@@ -790,22 +743,22 @@ export default function AjustesPonto() {
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Abono">Abono</SelectItem>
+                  <SelectItem value="Abono">Abono (Justificado)</SelectItem>
                   <SelectItem value="Compensação">Compensação</SelectItem>
-                  <SelectItem value="Sobreaviso">Sobreaviso</SelectItem>
+                  <SelectItem value="Desconto">Desconto em Folha</SelectItem>
                   <SelectItem value="Outro">Outro</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Horas (por registro)</Label>
+              <Label>Horas por registro (Opcional)</Label>
               <Input
                 type="number"
                 step="0.5"
-                required
                 min="0.5"
                 value={bulkFormData.horas}
                 onChange={(e) => setBulkFormData((f) => ({ ...f, horas: e.target.value }))}
+                placeholder="Ex: 8"
               />
             </div>
             <div className="space-y-2">
@@ -815,10 +768,11 @@ export default function AjustesPonto() {
                 rows={3}
                 value={bulkFormData.justificativa}
                 onChange={(e) => setBulkFormData((f) => ({ ...f, justificativa: e.target.value }))}
+                placeholder="Informe o motivo da alteração em lote"
               />
             </div>
             <div className="space-y-2">
-              <Label>Documento Único (Opcional)</Label>
+              <Label>Documento (Opcional)</Label>
               <Input
                 type="file"
                 onChange={(e) =>
@@ -831,21 +785,27 @@ export default function AjustesPonto() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Salvando...' : 'Aplicar em Lote'}
+                {isSaving ? 'Salvando...' : 'Aplicar Ajuste'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
+      {/* Single Manual Adjustment Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="w-[90vw] max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {activeTab === 'atraso' ? 'Novo Ponto em Atraso' : 'Novo Motivo de Ajuste'}
-            </DialogTitle>
+            <DialogTitle>Novo Ajuste de Ponto</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <form onSubmit={handleManualSubmit} className="space-y-4 mt-2">
+            <Tabs value={newAjusteType} onValueChange={setNewAjusteType} className="w-full mb-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="motivo">Lançamento Lote/Dia</TabsTrigger>
+                <TabsTrigger value="atraso">Ponto Atrasado</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
             <div className="space-y-2">
               <Label>Funcionário</Label>
               <Select
@@ -867,7 +827,7 @@ export default function AjustesPonto() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Data</Label>
+                <Label>Data da Ocorrência</Label>
                 <Input
                   type="date"
                   required
@@ -876,9 +836,9 @@ export default function AjustesPonto() {
                 />
               </div>
 
-              {activeTab === 'atraso' ? (
+              {newAjusteType === 'atraso' ? (
                 <div className="space-y-2">
-                  <Label>Hora</Label>
+                  <Label>Hora do Atraso</Label>
                   <Input
                     type="time"
                     required
@@ -888,11 +848,10 @@ export default function AjustesPonto() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label>Horas</Label>
+                  <Label>Quantidade de Horas</Label>
                   <Input
                     type="number"
                     step="0.5"
-                    required
                     min="0.5"
                     value={formData.horas}
                     onChange={(e) => setFormData((f) => ({ ...f, horas: e.target.value }))}
@@ -901,9 +860,9 @@ export default function AjustesPonto() {
               )}
             </div>
 
-            {activeTab === 'motivo' && (
+            {newAjusteType === 'motivo' && (
               <div className="space-y-2">
-                <Label>Motivo</Label>
+                <Label>Ação/Motivo</Label>
                 <Select
                   value={formData.motivo}
                   onValueChange={(v) => setFormData((f) => ({ ...f, motivo: v }))}
@@ -914,7 +873,7 @@ export default function AjustesPonto() {
                   <SelectContent>
                     <SelectItem value="Abono">Abono</SelectItem>
                     <SelectItem value="Compensação">Compensação</SelectItem>
-                    <SelectItem value="Sobreaviso">Sobreaviso</SelectItem>
+                    <SelectItem value="Desconto">Desconto</SelectItem>
                     <SelectItem value="Outro">Outro</SelectItem>
                   </SelectContent>
                 </Select>
@@ -922,17 +881,18 @@ export default function AjustesPonto() {
             )}
 
             <div className="space-y-2">
-              <Label>Justificativa</Label>
+              <Label>Justificativa do Ajuste</Label>
               <Textarea
                 required
                 rows={3}
                 value={formData.justificativa}
                 onChange={(e) => setFormData((f) => ({ ...f, justificativa: e.target.value }))}
+                placeholder="Ex: Esqueceu de bater o ponto, trânsito..."
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Documento (Opcional)</Label>
+              <Label>Anexar Documento (Opcional)</Label>
               <Input
                 type="file"
                 onChange={(e) => setFormData((f) => ({ ...f, file: e.target.files?.[0] || null }))}
@@ -944,7 +904,7 @@ export default function AjustesPonto() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Salvando...' : 'Salvar'}
+                {isSaving ? 'Processando...' : 'Confirmar Ajuste'}
               </Button>
             </DialogFooter>
           </form>
