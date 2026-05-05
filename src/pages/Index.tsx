@@ -99,6 +99,7 @@ export default function Index() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required={!isRecovering}
+                    minLength={6}
                     className="h-11"
                     disabled={isLoading}
                   />
