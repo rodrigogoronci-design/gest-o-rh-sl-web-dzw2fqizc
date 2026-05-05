@@ -21,6 +21,7 @@ import {
   Sliders,
   Award,
   ShieldAlert,
+  FileEdit,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
@@ -122,6 +123,20 @@ export default function AppSidebar() {
           title: 'Controle de Ponto',
           path: '/app/ponto',
           icon: Clock,
+          roles: [
+            'admin',
+            'Admin',
+            'Gerente',
+            'user',
+            'Colaborador',
+            'Personalizado',
+            'personalizado',
+          ],
+        },
+        {
+          title: 'Ajustes de Ponto',
+          path: '/app/ajustes-ponto',
+          icon: FileEdit,
           roles: [
             'admin',
             'Admin',
