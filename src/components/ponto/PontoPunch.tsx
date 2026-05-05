@@ -1,10 +1,38 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Clock, MapPin, MapPinOff, WifiOff, RefreshCw } from 'lucide-react'
+import {
+  Clock,
+  MapPin,
+  MapPinOff,
+  WifiOff,
+  RefreshCw,
+  AlertTriangle,
+  CalendarDays,
+  CheckCircle2,
+  History,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { dataURLtoBlob, getDistanceFromLatLonInKm } from '@/lib/device-utils'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 
 export function PontoPunch({ colaborador, deviceId }: any) {
   const [time, setTime] = useState(new Date())
@@ -14,12 +42,38 @@ export function PontoPunch({ colaborador, deviceId }: any) {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [queueCount, setQueueCount] = useState(0)
 
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const [registrosHoje, setRegistrosHoje] = useState<any[]>([])
+  const [loadingRegistros, setLoadingRegistros] = useState(true)
+
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [manualTime, setManualTime] = useState('')
+  const [tipoRegistro, setTipoRegistro] = useState('entrada')
+
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent,
   )
+
+  const fetchRegistros = async () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    const { data } = await supabase
+      .from('registro_ponto')
+      .select('*')
+      .eq('colaborador_id', colaborador.id)
+      .gte('data_hora', today.toISOString())
+      .lt('data_hora', tomorrow.toISOString())
+      .order('data_hora', { ascending: true })
+
+    if (data) setRegistrosHoje(data)
+    setLoadingRegistros(false)
+  }
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
@@ -34,12 +88,11 @@ export function PontoPunch({ colaborador, deviceId }: any) {
 
     setQueueCount(JSON.parse(localStorage.getItem('ponto_queue') || '[]').length)
 
-    let stream: MediaStream | null = null
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: 'user' }, audio: false })
       .then((s) => {
-        stream = s
-        if (videoRef.current) videoRef.current.srcObject = stream
+        streamRef.current = s
+        if (videoRef.current) videoRef.current.srcObject = s
       })
       .catch(() => toast.error('Câmera não disponível'))
 
@@ -64,9 +117,43 @@ export function PontoPunch({ colaborador, deviceId }: any) {
       clearInterval(timer)
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
-      if (stream) stream.getTracks().forEach((t) => t.stop())
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop())
     }
   }, [isMobile])
+
+  useEffect(() => {
+    if (isOnline) {
+      fetchRegistros()
+      const channel = supabase
+        .channel('public:registro_ponto')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'registro_ponto',
+            filter: `colaborador_id=eq.${colaborador.id}`,
+          },
+          () => {
+            fetchRegistros()
+          },
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    } else {
+      setLoadingRegistros(false)
+    }
+  }, [colaborador.id, isOnline])
+
+  const setVideoRef = (element: HTMLVideoElement | null) => {
+    videoRef.current = element
+    if (element && streamRef.current) {
+      element.srcObject = streamRef.current
+    }
+  }
 
   const syncOffline = async () => {
     const queue = JSON.parse(localStorage.getItem('ponto_queue') || '[]')
@@ -78,8 +165,10 @@ export function PontoPunch({ colaborador, deviceId }: any) {
     }
     localStorage.setItem('ponto_queue', JSON.stringify(failed))
     setQueueCount(failed.length)
-    if (failed.length < queue.length)
+    if (failed.length < queue.length) {
       toast.success(`${queue.length - failed.length} registros sincronizados!`)
+      fetchRegistros()
+    }
   }
 
   const capturePhoto = () => {
@@ -91,7 +180,11 @@ export function PontoPunch({ colaborador, deviceId }: any) {
     return canvas.toDataURL('image/jpeg', 0.7)
   }
 
-  const registerPoint = async (tipo: string) => {
+  const registerPoint = async () => {
+    if (!manualTime) {
+      toast.error('Informe o horário válido')
+      return
+    }
     if (isMobile && !location) {
       toast.error('Localização é obrigatória no celular')
       return
@@ -100,6 +193,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
     try {
       const lat = location?.coords.latitude || null
       const lng = location?.coords.longitude || null
+      const tipo = tipoRegistro
 
       let status = 'pendente'
 
@@ -113,13 +207,17 @@ export function PontoPunch({ colaborador, deviceId }: any) {
         if (dist > 0.05) status = 'inconsistencia'
       }
 
+      const recordDate = new Date()
+      const [hours, minutes] = manualTime.split(':').map(Number)
+      recordDate.setHours(hours, minutes, 0, 0)
+
       if (status !== 'inconsistencia') {
         const checkTolerance = (expectedStr: string) => {
           if (!expectedStr) return false
           const [h, m] = expectedStr.split(':').map(Number)
-          const expected = new Date()
+          const expected = new Date(recordDate)
           expected.setHours(h, m, 0, 0)
-          const diffMins = Math.abs(new Date().getTime() - expected.getTime()) / 60000
+          const diffMins = Math.abs(recordDate.getTime() - expected.getTime()) / 60000
           return diffMins <= 30
         }
 
@@ -158,7 +256,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
         foto_url,
         status,
         device_id_hash: deviceId,
-        data_hora: new Date().toISOString(),
+        data_hora: recordDate.toISOString(),
       }
 
       if (!isOnline) {
@@ -166,14 +264,16 @@ export function PontoPunch({ colaborador, deviceId }: any) {
         queue.push(payload)
         localStorage.setItem('ponto_queue', JSON.stringify(queue))
         setQueueCount(queue.length)
+        setRegistrosHoje((prev) => [...prev, { ...payload, id: 'temp-' + Date.now() }])
         toast.success('Salvo offline. Será sincronizado quando reconectar.')
       } else {
         const { error } = await supabase.from('registro_ponto').insert(payload)
         if (error) throw error
-        toast.success(
-          `Ponto registrado com sucesso! (${status === 'aprovado' ? 'Automático' : 'Pendente'})`,
-        )
+        toast.success('Ponto registrado com sucesso!')
+        fetchRegistros()
       }
+
+      setIsModalOpen(false)
     } catch (e: any) {
       toast.error('Erro ao registrar: ' + e.message)
     } finally {
@@ -181,96 +281,290 @@ export function PontoPunch({ colaborador, deviceId }: any) {
     }
   }
 
-  const isBtnDisabled = loading || (isMobile && !location)
+  const isPontoAberto =
+    registrosHoje.length > 0 && registrosHoje[registrosHoje.length - 1].tipo_registro !== 'saida'
+
+  const showAlert = (() => {
+    if (registrosHoje.length === 0) return false
+    const entrada = registrosHoje.find((r) => r.tipo_registro === 'entrada')
+    const saidaInt = registrosHoje.find((r) => r.tipo_registro === 'saida_intervalo')
+    const saida = registrosHoje.find((r) => r.tipo_registro === 'saida')
+
+    if (entrada && !saidaInt) {
+      const entradaDate = new Date(entrada.data_hora)
+      const diffHours = (new Date().getTime() - entradaDate.getTime()) / (1000 * 60 * 60)
+      if (diffHours >= 6 && !saida) return true
+    }
+    if (entrada && saida && !saidaInt) return true
+
+    return false
+  })()
+
+  const tipoLabels: Record<string, string> = {
+    entrada: 'Entrada',
+    saida_intervalo: 'Saída Intervalo',
+    retorno_intervalo: 'Retorno Intervalo',
+    saida: 'Saída',
+  }
+
+  if (loadingRegistros && registrosHoje.length === 0) {
+    return (
+      <div className="max-w-md mx-auto space-y-4">
+        <Skeleton className="h-[280px] w-full rounded-xl" />
+        <Skeleton className="h-[200px] w-full rounded-xl" />
+      </div>
+    )
+  }
 
   return (
-    <Card className="max-w-md mx-auto text-center shadow-lg border-t-4 border-t-primary">
-      <CardHeader>
-        <CardTitle className="flex justify-center items-center gap-2">
-          <Clock className="w-5 h-5" /> Registro Digital
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="text-6xl font-bold font-mono tracking-tight text-primary">
-          {time.toLocaleTimeString('pt-BR')}
+    <div className="max-w-md mx-auto space-y-6">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">
+            Olá, {colaborador.nome?.split(' ')[0] || 'Colaborador'}!
+          </h2>
+          <p className="text-slate-500 text-sm">Registre seu ponto hoje</p>
         </div>
+      </div>
 
-        <div className="relative aspect-[3/4] bg-muted rounded-xl overflow-hidden shadow-inner border max-h-[300px] mx-auto max-w-[225px]">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="object-cover w-full h-full transform scale-x-[-1]"
-          />
-          <canvas ref={canvasRef} className="hidden" />
-          <div className="absolute bottom-2 left-0 right-0 flex justify-center">
-            <div className="bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium flex items-center gap-2 shadow-sm">
-              {location ? (
-                <>
-                  <MapPin className="w-3 h-3 text-green-500" /> GPS Ativo
-                </>
-              ) : (
-                <>
-                  <MapPinOff className="w-3 h-3 text-amber-500" />{' '}
-                  {locationError || 'Aguardando GPS...'}
-                </>
+      <Card className="shadow-lg border-t-4 border-t-primary animate-fade-in-up">
+        <CardContent className="pt-6 text-center space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-slate-500">
+              <CalendarDays className="w-4 h-4" />
+              <span className="text-sm font-medium capitalize">
+                {time.toLocaleDateString('pt-BR', {
+                  weekday: 'short',
+                  day: '2-digit',
+                  month: 'long',
+                })}
+              </span>
+            </div>
+            <div
+              className={cn(
+                'px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5',
+                isPontoAberto ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700',
               )}
+            >
+              <span
+                className={cn(
+                  'w-2 h-2 rounded-full',
+                  isPontoAberto ? 'bg-green-500 animate-pulse' : 'bg-slate-400',
+                )}
+              ></span>
+              {isPontoAberto ? 'Ponto aberto' : 'Ponto fechado'}
             </div>
           </div>
-        </div>
 
-        {!isOnline && (
-          <div className="bg-amber-50 text-amber-700 text-sm p-3 rounded-lg flex items-center justify-center gap-2 font-medium">
-            <WifiOff className="w-4 h-4" /> Você está offline. Registros serão salvos.
+          <div className="text-6xl font-bold font-mono tracking-tight text-primary py-4">
+            {time.toLocaleTimeString('pt-BR', {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })}
           </div>
-        )}
-        {queueCount > 0 && isOnline && (
-          <div
-            className="bg-blue-50 text-blue-700 text-sm p-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer font-medium hover:bg-blue-100 transition-colors"
-            onClick={syncOffline}
+
+          <Button
+            size="lg"
+            className="w-full h-14 text-lg font-semibold rounded-xl shadow-md"
+            onClick={() => setIsModalOpen(true)}
           >
-            <RefreshCw className="w-4 h-4 animate-spin" /> {queueCount} registros pendentes. Clique
-            para sincronizar.
+            Registrar Ponto
+          </Button>
+
+          {queueCount > 0 && isOnline && (
+            <div
+              className="bg-blue-50 text-blue-700 text-sm p-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer font-medium hover:bg-blue-100 transition-colors mt-2"
+              onClick={syncOffline}
+            >
+              <RefreshCw className="w-4 h-4 animate-spin" /> {queueCount} registros pendentes.
+              Sincronizar.
+            </div>
+          )}
+          {!isOnline && (
+            <div className="bg-amber-50 text-amber-700 text-sm p-3 rounded-lg flex items-center justify-center gap-2 font-medium mt-2">
+              <WifiOff className="w-4 h-4" /> Modo offline. Registros serão salvos.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {showAlert && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex items-start gap-3 animate-fade-in">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-sm">Atenção ao Intervalo</p>
+            <p className="text-xs mt-1">
+              Você ainda não registrou seu intervalo de descanso hoje. Lembre-se de fazer a pausa.
+            </p>
           </div>
-        )}
-      </CardContent>
-      <CardFooter className="grid grid-cols-2 gap-3">
-        <Button
-          size="lg"
-          className="h-12"
-          onClick={() => registerPoint('entrada')}
-          disabled={isBtnDisabled}
-        >
-          Entrada
-        </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="h-12"
-          onClick={() => registerPoint('saida_intervalo')}
-          disabled={isBtnDisabled}
-        >
-          Saída Int.
-        </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="h-12"
-          onClick={() => registerPoint('retorno_intervalo')}
-          disabled={isBtnDisabled}
-        >
-          Ret. Int.
-        </Button>
-        <Button
-          size="lg"
-          className="h-12"
-          onClick={() => registerPoint('saida')}
-          disabled={isBtnDisabled}
-        >
-          Saída
-        </Button>
-      </CardFooter>
-    </Card>
+        </div>
+      )}
+
+      <Card
+        className="shadow-sm border border-slate-200 overflow-hidden animate-fade-in-up"
+        style={{ animationDelay: '100ms' }}
+      >
+        <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <History className="w-5 h-5 text-slate-500" />
+            Histórico do Dia
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {registrosHoje.length === 0 ? (
+            <div className="p-8 text-center flex flex-col items-center justify-center text-slate-500">
+              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3">
+                <CheckCircle2 className="w-6 h-6 text-slate-300" />
+              </div>
+              <p className="font-medium text-slate-700">Nenhum ponto registrado</p>
+              <p className="text-sm mt-1">Comece registrando seu ponto hoje.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {registrosHoje.map((registro) => (
+                <div
+                  key={registro.id}
+                  className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        'w-1.5 h-10 rounded-full',
+                        registro.tipo_registro === 'entrada'
+                          ? 'bg-green-500'
+                          : registro.tipo_registro === 'saida'
+                            ? 'bg-slate-500'
+                            : 'bg-amber-400',
+                      )}
+                    ></div>
+                    <div>
+                      <p className="font-medium text-slate-800">
+                        {tipoLabels[registro.tipo_registro] || registro.tipo_registro}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                        <span className="flex items-center gap-1">
+                          {registro.status === 'aprovado' ? (
+                            <CheckCircle2 className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <Clock className="w-3 h-3 text-amber-500" />
+                          )}
+                          <span className="capitalize">{registro.status}</span>
+                        </span>
+                        {registro.latitude && (
+                          <span className="flex items-center gap-1 ml-1">
+                            <MapPin className="w-3 h-3" /> GPS
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-lg font-bold font-mono text-slate-700 bg-slate-100 px-3 py-1 rounded-md">
+                    {new Date(registro.data_hora).toLocaleTimeString('pt-BR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={isModalOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            const now = new Date()
+            setManualTime(now.toTimeString().slice(0, 5))
+            if (registrosHoje.length === 0) setTipoRegistro('entrada')
+            else if (registrosHoje.length === 1) setTipoRegistro('saida_intervalo')
+            else if (registrosHoje.length === 2) setTipoRegistro('retorno_intervalo')
+            else if (registrosHoje.length === 3) setTipoRegistro('saida')
+            else setTipoRegistro('entrada')
+          }
+          setIsModalOpen(open)
+        }}
+      >
+        <DialogContent className="sm:max-w-md p-4 pt-6">
+          <DialogHeader className="mb-2">
+            <DialogTitle className="text-xl">Confirmar Registro</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            <div className="relative bg-black rounded-xl overflow-hidden shadow-inner max-h-[220px] mx-auto w-full max-w-[180px] aspect-[3/4]">
+              <video
+                ref={setVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="object-cover w-full h-full transform scale-x-[-1]"
+              />
+              <canvas ref={canvasRef} className="hidden" />
+              <div className="absolute bottom-2 left-0 right-0 flex justify-center px-2">
+                <div className="bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-[10px] font-medium flex items-center gap-1.5 shadow-sm w-max truncate">
+                  {location ? (
+                    <>
+                      <MapPin className="w-3 h-3 text-green-500 shrink-0" /> GPS Ativo
+                    </>
+                  ) : (
+                    <>
+                      <MapPinOff className="w-3 h-3 text-amber-500 shrink-0" />{' '}
+                      {locationError || 'Aguardando GPS...'}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-slate-600">Tipo de Registro</Label>
+                <Select value={tipoRegistro} onValueChange={setTipoRegistro}>
+                  <SelectTrigger className="h-12 bg-slate-50 border-slate-200">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="entrada">Entrada</SelectItem>
+                    <SelectItem value="saida_intervalo">Saída Intervalo</SelectItem>
+                    <SelectItem value="retorno_intervalo">Retorno Intervalo</SelectItem>
+                    <SelectItem value="saida">Saída</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-slate-600">Horário</Label>
+                <Input
+                  type="time"
+                  value={manualTime}
+                  onChange={(e) => setManualTime(e.target.value)}
+                  className="h-12 bg-slate-50 border-slate-200 text-lg font-mono text-center"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6 flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              className="w-full h-12 order-2 sm:order-1"
+              onClick={() => setIsModalOpen(false)}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="w-full h-12 order-1 sm:order-2"
+              onClick={registerPoint}
+              disabled={loading || (isMobile && !location)}
+            >
+              {loading ? 'Salvando...' : 'Confirmar Registro'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }
