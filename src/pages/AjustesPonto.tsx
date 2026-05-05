@@ -127,20 +127,8 @@ export default function AjustesPonto() {
       const role = myColab?.role?.toLowerCase() || ''
       const manager = role === 'admin' || role === 'administrador' || role === 'gerente'
 
-      let query = supabase
-        .from('ajustes_ponto')
-        .select('*, colaboradores(nome)')
-        .gte('data', startStr)
-        .lte('data', endStr)
-        .order('created_at', { ascending: false })
-
-      if (statusFilter !== 'todos' && statusFilter !== 'falta') {
-        query = query.eq('status', statusFilter)
-      }
-
       let teamIds: string[] = []
       if (!manager) {
-        query = query.eq('colaborador_id', myColab?.id)
         teamIds = myColab?.id ? [myColab.id] : []
       } else if (role === 'gerente') {
         const { data: teamColabs } = await supabase
@@ -148,123 +136,134 @@ export default function AjustesPonto() {
           .select('id')
           .eq('departamento', myColab?.departamento)
         teamIds = teamColabs?.map((c) => c.id) || []
-        if (teamIds.length > 0) {
-          query = query.in('colaborador_id', teamIds)
-        } else {
-          query = query.eq('colaborador_id', myColab?.id)
-          teamIds = myColab?.id ? [myColab.id] : []
+        if (teamIds.length === 0 && myColab?.id) {
+          teamIds = [myColab.id]
         }
       } else {
         const { data: allColabs } = await supabase.from('colaboradores').select('id')
         teamIds = allColabs?.map((c) => c.id) || []
       }
 
-      const { data, error } = await query
+      if (teamIds.length === 0) {
+        setAjustes([])
+        setFaltasCalculadas([])
+        setIsLoading(false)
+        return
+      }
+
+      const { data: todosAjustes, error } = await supabase
+        .from('ajustes_ponto')
+        .select('*, colaboradores(nome)')
+        .gte('data', startStr)
+        .lte('data', endStr)
+        .in('colaborador_id', teamIds)
+        .order('created_at', { ascending: false })
+
       if (error) throw error
-      setAjustes(data || [])
+      setAjustes(todosAjustes || [])
 
       let colabIdsToFetch = teamIds
 
-      if (colabIdsToFetch.length > 0) {
-        const [pontoRes, afastamentosRes, feriadosRes, feriasRes, teamColabsRes] =
-          await Promise.all([
-            supabase
-              .from('registro_ponto')
-              .select('colaborador_id, data_hora')
-              .in('colaborador_id', colabIdsToFetch)
-              .gte('data_hora', `${startStr}T00:00:00.000Z`)
-              .lte('data_hora', `${endStr}T23:59:59.999Z`),
-            supabase
-              .from('afastamentos')
-              .select('colaborador_id, data_inicio, data_fim')
-              .in('colaborador_id', colabIdsToFetch)
-              .lte('data_inicio', endStr)
-              .gte('data_fim', startStr),
-            supabase.from('feriados').select('data').gte('data', startStr).lte('data', endStr),
-            supabase
-              .from('ferias')
-              .select('colaborador_id, data_inicio, data_fim')
-              .in('colaborador_id', colabIdsToFetch)
-              .lte('data_inicio', endStr)
-              .gte('data_fim', startStr),
-            supabase
-              .from('colaboradores')
-              .select('id, nome, status, data_admissao, data_demissao')
-              .in('id', colabIdsToFetch),
-          ])
+      const [pontoRes, afastamentosRes, feriadosRes, feriasRes, teamColabsRes] = await Promise.all([
+        supabase
+          .from('registro_ponto')
+          .select('colaborador_id, data_hora')
+          .in('colaborador_id', colabIdsToFetch)
+          .gte('data_hora', `${startStr}T00:00:00.000Z`)
+          .lte('data_hora', `${endStr}T23:59:59.999Z`),
+        supabase
+          .from('afastamentos')
+          .select('colaborador_id, data_inicio, data_fim')
+          .in('colaborador_id', colabIdsToFetch)
+          .lte('data_inicio', endStr)
+          .gte('data_fim', startStr),
+        supabase.from('feriados').select('data').gte('data', startStr).lte('data', endStr),
+        supabase
+          .from('ferias')
+          .select('colaborador_id, data_inicio, data_fim')
+          .in('colaborador_id', colabIdsToFetch)
+          .lte('data_inicio', endStr)
+          .gte('data_fim', startStr),
+        supabase
+          .from('colaboradores')
+          .select('id, nome, status, data_admissao, data_demissao')
+          .in('id', colabIdsToFetch),
+      ])
 
-        const todayStr = format(new Date(), 'yyyy-MM-dd')
-        const intervalEndStr = endStr > todayStr ? todayStr : endStr
-        let faltasArr: any[] = []
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yesterdayStr = format(yesterday, 'yyyy-MM-dd')
+      const intervalEndStr = endStr > yesterdayStr ? yesterdayStr : endStr
+      let faltasArr: any[] = []
 
-        if (startStr <= intervalEndStr) {
-          const [sy, sm, sd] = startStr.split('-').map(Number)
-          const [ey, em, ed] = intervalEndStr.split('-').map(Number)
-          const days = eachDayOfInterval({
-            start: new Date(sy, sm - 1, sd),
-            end: new Date(ey, em - 1, ed),
-          })
+      if (startStr <= intervalEndStr) {
+        const [sy, sm, sd] = startStr.split('-').map(Number)
+        const [ey, em, ed] = intervalEndStr.split('-').map(Number)
+        const days = eachDayOfInterval({
+          start: new Date(sy, sm - 1, sd),
+          end: new Date(ey, em - 1, ed),
+        })
 
-          const pontos = pontoRes.data || []
-          const afastamentos = afastamentosRes.data || []
-          const feriados = feriadosRes.data?.map((f) => f.data) || []
-          const ferias = feriasRes.data || []
-          const teamColabs = (teamColabsRes.data || []).filter((c) => c.status !== 'Inativo')
+        const pontos = pontoRes.data || []
+        const afastamentos = afastamentosRes.data || []
+        const feriados = feriadosRes.data?.map((f) => f.data) || []
+        const ferias = feriasRes.data || []
+        const teamColabs = (teamColabsRes.data || []).filter((c) => c.status !== 'Inativo')
 
-          for (const day of days) {
-            if (isWeekend(day)) continue
+        for (const day of days) {
+          if (isWeekend(day)) continue
 
-            const dayStr = format(day, 'yyyy-MM-dd')
-            if (dayStr > todayStr) continue
-            if (feriados.includes(dayStr)) continue
+          const dayStr = format(day, 'yyyy-MM-dd')
+          if (feriados.includes(dayStr)) continue
 
-            for (const colab of teamColabs) {
-              if (colab.data_admissao && colab.data_admissao > dayStr) continue
-              if (colab.data_demissao && colab.data_demissao < dayStr) continue
+          for (const colab of teamColabs) {
+            if (colab.data_admissao && colab.data_admissao > dayStr) continue
+            if (colab.data_demissao && colab.data_demissao < dayStr) continue
 
-              const emAfastamento = afastamentos.some(
-                (a) =>
-                  a.colaborador_id === colab.id && dayStr >= a.data_inicio && dayStr <= a.data_fim,
-              )
-              if (emAfastamento) continue
+            const emAfastamento = afastamentos.some(
+              (a) =>
+                a.colaborador_id === colab.id && dayStr >= a.data_inicio && dayStr <= a.data_fim,
+            )
+            if (emAfastamento) continue
 
-              const emFerias = ferias.some(
-                (f) =>
-                  f.colaborador_id === colab.id && dayStr >= f.data_inicio && dayStr <= f.data_fim,
-              )
-              if (emFerias) continue
+            const emFerias = ferias.some(
+              (f) =>
+                f.colaborador_id === colab.id && dayStr >= f.data_inicio && dayStr <= f.data_fim,
+            )
+            if (emFerias) continue
 
-              const hasPoints = pontos.some(
-                (p) =>
-                  p.colaborador_id === colab.id &&
-                  format(new Date(p.data_hora), 'yyyy-MM-dd') === dayStr,
-              )
-              if (hasPoints) continue
+            const hasPoints = pontos.some(
+              (p) =>
+                p.colaborador_id === colab.id &&
+                format(new Date(p.data_hora), 'yyyy-MM-dd') === dayStr,
+            )
+            if (hasPoints) continue
 
-              faltasArr.push({
-                id: `falta-${colab.id}-${dayStr}`,
-                colaborador_id: colab.id,
-                colaboradores: { nome: colab.nome },
-                data: dayStr,
-                tipo: 'falta',
-                motivo: 'Falta Injustificada',
-                justificativa: 'Ausência de registro no dia',
-                status: 'falta',
-                documento_url: null,
-                horas: 8,
-              })
-            }
+            faltasArr.push({
+              id: `falta-${colab.id}-${dayStr}`,
+              colaborador_id: colab.id,
+              colaboradores: { nome: colab.nome },
+              data: dayStr,
+              tipo: 'falta',
+              motivo: 'Falta Injustificada',
+              justificativa: 'Ausência de registro no dia',
+              status: 'falta',
+              documento_url: null,
+              horas: 8,
+            })
           }
         }
-
-        const ajustesValidos = data?.filter((a) => a.status !== 'reprovado') || []
-        faltasArr = faltasArr.filter(
-          (f) =>
-            !ajustesValidos.some((a) => a.colaborador_id === f.colaborador_id && a.data === f.data),
-        )
-
-        setFaltasCalculadas(faltasArr)
       }
+
+      const ajustesValidos = (todosAjustes || []).filter(
+        (a) => a.status === 'aprovado' || a.status === 'pendente',
+      )
+      faltasArr = faltasArr.filter(
+        (f) =>
+          !ajustesValidos.some((a) => a.colaborador_id === f.colaborador_id && a.data === f.data),
+      )
+
+      setFaltasCalculadas(faltasArr)
     } catch (error) {
       console.error(error)
       toast.error('Erro ao carregar ajustes')
@@ -275,7 +274,7 @@ export default function AjustesPonto() {
 
   useEffect(() => {
     fetchAjustes()
-  }, [currentDate, statusFilter, user])
+  }, [currentDate, user])
 
   useEffect(() => {
     setSelectedFaltas([])
@@ -420,9 +419,12 @@ export default function AjustesPonto() {
   const filteredAjustes =
     statusFilter === 'falta'
       ? faltasCalculadas
-      : ajustes.filter((a) =>
-          activeTab === 'atraso' ? a.tipo === 'ponto_atraso' : a.tipo === 'motivo_ajuste',
-        )
+      : ajustes.filter((a) => {
+          const isCorrectTab =
+            activeTab === 'atraso' ? a.tipo === 'ponto_atraso' : a.tipo === 'motivo_ajuste'
+          const isCorrectStatus = statusFilter === 'todos' ? true : a.status === statusFilter
+          return isCorrectTab && isCorrectStatus
+        })
 
   const StatusBadge = ({ status }: { status: string }) => {
     switch (status) {

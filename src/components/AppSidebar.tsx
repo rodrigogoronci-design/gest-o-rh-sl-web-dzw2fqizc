@@ -137,15 +137,7 @@ export default function AppSidebar() {
           title: 'Ajustes de Ponto',
           path: '/app/ajustes-ponto',
           icon: FileEdit,
-          roles: [
-            'admin',
-            'Admin',
-            'Gerente',
-            'user',
-            'Colaborador',
-            'Personalizado',
-            'personalizado',
-          ],
+          roles: ['admin', 'Admin', 'Gerente'],
         },
         {
           title: 'Apropriação de Horas',

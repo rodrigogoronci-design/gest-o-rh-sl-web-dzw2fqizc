@@ -91,12 +91,12 @@ const App = () => (
                   <Route path="demissao" element={<Demissao />} />
                   <Route path="configuracoes" element={<Settings />} />
                   <Route path="acessos" element={<Acessos />} />
+                  <Route path="ajustes-ponto" element={<AjustesPonto />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />
                 <Route path="meritocracia" element={<Meritocracia />} />
                 <Route path="meritocracia/:setor" element={<MeritocraciaSetor />} />
                 <Route path="ponto" element={<Ponto />} />
-                <Route path="ajustes-ponto" element={<AjustesPonto />} />
                 <Route path="apropriacao" element={<Apropriacao />} />
                 <Route path="contracheque" element={<ContraCheque />} />
                 <Route path="perfil" element={<Profile />} />
