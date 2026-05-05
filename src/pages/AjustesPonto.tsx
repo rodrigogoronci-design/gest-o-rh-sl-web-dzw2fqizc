@@ -42,6 +42,8 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Checkbox } from '@/components/ui/checkbox'
+import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Plus, Check, X, FileText, FileEdit } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -59,6 +61,15 @@ export default function AjustesPonto() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+
+  const [selectedFaltas, setSelectedFaltas] = useState<string[]>([])
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
+  const [bulkFormData, setBulkFormData] = useState({
+    motivo: '',
+    horas: '8',
+    justificativa: '',
+    file: null as File | null,
+  })
 
   const [formData, setFormData] = useState({
     colaborador_id: '',
@@ -254,6 +265,10 @@ export default function AjustesPonto() {
     fetchAjustes()
   }, [currentDate, statusFilter, user])
 
+  useEffect(() => {
+    setSelectedFaltas([])
+  }, [statusFilter, currentDate])
+
   const handleApprove = async (id: string, status: string) => {
     try {
       const { data: myColab } = await supabase
@@ -271,6 +286,59 @@ export default function AjustesPonto() {
       fetchAjustes()
     } catch (error) {
       toast.error('Erro ao atualizar status')
+    }
+  }
+
+  const handleBulkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (selectedFaltas.length === 0) return
+    if (!bulkFormData.motivo) {
+      toast.error('Selecione um motivo')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      let fileUrl = null
+      if (bulkFormData.file) {
+        const fileExt = bulkFormData.file.name.split('.').pop()
+        const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('anexos_ajustes')
+          .upload(fileName, bulkFormData.file)
+
+        if (!uploadError) {
+          const { data } = supabase.storage.from('anexos_ajustes').getPublicUrl(fileName)
+          fileUrl = data.publicUrl
+        }
+      }
+
+      const itemsToInsert = faltasCalculadas
+        .filter((f) => selectedFaltas.includes(f.id))
+        .map((f) => ({
+          colaborador_id: f.colaborador_id,
+          data: f.data,
+          tipo: 'motivo_ajuste',
+          motivo: bulkFormData.motivo,
+          horas: bulkFormData.horas ? parseFloat(bulkFormData.horas) : 8,
+          justificativa: bulkFormData.justificativa,
+          status: 'pendente',
+          documento_url: fileUrl,
+        }))
+
+      const { error } = await supabase.from('ajustes_ponto').insert(itemsToInsert)
+      if (error) throw error
+
+      toast.success(`${itemsToInsert.length} ajustes registrados com sucesso`)
+      setIsBulkModalOpen(false)
+      setSelectedFaltas([])
+      setBulkFormData({ motivo: '', horas: '8', justificativa: '', file: null })
+      fetchAjustes()
+    } catch (error) {
+      console.error(error)
+      toast.error('Erro ao salvar ajustes em lote')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -425,6 +493,24 @@ export default function AjustesPonto() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      {statusFilter === 'falta' && (
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={
+                              faltasCalculadas.length > 0 &&
+                              selectedFaltas.length === faltasCalculadas.length
+                            }
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedFaltas(faltasCalculadas.map((f) => f.id))
+                              } else {
+                                setSelectedFaltas([])
+                              }
+                            }}
+                            aria-label="Selecionar todas as faltas"
+                          />
+                        </TableHead>
+                      )}
                       <TableHead>Data</TableHead>
                       <TableHead>Funcionário</TableHead>
                       {activeTab === 'atraso' && statusFilter !== 'falta' ? (
@@ -443,7 +529,25 @@ export default function AjustesPonto() {
                   </TableHeader>
                   <TableBody>
                     {filteredAjustes.map((a) => (
-                      <TableRow key={a.id}>
+                      <TableRow
+                        key={a.id}
+                        data-state={selectedFaltas.includes(a.id) ? 'selected' : undefined}
+                      >
+                        {statusFilter === 'falta' && (
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedFaltas.includes(a.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedFaltas((prev) => [...prev, a.id])
+                                } else {
+                                  setSelectedFaltas((prev) => prev.filter((id) => id !== a.id))
+                                }
+                              }}
+                              aria-label={`Selecionar falta de ${a.colaboradores?.nome}`}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell className="whitespace-nowrap">
                           {format(new Date(a.data), 'dd/MM/yyyy')}
                         </TableCell>
@@ -525,10 +629,27 @@ export default function AjustesPonto() {
 
               <div className="md:hidden flex flex-col gap-3 p-4 bg-slate-50">
                 {filteredAjustes.map((a) => (
-                  <Card key={a.id} className="shadow-sm">
+                  <Card
+                    key={a.id}
+                    className={cn('shadow-sm', selectedFaltas.includes(a.id) && 'border-primary')}
+                  >
                     <CardContent className="p-3">
-                      <div className="flex justify-between items-start mb-2 border-b pb-2">
-                        <div>
+                      <div className="flex justify-between items-start mb-2 border-b pb-2 gap-2">
+                        {statusFilter === 'falta' && (
+                          <div className="mt-1">
+                            <Checkbox
+                              checked={selectedFaltas.includes(a.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedFaltas((prev) => [...prev, a.id])
+                                } else {
+                                  setSelectedFaltas((prev) => prev.filter((id) => id !== a.id))
+                                }
+                              }}
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1">
                           <span className="font-semibold text-sm block">
                             {format(new Date(a.data), 'dd/MM/yyyy')}
                           </span>
@@ -607,6 +728,97 @@ export default function AjustesPonto() {
           )}
         </CardContent>
       </Card>
+
+      {selectedFaltas.length > 0 && statusFilter === 'falta' && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white border border-slate-200 shadow-xl rounded-full px-4 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 fade-in">
+          <Badge
+            variant="secondary"
+            className="text-sm px-3 py-1 font-medium bg-slate-100 text-slate-800"
+          >
+            {selectedFaltas.length} {selectedFaltas.length === 1 ? 'selecionado' : 'selecionados'}
+          </Badge>
+          <div className="h-6 w-px bg-slate-200"></div>
+          <Button
+            onClick={() => setIsBulkModalOpen(true)}
+            size="sm"
+            className="rounded-full px-6 shadow-sm"
+          >
+            Justificar em Lote
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSelectedFaltas([])}
+            className="rounded-full h-8 w-8 text-slate-500 hover:text-slate-900"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
+      <Dialog open={isBulkModalOpen} onOpenChange={setIsBulkModalOpen}>
+        <DialogContent className="w-[90vw] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Justificar Faltas em Lote</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleBulkSubmit} className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label>Motivo</Label>
+              <Select
+                value={bulkFormData.motivo}
+                onValueChange={(v) => setBulkFormData((f) => ({ ...f, motivo: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Abono">Abono</SelectItem>
+                  <SelectItem value="Compensação">Compensação</SelectItem>
+                  <SelectItem value="Sobreaviso">Sobreaviso</SelectItem>
+                  <SelectItem value="Outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Horas (por registro)</Label>
+              <Input
+                type="number"
+                step="0.5"
+                required
+                min="0.5"
+                value={bulkFormData.horas}
+                onChange={(e) => setBulkFormData((f) => ({ ...f, horas: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Justificativa Geral</Label>
+              <Textarea
+                required
+                rows={3}
+                value={bulkFormData.justificativa}
+                onChange={(e) => setBulkFormData((f) => ({ ...f, justificativa: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Documento Único (Opcional)</Label>
+              <Input
+                type="file"
+                onChange={(e) =>
+                  setBulkFormData((f) => ({ ...f, file: e.target.files?.[0] || null }))
+                }
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsBulkModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? 'Salvando...' : 'Aplicar em Lote'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="w-[90vw] max-w-md max-h-[90vh] overflow-y-auto">
