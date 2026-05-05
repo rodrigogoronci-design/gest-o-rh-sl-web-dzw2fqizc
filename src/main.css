@@ -84,8 +84,8 @@
     print-color-adjust: exact !important;
   }
 
-  /* Oculta a aplicação principal na impressão */
-  #root {
+  /* Oculta a aplicação principal na impressão apenas se houver um modal aberto */
+  body:has(div[role='dialog']) #root {
     display: none !important;
   }
 

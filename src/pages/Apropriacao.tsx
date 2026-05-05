@@ -256,7 +256,7 @@ export default function Apropriacao() {
         @media print {
           body * { visibility: hidden; }
           #printable-area, #printable-area * { visibility: visible; }
-          #printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+          #printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
         }
       `}</style>
 
