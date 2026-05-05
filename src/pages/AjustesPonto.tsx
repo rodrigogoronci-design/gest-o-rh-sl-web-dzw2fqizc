@@ -115,14 +115,14 @@ export default function AjustesPonto() {
     if (!user) return
     setIsLoading(true)
     try {
-      const start = startOfMonth(currentDate).toISOString()
-      const end = endOfMonth(currentDate).toISOString()
+      const startStr = format(startOfMonth(currentDate), 'yyyy-MM-dd')
+      const endStr = format(endOfMonth(currentDate), 'yyyy-MM-dd')
 
       const { data: myColab } = await supabase
         .from('colaboradores')
         .select('role, departamento, id')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
       const role = myColab?.role?.toLowerCase() || ''
       const manager = role === 'admin' || role === 'administrador' || role === 'gerente'
@@ -130,8 +130,8 @@ export default function AjustesPonto() {
       let query = supabase
         .from('ajustes_ponto')
         .select('*, colaboradores(nome)')
-        .gte('data', start)
-        .lte('data', end)
+        .gte('data', startStr)
+        .lte('data', endStr)
         .order('created_at', { ascending: false })
 
       if (statusFilter !== 'todos' && statusFilter !== 'falta') {
@@ -172,44 +172,56 @@ export default function AjustesPonto() {
               .from('registro_ponto')
               .select('colaborador_id, data_hora')
               .in('colaborador_id', colabIdsToFetch)
-              .gte('data_hora', start)
-              .lte('data_hora', end),
+              .gte('data_hora', `${startStr}T00:00:00.000Z`)
+              .lte('data_hora', `${endStr}T23:59:59.999Z`),
             supabase
               .from('afastamentos')
               .select('colaborador_id, data_inicio, data_fim')
               .in('colaborador_id', colabIdsToFetch)
-              .lte('data_inicio', end)
-              .gte('data_fim', start),
-            supabase.from('feriados').select('data').gte('data', start).lte('data', end),
+              .lte('data_inicio', endStr)
+              .gte('data_fim', startStr),
+            supabase.from('feriados').select('data').gte('data', startStr).lte('data', endStr),
             supabase
               .from('ferias')
               .select('colaborador_id, data_inicio, data_fim')
               .in('colaborador_id', colabIdsToFetch)
-              .lte('data_inicio', end)
-              .gte('data_fim', start),
-            supabase.from('colaboradores').select('id, nome').in('id', colabIdsToFetch),
+              .lte('data_inicio', endStr)
+              .gte('data_fim', startStr),
+            supabase
+              .from('colaboradores')
+              .select('id, nome, status, data_admissao, data_demissao')
+              .in('id', colabIdsToFetch),
           ])
 
-        const today = startOfDay(new Date())
-        const intervalEnd = new Date(end) > today ? today : new Date(end)
+        const todayStr = format(new Date(), 'yyyy-MM-dd')
+        const intervalEndStr = endStr > todayStr ? todayStr : endStr
         let faltasArr: any[] = []
 
-        if (new Date(start) <= intervalEnd) {
-          const days = eachDayOfInterval({ start: new Date(start), end: intervalEnd })
+        if (startStr <= intervalEndStr) {
+          const [sy, sm, sd] = startStr.split('-').map(Number)
+          const [ey, em, ed] = intervalEndStr.split('-').map(Number)
+          const days = eachDayOfInterval({
+            start: new Date(sy, sm - 1, sd),
+            end: new Date(ey, em - 1, ed),
+          })
+
           const pontos = pontoRes.data || []
           const afastamentos = afastamentosRes.data || []
           const feriados = feriadosRes.data?.map((f) => f.data) || []
           const ferias = feriasRes.data || []
-          const teamColabs = teamColabsRes.data || []
+          const teamColabs = (teamColabsRes.data || []).filter((c) => c.status !== 'Inativo')
 
           for (const day of days) {
             if (isWeekend(day)) continue
-            if (day > today) continue
 
             const dayStr = format(day, 'yyyy-MM-dd')
+            if (dayStr > todayStr) continue
             if (feriados.includes(dayStr)) continue
 
             for (const colab of teamColabs) {
+              if (colab.data_admissao && colab.data_admissao > dayStr) continue
+              if (colab.data_demissao && colab.data_demissao < dayStr) continue
+
               const emAfastamento = afastamentos.some(
                 (a) =>
                   a.colaborador_id === colab.id && dayStr >= a.data_inicio && dayStr <= a.data_fim,
@@ -483,9 +495,13 @@ export default function AjustesPonto() {
               <Skeleton className="h-12 w-full" />
             </div>
           ) : filteredAjustes.length === 0 ? (
-            <div className="p-12 flex flex-col items-center justify-center text-center text-slate-500">
+            <div className="p-12 flex flex-col items-center justify-center text-center text-slate-500 animate-in fade-in duration-300">
               <FileEdit className="w-12 h-12 mb-4 text-slate-300" />
-              <p className="text-lg font-medium text-slate-900">Nenhum ajuste para este período</p>
+              <p className="text-lg font-medium text-slate-900">
+                {statusFilter === 'falta'
+                  ? 'Nenhuma falta encontrada para este período'
+                  : 'Nenhum ajuste para este período'}
+              </p>
             </div>
           ) : (
             <>
