@@ -7,6 +7,7 @@ import {
   subMonths,
   eachDayOfInterval,
   isWeekend,
+  startOfDay,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '@/lib/supabase/client'
@@ -43,6 +44,8 @@ interface DailyRecord {
   horasNoturnas: number
   falta: boolean
   motivoFalta?: string
+  isFuture: boolean
+  hasPoints: boolean
 }
 
 function getNightOverlap(start: Date, end: Date) {
@@ -180,13 +183,17 @@ export default function Apropriacao() {
         end: endOfMonth(currentDate),
       })
       const newRecords: DailyRecord[] = []
+      const today = startOfDay(new Date())
 
       for (const day of days) {
         const dayStr = format(day, 'yyyy-MM-dd')
         const isWknd = isWeekend(day)
+        const isFutureDay = day > today
 
         const dayPoints =
           pontoRes.data?.filter((p) => format(new Date(p.data_hora), 'yyyy-MM-dd') === dayStr) || []
+
+        const hasPoints = dayPoints.length > 0
 
         const normalize = (t: string) => t.toLowerCase().replace('í', 'i')
 
@@ -228,7 +235,7 @@ export default function Apropriacao() {
         let isFalta = false
         let motivo = ''
 
-        if (dayPoints.length === 0 && !isWknd) {
+        if (!hasPoints) {
           const feriado = feriadosRes.data?.find((f) => f.data === dayStr)
           const afastamento = afastamentosRes.data?.find(
             (a) => dayStr >= a.data_inicio && dayStr <= a.data_fim,
@@ -238,7 +245,7 @@ export default function Apropriacao() {
           if (feriado) motivo = 'Feriado'
           else if (afastamento) motivo = 'Afastamento'
           else if (feria) motivo = 'Férias'
-          else isFalta = true
+          else if (!isWknd && !isFutureDay) isFalta = true
         }
 
         newRecords.push({
@@ -252,6 +259,8 @@ export default function Apropriacao() {
           horasNoturnas: nightHours,
           falta: isFalta,
           motivoFalta: motivo,
+          isFuture: isFutureDay,
+          hasPoints,
         })
       }
       setRecords(newRecords)
@@ -426,6 +435,8 @@ export default function Apropriacao() {
                               <span className="text-slate-600 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">
                                 {r.motivoFalta}
                               </span>
+                            ) : !r.hasPoints ? (
+                              <span className="text-slate-400 text-[10px]">-</span>
                             ) : (
                               <span className="text-green-600 text-[10px] bg-green-100 px-1.5 py-0.5 rounded">
                                 OK
@@ -477,6 +488,8 @@ export default function Apropriacao() {
                               <span className="text-slate-600 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">
                                 {r.motivoFalta}
                               </span>
+                            ) : !r.hasPoints ? (
+                              <span className="text-slate-400 text-[10px]">-</span>
                             ) : (
                               <span className="text-green-600 text-[10px] bg-green-100 px-1.5 py-0.5 rounded">
                                 OK
@@ -710,7 +723,7 @@ export default function Apropriacao() {
                     if (r.falta) pontosStr = 'FALTA NAO JUSTIFICADA'
                     else if (r.motivoFalta === 'Feriado') pontosStr = 'FERIADO: Feriado'
                     else if (r.motivoFalta) pontosStr = r.motivoFalta.toUpperCase()
-                    else if (!isWknd) {
+                    else if (r.hasPoints) {
                       const times = [r.entrada, r.saidaIntervalo, r.retornoIntervalo, r.saida]
                         .filter(Boolean)
                         .map((d) => format(d!, 'HH:mm'))
