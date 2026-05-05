@@ -307,6 +307,16 @@ export function PontoPunch({ colaborador, deviceId }: any) {
     saida: 'Saída',
   }
 
+  const getNextTipoRegistro = () => {
+    if (registrosHoje.length === 0) return 'entrada'
+    if (registrosHoje.length === 1) return 'saida_intervalo'
+    if (registrosHoje.length === 2) return 'retorno_intervalo'
+    if (registrosHoje.length === 3) return 'saida'
+    return 'entrada'
+  }
+
+  const nextTipo = getNextTipoRegistro()
+
   if (loadingRegistros && registrosHoje.length === 0) {
     return (
       <div className="max-w-md mx-auto space-y-4">
@@ -369,7 +379,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
             className="w-full h-14 text-lg font-semibold rounded-xl shadow-md"
             onClick={() => setIsModalOpen(true)}
           >
-            Registrar Ponto
+            Registrar {tipoLabels[nextTipo] || 'Ponto'}
           </Button>
 
           {queueCount > 0 && isOnline && (
@@ -478,11 +488,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
           if (open) {
             const now = new Date()
             setManualTime(now.toTimeString().slice(0, 5))
-            if (registrosHoje.length === 0) setTipoRegistro('entrada')
-            else if (registrosHoje.length === 1) setTipoRegistro('saida_intervalo')
-            else if (registrosHoje.length === 2) setTipoRegistro('retorno_intervalo')
-            else if (registrosHoje.length === 3) setTipoRegistro('saida')
-            else setTipoRegistro('entrada')
+            setTipoRegistro(getNextTipoRegistro())
           }
           setIsModalOpen(open)
         }}
@@ -521,17 +527,9 @@ export function PontoPunch({ colaborador, deviceId }: any) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-slate-600">Tipo de Registro</Label>
-                <Select value={tipoRegistro} onValueChange={setTipoRegistro}>
-                  <SelectTrigger className="h-12 bg-slate-50 border-slate-200">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="entrada">Entrada</SelectItem>
-                    <SelectItem value="saida_intervalo">Saída Intervalo</SelectItem>
-                    <SelectItem value="retorno_intervalo">Retorno Intervalo</SelectItem>
-                    <SelectItem value="saida">Saída</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="h-12 bg-slate-100 border border-slate-200 rounded-md flex items-center px-3 text-slate-700 font-medium cursor-not-allowed opacity-80">
+                  {tipoLabels[tipoRegistro] || tipoRegistro}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -560,7 +558,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
               onClick={registerPoint}
               disabled={loading || (isMobile && !location)}
             >
-              {loading ? 'Salvando...' : 'Confirmar Registro'}
+              {loading ? 'Salvando...' : `Confirmar ${tipoLabels[tipoRegistro] || 'Registro'}`}
             </Button>
           </DialogFooter>
         </DialogContent>
