@@ -118,15 +118,25 @@ export default function AjustesPonto() {
         return
       }
 
-      const { data: teamColabs, error: teamErr } = await supabase
+      const { data: teamColabsRaw, error: teamErr } = await supabase
         .from('colaboradores')
         .select('id, nome, status, data_admissao, data_demissao')
         .order('nome')
 
       if (teamErr) throw new Error('Erro ao buscar equipe: ' + teamErr.message)
-      setColaboradores(teamColabs || [])
 
-      if (!teamColabs || teamColabs.length === 0) {
+      const teamColabs = (teamColabsRaw || []).filter((c) => {
+        const nomeLower = c.nome.toLowerCase()
+        return (
+          !nomeLower.includes('administrador geral') &&
+          !nomeLower.includes('rodrigo') &&
+          !nomeLower.includes('ismael bomfim')
+        )
+      })
+
+      setColaboradores(teamColabs)
+
+      if (teamColabs.length === 0) {
         setAjustes([])
         setFaltasCalculadas([])
         setIsLoading(false)
