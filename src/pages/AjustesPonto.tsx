@@ -206,14 +206,11 @@ export default function AjustesPonto() {
         for (const day of days) {
           const dayStr = format(day, 'yyyy-MM-dd')
           const isWknd = isWeekend(day)
+
+          if (isWknd) continue
           if (feriados.includes(dayStr)) continue
 
           for (const colab of validColabs) {
-            const hasPlantao = plantoes.some(
-              (p) => p.colaborador_id === colab.id && p.data === dayStr,
-            )
-            if (isWknd && !hasPlantao) continue
-
             if (colab.data_admissao && colab.data_admissao > dayStr) continue
             if (colab.data_demissao && colab.data_demissao < dayStr) continue
 
@@ -304,6 +301,7 @@ export default function AjustesPonto() {
           .in('id', colabIds)
 
         const recordsToInsert: any[] = []
+        let skippedCount = 0
 
         for (const faltaId of selectedFaltas) {
           const falta = faltasCalculadas.find((f) => f.id === faltaId)
@@ -316,14 +314,20 @@ export default function AjustesPonto() {
 
           if (bulkFormData.usarEscala) {
             const colab = colabs?.find((c) => c.id === falta.colaborador_id)
-            if (!colab || !colab.jornada_entrada || !colab.jornada_saida) continue
+            if (!colab || !colab.jornada_entrada || !colab.jornada_saida) {
+              skippedCount++
+              continue
+            }
             ent = colab.jornada_entrada
             saiInt = colab.jornada_saida_intervalo || ''
             retInt = colab.jornada_retorno_intervalo || ''
             sai = colab.jornada_saida
           }
 
-          if (!ent || !sai) continue
+          if (!ent || !sai) {
+            skippedCount++
+            continue
+          }
 
           const getISO = (timeStr: string) => {
             const [h, m] = timeStr.split(':')
@@ -374,7 +378,16 @@ export default function AjustesPonto() {
           if (error) throw error
         }
 
-        toast.success(`Pontos preenchidos para ${selectedFaltas.length} ocorrências`)
+        if (skippedCount > 0) {
+          toast.warning(
+            `${skippedCount} ocorrência(s) ignoradas pois o colaborador não possui escala completa.`,
+          )
+        }
+        if (recordsToInsert.length > 0) {
+          toast.success(`Pontos preenchidos com sucesso!`)
+        } else if (skippedCount === selectedFaltas.length) {
+          toast.error('Nenhum ponto preenchido. Verifique se os colaboradores possuem escala.')
+        }
         setIsBulkModalOpen(false)
         setSelectedFaltas([])
         setBulkFormData({
@@ -759,7 +772,7 @@ export default function AjustesPonto() {
                             />
                           </TableCell>
                           <TableCell className="font-medium whitespace-nowrap">
-                            {format(new Date(f.data), 'dd/MM/yyyy')}
+                            {format(new Date(f.data + 'T12:00:00'), 'dd/MM/yyyy')}
                           </TableCell>
                           <TableCell>{f.colaboradores?.nome}</TableCell>
                           <TableCell className="text-slate-500">{f.motivo}</TableCell>
@@ -819,7 +832,7 @@ export default function AjustesPonto() {
                             />
                           </TableCell>
                           <TableCell className="font-medium whitespace-nowrap">
-                            {format(new Date(p.data), 'dd/MM/yyyy')}
+                            {format(new Date(p.data + 'T12:00:00'), 'dd/MM/yyyy')}
                           </TableCell>
                           <TableCell>{p.colaboradores?.nome}</TableCell>
                           <TableCell>
@@ -873,7 +886,7 @@ export default function AjustesPonto() {
                       historico.map((h) => (
                         <TableRow key={h.id}>
                           <TableCell className="pl-6 font-medium whitespace-nowrap">
-                            {format(new Date(h.data), 'dd/MM/yyyy')}
+                            {format(new Date(h.data + 'T12:00:00'), 'dd/MM/yyyy')}
                           </TableCell>
                           <TableCell>{h.colaboradores?.nome}</TableCell>
                           <TableCell>

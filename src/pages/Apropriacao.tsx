@@ -272,7 +272,7 @@ export default function Apropriacao() {
             motivo = 'Afastamento'
           } else if (feria) {
             motivo = 'Férias'
-          } else if ((!isWknd || isPlantao) && !isFutureDay) {
+          } else if (!isWknd && !isFutureDay) {
             isFalta = true
           }
 
