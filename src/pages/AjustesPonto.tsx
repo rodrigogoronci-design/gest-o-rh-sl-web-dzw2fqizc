@@ -463,6 +463,14 @@ export default function AjustesPonto() {
       return
     }
 
+    const isWknd =
+      new Date(formData.data + 'T12:00:00').getDay() === 0 ||
+      new Date(formData.data + 'T12:00:00').getDay() === 6
+    if (newAjusteType === 'motivo' && formData.motivo === 'Preencher Ponto' && isWknd) {
+      toast.error('Não é possível preencher ponto pela escala em finais de semana.')
+      return
+    }
+
     setIsSaving(true)
 
     if (newAjusteType === 'motivo' && formData.motivo === 'Preencher Ponto') {
@@ -1133,7 +1141,10 @@ export default function AjustesPonto() {
                     <SelectItem value="Abono">Abono</SelectItem>
                     <SelectItem value="Compensação">Compensação</SelectItem>
                     <SelectItem value="Desconto">Desconto</SelectItem>
-                    <SelectItem value="Preencher Ponto">Preencher Ponto (Escala)</SelectItem>
+                    {!(
+                      new Date(formData.data + 'T12:00:00').getDay() === 0 ||
+                      new Date(formData.data + 'T12:00:00').getDay() === 6
+                    ) && <SelectItem value="Preencher Ponto">Preencher Ponto (Escala)</SelectItem>}
                     <SelectItem value="Outro">Outro</SelectItem>
                   </SelectContent>
                 </Select>

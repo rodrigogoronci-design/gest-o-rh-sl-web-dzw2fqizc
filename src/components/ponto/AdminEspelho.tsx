@@ -158,52 +158,86 @@ export function AdminEspelho() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {registros.map((r) => {
-              const isComplete =
-                r.hora_entrada && r.hora_saida_intervalo && r.hora_retorno_intervalo && r.hora_saida
+            {registros
+              .filter((r) => {
+                const hasAny =
+                  r.hora_entrada ||
+                  r.hora_saida_intervalo ||
+                  r.hora_retorno_intervalo ||
+                  r.hora_saida
+                const isWknd =
+                  new Date(date + 'T12:00:00').getDay() === 0 ||
+                  new Date(date + 'T12:00:00').getDay() === 6
+
+                if (isWknd && !hasAny) return false
+                return true
+              })
+              .map((r) => {
+                const isComplete =
+                  r.hora_entrada &&
+                  r.hora_saida_intervalo &&
+                  r.hora_retorno_intervalo &&
+                  r.hora_saida
+                const hasAny =
+                  r.hora_entrada ||
+                  r.hora_saida_intervalo ||
+                  r.hora_retorno_intervalo ||
+                  r.hora_saida
+
+                return (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">{r.nome}</TableCell>
+                    <TableCell>{r.cargo || '-'}</TableCell>
+                    <TableCell className="text-center font-mono">
+                      {r.hora_entrada || '--:--'}
+                    </TableCell>
+                    <TableCell className="text-center font-mono">
+                      {r.hora_saida_intervalo || '--:--'}
+                    </TableCell>
+                    <TableCell className="text-center font-mono">
+                      {r.hora_retorno_intervalo || '--:--'}
+                    </TableCell>
+                    <TableCell className="text-center font-mono">
+                      {r.hora_saida || '--:--'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isComplete ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-green-50 text-green-700 border-green-200"
+                        >
+                          Completo
+                        </Badge>
+                      ) : hasAny ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200"
+                        >
+                          Em andamento
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">Ausente</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            {registros.filter((r) => {
               const hasAny =
                 r.hora_entrada || r.hora_saida_intervalo || r.hora_retorno_intervalo || r.hora_saida
-
-              return (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.nome}</TableCell>
-                  <TableCell>{r.cargo || '-'}</TableCell>
-                  <TableCell className="text-center font-mono">
-                    {r.hora_entrada || '--:--'}
-                  </TableCell>
-                  <TableCell className="text-center font-mono">
-                    {r.hora_saida_intervalo || '--:--'}
-                  </TableCell>
-                  <TableCell className="text-center font-mono">
-                    {r.hora_retorno_intervalo || '--:--'}
-                  </TableCell>
-                  <TableCell className="text-center font-mono">{r.hora_saida || '--:--'}</TableCell>
-                  <TableCell className="text-right">
-                    {isComplete ? (
-                      <Badge
-                        variant="outline"
-                        className="bg-green-50 text-green-700 border-green-200"
-                      >
-                        Completo
-                      </Badge>
-                    ) : hasAny ? (
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                        Em andamento
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">Ausente</Badge>
-                    )}
+              const isWknd =
+                new Date(date + 'T12:00:00').getDay() === 0 ||
+                new Date(date + 'T12:00:00').getDay() === 6
+              if (isWknd && !hasAny) return false
+              return true
+            }).length === 0 &&
+              !loading && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    Nenhum registro encontrado para esta data.
                   </TableCell>
                 </TableRow>
-              )
-            })}
-            {registros.length === 0 && !loading && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  Nenhum colaborador encontrado para esta data.
-                </TableCell>
-              </TableRow>
-            )}
+              )}
             {loading && registros.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
