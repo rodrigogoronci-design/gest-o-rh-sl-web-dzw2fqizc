@@ -100,7 +100,7 @@ export default function AppSidebar() {
           roles: ['admin', 'Admin', 'Gerente'],
         },
         {
-          title: 'Atestados',
+          title: 'Atestados e Afastamentos',
           path: '/app/atestados',
           icon: FileText,
           roles: ['admin', 'Admin', 'Gerente'],
