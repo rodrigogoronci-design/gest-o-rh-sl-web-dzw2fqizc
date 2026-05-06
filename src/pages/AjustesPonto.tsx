@@ -79,6 +79,11 @@ export default function AjustesPonto() {
     horas: '8',
     justificativa: '',
     file: null as File | null,
+    usarEscala: true,
+    entrada: '',
+    saidaIntervalo: '',
+    retornoIntervalo: '',
+    saida: '',
   })
 
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -269,6 +274,117 @@ export default function AjustesPonto() {
     }
 
     setIsSaving(true)
+
+    if (bulkFormData.motivo === 'Preencher Ponto') {
+      try {
+        const colabIds = [
+          ...new Set(
+            faltasCalculadas
+              .filter((f) => selectedFaltas.includes(f.id))
+              .map((f) => f.colaborador_id),
+          ),
+        ]
+        const { data: colabs } = await supabase
+          .from('colaboradores')
+          .select(
+            'id, jornada_entrada, jornada_saida_intervalo, jornada_retorno_intervalo, jornada_saida',
+          )
+          .in('id', colabIds)
+
+        const recordsToInsert: any[] = []
+
+        for (const faltaId of selectedFaltas) {
+          const falta = faltasCalculadas.find((f) => f.id === faltaId)
+          if (!falta) continue
+
+          let ent = bulkFormData.entrada
+          let saiInt = bulkFormData.saidaIntervalo
+          let retInt = bulkFormData.retornoIntervalo
+          let sai = bulkFormData.saida
+
+          if (bulkFormData.usarEscala) {
+            const colab = colabs?.find((c) => c.id === falta.colaborador_id)
+            if (!colab || !colab.jornada_entrada || !colab.jornada_saida) continue
+            ent = colab.jornada_entrada
+            saiInt = colab.jornada_saida_intervalo || ''
+            retInt = colab.jornada_retorno_intervalo || ''
+            sai = colab.jornada_saida
+          }
+
+          if (!ent || !sai) continue
+
+          const getISO = (timeStr: string) => {
+            const [h, m] = timeStr.split(':')
+            const d = new Date(falta.data + 'T00:00:00')
+            d.setHours(Number(h), Number(m), 0, 0)
+            return d.toISOString()
+          }
+
+          recordsToInsert.push({
+            colaborador_id: falta.colaborador_id,
+            data_hora: getISO(ent),
+            tipo_registro: 'entrada',
+            status: 'validado',
+            obs_usuario: bulkFormData.justificativa || 'Ajuste em lote automático',
+          })
+
+          if (saiInt) {
+            recordsToInsert.push({
+              colaborador_id: falta.colaborador_id,
+              data_hora: getISO(saiInt),
+              tipo_registro: 'saida_intervalo',
+              status: 'validado',
+              obs_usuario: bulkFormData.justificativa || 'Ajuste em lote automático',
+            })
+          }
+
+          if (retInt) {
+            recordsToInsert.push({
+              colaborador_id: falta.colaborador_id,
+              data_hora: getISO(retInt),
+              tipo_registro: 'retorno_intervalo',
+              status: 'validado',
+              obs_usuario: bulkFormData.justificativa || 'Ajuste em lote automático',
+            })
+          }
+
+          recordsToInsert.push({
+            colaborador_id: falta.colaborador_id,
+            data_hora: getISO(sai),
+            tipo_registro: 'saida',
+            status: 'validado',
+            obs_usuario: bulkFormData.justificativa || 'Ajuste em lote automático',
+          })
+        }
+
+        if (recordsToInsert.length > 0) {
+          const { error } = await supabase.from('registro_ponto').insert(recordsToInsert)
+          if (error) throw error
+        }
+
+        toast.success(`Pontos preenchidos para ${selectedFaltas.length} ocorrências`)
+        setIsBulkModalOpen(false)
+        setSelectedFaltas([])
+        setBulkFormData({
+          motivo: '',
+          horas: '8',
+          justificativa: '',
+          file: null,
+          usarEscala: true,
+          entrada: '',
+          saidaIntervalo: '',
+          retornoIntervalo: '',
+          saida: '',
+        })
+        fetchAjustes()
+      } catch (err: any) {
+        toast.error('Erro ao preencher pontos: ' + err.message)
+      } finally {
+        setIsSaving(false)
+      }
+      return
+    }
+
     try {
       let fileUrl = null
       if (bulkFormData.file) {
@@ -348,6 +464,81 @@ export default function AjustesPonto() {
     }
 
     setIsSaving(true)
+
+    if (newAjusteType === 'motivo' && formData.motivo === 'Preencher Ponto') {
+      try {
+        const { data: colab } = await supabase
+          .from('colaboradores')
+          .select(
+            'jornada_entrada, jornada_saida_intervalo, jornada_retorno_intervalo, jornada_saida',
+          )
+          .eq('id', formData.colaborador_id)
+          .single()
+        if (!colab || !colab.jornada_entrada || !colab.jornada_saida) {
+          toast.error('Colaborador não possui escala completa cadastrada.')
+          setIsSaving(false)
+          return
+        }
+
+        const getISO = (timeStr: string) => {
+          const [h, m] = timeStr.split(':')
+          const d = new Date(formData.data + 'T00:00:00')
+          d.setHours(Number(h), Number(m), 0, 0)
+          return d.toISOString()
+        }
+
+        const recordsToInsert = [
+          {
+            colaborador_id: formData.colaborador_id,
+            data_hora: getISO(colab.jornada_entrada),
+            tipo_registro: 'entrada',
+            status: 'validado',
+            obs_usuario: formData.justificativa || 'Ajuste manual pela escala',
+          },
+          {
+            colaborador_id: formData.colaborador_id,
+            data_hora: getISO(colab.jornada_saida),
+            tipo_registro: 'saida',
+            status: 'validado',
+            obs_usuario: formData.justificativa || 'Ajuste manual pela escala',
+          },
+        ]
+
+        if (colab.jornada_saida_intervalo) {
+          recordsToInsert.push({
+            colaborador_id: formData.colaborador_id,
+            data_hora: getISO(colab.jornada_saida_intervalo),
+            tipo_registro: 'saida_intervalo',
+            status: 'validado',
+            obs_usuario: formData.justificativa || 'Ajuste manual pela escala',
+          })
+        }
+
+        if (colab.jornada_retorno_intervalo) {
+          recordsToInsert.push({
+            colaborador_id: formData.colaborador_id,
+            data_hora: getISO(colab.jornada_retorno_intervalo),
+            tipo_registro: 'retorno_intervalo',
+            status: 'validado',
+            obs_usuario: formData.justificativa || 'Ajuste manual pela escala',
+          })
+        }
+
+        const { error } = await supabase.from('registro_ponto').insert(recordsToInsert)
+        if (error) throw error
+
+        toast.success('Pontos preenchidos pela escala com sucesso')
+        setIsModalOpen(false)
+        setFormData((f) => ({ ...f, hora: '', motivo: '', justificativa: '', file: null }))
+        fetchAjustes()
+      } catch (err: any) {
+        toast.error('Erro ao preencher pontos: ' + err.message)
+      } finally {
+        setIsSaving(false)
+      }
+      return
+    }
+
     try {
       let fileUrl = null
       if (formData.file) {
@@ -756,10 +947,68 @@ export default function AjustesPonto() {
                   <SelectItem value="Abono">Abono (Justificado)</SelectItem>
                   <SelectItem value="Compensação">Compensação</SelectItem>
                   <SelectItem value="Desconto">Desconto em Folha</SelectItem>
+                  <SelectItem value="Preencher Ponto">Preencher Ponto</SelectItem>
                   <SelectItem value="Outro">Outro</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {bulkFormData.motivo === 'Preencher Ponto' && (
+              <div className="space-y-4 p-4 border rounded-md bg-slate-50">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="usar-escala"
+                    checked={bulkFormData.usarEscala}
+                    onCheckedChange={(c) => setBulkFormData((f) => ({ ...f, usarEscala: !!c }))}
+                  />
+                  <Label htmlFor="usar-escala">Preencher automaticamente com a escala</Label>
+                </div>
+
+                {!bulkFormData.usarEscala && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Entrada</Label>
+                      <Input
+                        type="time"
+                        value={bulkFormData.entrada}
+                        onChange={(e) =>
+                          setBulkFormData((f) => ({ ...f, entrada: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Saída Intervalo</Label>
+                      <Input
+                        type="time"
+                        value={bulkFormData.saidaIntervalo}
+                        onChange={(e) =>
+                          setBulkFormData((f) => ({ ...f, saidaIntervalo: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Retorno Intervalo</Label>
+                      <Input
+                        type="time"
+                        value={bulkFormData.retornoIntervalo}
+                        onChange={(e) =>
+                          setBulkFormData((f) => ({ ...f, retornoIntervalo: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Saída</Label>
+                      <Input
+                        type="time"
+                        value={bulkFormData.saida}
+                        onChange={(e) => setBulkFormData((f) => ({ ...f, saida: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Horas por registro (Opcional)</Label>
               <Input
@@ -884,6 +1133,7 @@ export default function AjustesPonto() {
                     <SelectItem value="Abono">Abono</SelectItem>
                     <SelectItem value="Compensação">Compensação</SelectItem>
                     <SelectItem value="Desconto">Desconto</SelectItem>
+                    <SelectItem value="Preencher Ponto">Preencher Ponto (Escala)</SelectItem>
                     <SelectItem value="Outro">Outro</SelectItem>
                   </SelectContent>
                 </Select>
