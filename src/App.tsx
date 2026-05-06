@@ -12,6 +12,7 @@ import NotFound from './pages/NotFound'
 import Layout from './components/Layout'
 import Mural from './pages/Mural'
 import Dashboard from './pages/Dashboard'
+import DashboardGestor from './pages/DashboardGestor'
 import Users from './pages/Users'
 import Ticket from './pages/Ticket'
 import Transport from './pages/Transport'
@@ -80,6 +81,7 @@ const App = () => (
                 <Route index element={<Navigate to="mural" replace />} />
                 <Route element={<AdminRoute />}>
                   <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="dashboard-gestor" element={<DashboardGestor />} />
                   <Route path="relatorios" element={<Reports />} />
                   <Route path="atestados" element={<Atestados />} />
                   <Route path="historico" element={<Historico />} />

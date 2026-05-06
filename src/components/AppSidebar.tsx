@@ -22,6 +22,7 @@ import {
   Award,
   ShieldAlert,
   FileEdit,
+  ClipboardCheck,
 } from 'lucide-react'
 import useAppStore from '@/stores/useAppStore'
 import { cn } from '@/lib/utils'
@@ -87,6 +88,12 @@ export default function AppSidebar() {
       icon: Briefcase,
       roles: ['admin', 'Admin', 'Gerente', 'user', 'Colaborador', 'Personalizado', 'personalizado'],
       items: [
+        {
+          title: 'Dashboard do Gestor',
+          path: '/app/dashboard-gestor',
+          icon: ClipboardCheck,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
         {
           title: 'Admissão',
           path: '/app/admissao',
