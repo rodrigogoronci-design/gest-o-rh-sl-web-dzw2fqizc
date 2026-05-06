@@ -1,19 +1,47 @@
 import { format, parseISO } from 'date-fns'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Check, X } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 
 interface PontosTabProps {
   data: any[]
+  selectedIds: string[]
+  onSelectionChange: (ids: string[]) => void
   onOpenModal: (record: any, table: string, isApprove: boolean) => void
 }
 
-export function PontosTab({ data, onOpenModal }: PontosTabProps) {
+export function PontosTab({ data, selectedIds, onSelectionChange, onOpenModal }: PontosTabProps) {
+  const pendingData = data.filter((p) => p.status === 'pendente')
+  const allPendingSelected = pendingData.length > 0 && selectedIds.length === pendingData.length
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      onSelectionChange(pendingData.map((p) => p.id))
+    } else {
+      onSelectionChange([])
+    }
+  }
+
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      onSelectionChange([...selectedIds, id])
+    } else {
+      onSelectionChange(selectedIds.filter((selectedId) => selectedId !== id))
+    }
+  }
   return (
     <div className="flex-1 overflow-x-auto border rounded-lg bg-white">
       <table className="w-full text-sm text-left min-w-[800px]">
         <thead className="bg-slate-50 text-slate-500 font-medium border-b sticky top-0">
           <tr>
+            <th className="px-4 py-3 w-12">
+              <Checkbox
+                checked={allPendingSelected}
+                onCheckedChange={handleSelectAll}
+                disabled={pendingData.length === 0}
+              />
+            </th>
             <th className="px-4 py-3">Funcionário</th>
             <th className="px-4 py-3">Data</th>
             <th className="px-4 py-3">Hora</th>
@@ -26,13 +54,21 @@ export function PontosTab({ data, onOpenModal }: PontosTabProps) {
         <tbody className="divide-y">
           {data.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+              <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                 Nenhum ponto encontrado.
               </td>
             </tr>
           ) : (
             data.map((p) => (
               <tr key={p.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3">
+                  {p.status === 'pendente' && (
+                    <Checkbox
+                      checked={selectedIds.includes(p.id)}
+                      onCheckedChange={(checked) => handleSelect(p.id, checked as boolean)}
+                    />
+                  )}
+                </td>
                 <td className="px-4 py-3 font-medium">{(p.colaboradores as any)?.nome}</td>
                 <td className="px-4 py-3">{format(parseISO(p.data_hora), 'dd/MM/yyyy')}</td>
                 <td className="px-4 py-3">{format(parseISO(p.data_hora), 'HH:mm')}</td>

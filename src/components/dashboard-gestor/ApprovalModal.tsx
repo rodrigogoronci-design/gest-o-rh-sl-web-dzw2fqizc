@@ -14,10 +14,17 @@ interface ApprovalModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   isApprove: boolean
+  count?: number
   onConfirm: (comment: string) => void
 }
 
-export function ApprovalModal({ open, onOpenChange, isApprove, onConfirm }: ApprovalModalProps) {
+export function ApprovalModal({
+  open,
+  onOpenChange,
+  isApprove,
+  count,
+  onConfirm,
+}: ApprovalModalProps) {
   const [comment, setComment] = useState('')
 
   useEffect(() => {
@@ -28,7 +35,10 @@ export function ApprovalModal({ open, onOpenChange, isApprove, onConfirm }: Appr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{isApprove ? 'Aprovar' : 'Reprovar'} Solicitação</DialogTitle>
+          <DialogTitle>
+            {isApprove ? 'Aprovar' : 'Reprovar'}{' '}
+            {count && count > 1 ? `${count} Solicitações` : 'Solicitação'}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">

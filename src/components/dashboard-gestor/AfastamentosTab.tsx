@@ -1,19 +1,52 @@
 import { format, parseISO } from 'date-fns'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Check, X } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 
 interface AfastamentosTabProps {
   data: any[]
+  selectedIds: string[]
+  onSelectionChange: (ids: string[]) => void
   onOpenModal: (record: any, table: string, isApprove: boolean) => void
 }
 
-export function AfastamentosTab({ data, onOpenModal }: AfastamentosTabProps) {
+export function AfastamentosTab({
+  data,
+  selectedIds,
+  onSelectionChange,
+  onOpenModal,
+}: AfastamentosTabProps) {
+  const pendingData = data.filter((a) => a.status?.toLowerCase() === 'pendente')
+  const allPendingSelected = pendingData.length > 0 && selectedIds.length === pendingData.length
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      onSelectionChange(pendingData.map((a) => a.id))
+    } else {
+      onSelectionChange([])
+    }
+  }
+
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      onSelectionChange([...selectedIds, id])
+    } else {
+      onSelectionChange(selectedIds.filter((selectedId) => selectedId !== id))
+    }
+  }
   return (
     <div className="flex-1 overflow-x-auto border rounded-lg bg-white">
       <table className="w-full text-sm text-left min-w-[800px]">
         <thead className="bg-slate-50 text-slate-500 font-medium border-b sticky top-0">
           <tr>
+            <th className="px-4 py-3 w-12">
+              <Checkbox
+                checked={allPendingSelected}
+                onCheckedChange={handleSelectAll}
+                disabled={pendingData.length === 0}
+              />
+            </th>
             <th className="px-4 py-3">Funcionário</th>
             <th className="px-4 py-3">Data Início</th>
             <th className="px-4 py-3">Data Fim</th>
@@ -26,13 +59,21 @@ export function AfastamentosTab({ data, onOpenModal }: AfastamentosTabProps) {
         <tbody className="divide-y">
           {data.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+              <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                 Nenhum afastamento encontrado.
               </td>
             </tr>
           ) : (
             data.map((a) => (
               <tr key={a.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3">
+                  {a.status?.toLowerCase() === 'pendente' && (
+                    <Checkbox
+                      checked={selectedIds.includes(a.id)}
+                      onCheckedChange={(checked) => handleSelect(a.id, checked as boolean)}
+                    />
+                  )}
+                </td>
                 <td className="px-4 py-3 font-medium">{(a.colaboradores as any)?.nome}</td>
                 <td className="px-4 py-3">{format(parseISO(a.data_inicio), 'dd/MM/yyyy')}</td>
                 <td className="px-4 py-3">{format(parseISO(a.data_fim), 'dd/MM/yyyy')}</td>

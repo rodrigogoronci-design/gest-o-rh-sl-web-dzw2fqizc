@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AlertCircle, AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Check, RefreshCw, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { ApprovalModal } from '@/components/dashboard-gestor/ApprovalModal'
@@ -40,13 +40,20 @@ export default function DashboardGestor() {
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [alerts, setAlerts] = useState<any[]>([])
 
+  const [selectedPoints, setSelectedPoints] = useState<string[]>([])
+  const [selectedAdjustments, setSelectedAdjustments] = useState<string[]>([])
+  const [selectedAbsences, setSelectedAbsences] = useState<string[]>([])
+
   const [modalOpen, setModalOpen] = useState(false)
-  const [selectedRecord, setSelectedRecord] = useState<any>(null)
+  const [selectedRecords, setSelectedRecords] = useState<any[]>([])
   const [isApprove, setIsApprove] = useState(true)
 
   const fetchData = async () => {
     setLoading(true)
     setError(false)
+    setSelectedPoints([])
+    setSelectedAdjustments([])
+    setSelectedAbsences([])
     try {
       const startStr = format(startOfMonth(parseISO(`${period}-01`)), 'yyyy-MM-dd')
       const endStr = format(endOfMonth(parseISO(`${period}-01`)), 'yyyy-MM-dd')
@@ -134,50 +141,72 @@ export default function DashboardGestor() {
   }, [period])
 
   const openModal = (record: any, table: string, approve: boolean) => {
-    setSelectedRecord({ ...record, table })
+    setSelectedRecords([{ ...record, table }])
+    setIsApprove(approve)
+    setModalOpen(true)
+  }
+
+  const openBulkModal = (approve: boolean) => {
+    let records: any[] = []
+    if (activeTab === 'pontos') {
+      records = points
+        .filter((p) => selectedPoints.includes(p.id))
+        .map((p) => ({ ...p, table: 'registro_ponto' }))
+    } else if (activeTab === 'ajustes') {
+      records = adjustments
+        .filter((a) => selectedAdjustments.includes(a.id))
+        .map((a) => ({ ...a, table: 'ajustes_ponto' }))
+    } else if (activeTab === 'afastamentos') {
+      records = absences
+        .filter((a) => selectedAbsences.includes(a.id))
+        .map((a) => ({ ...a, table: 'afastamentos' }))
+    }
+    setSelectedRecords(records)
     setIsApprove(approve)
     setModalOpen(true)
   }
 
   const handleConfirm = async (comment: string) => {
-    if (!selectedRecord) return
+    if (selectedRecords.length === 0) return
     const newStatus = isApprove ? 'aprovado' : 'reprovado'
     try {
-      if (selectedRecord.table === 'registro_ponto') {
-        await supabase
-          .from('registro_ponto')
-          .update({ status: newStatus })
-          .eq('id', selectedRecord.id)
-        setPoints((prev) =>
-          prev.map((p) => (p.id === selectedRecord.id ? { ...p, status: newStatus } : p)),
-        )
-      } else if (selectedRecord.table === 'ajustes_ponto') {
+      const table = selectedRecords[0].table
+      const ids = selectedRecords.map((r) => r.id)
+
+      if (table === 'registro_ponto') {
+        await supabase.from('registro_ponto').update({ status: newStatus }).in('id', ids)
+        setPoints((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, status: newStatus } : p)))
+        setSelectedPoints([])
+      } else if (table === 'ajustes_ponto') {
         await supabase
           .from('ajustes_ponto')
           .update({ status: newStatus, aprovado_por: user?.id })
-          .eq('id', selectedRecord.id)
+          .in('id', ids)
         setAdjustments((prev) =>
-          prev.map((a) => (a.id === selectedRecord.id ? { ...a, status: newStatus } : a)),
+          prev.map((a) => (ids.includes(a.id) ? { ...a, status: newStatus } : a)),
         )
-      } else if (selectedRecord.table === 'afastamentos') {
+        setSelectedAdjustments([])
+      } else if (table === 'afastamentos') {
         await supabase
           .from('afastamentos')
           .update({ status: newStatus, aprovado_por: user?.id })
-          .eq('id', selectedRecord.id)
+          .in('id', ids)
         setAbsences((prev) =>
-          prev.map((a) => (a.id === selectedRecord.id ? { ...a, status: newStatus } : a)),
+          prev.map((a) => (ids.includes(a.id) ? { ...a, status: newStatus } : a)),
         )
+        setSelectedAbsences([])
       }
 
       if (comment) {
-        await supabase.from('historico_ajustes').insert({
-          acao: `${newStatus}_${selectedRecord.table}`,
-          detalhes: { id: selectedRecord.id, comentario: comment },
+        const historicos = selectedRecords.map((r) => ({
+          acao: `${newStatus}_${r.table}`,
+          detalhes: { id: r.id, comentario: comment },
           user_id: user?.id,
-        })
+        }))
+        await supabase.from('historico_ajustes').insert(historicos)
       }
 
-      toast({ title: `Registro ${newStatus} com sucesso!` })
+      toast({ title: `${ids.length} registro(s) ${newStatus} com sucesso!` })
       setModalOpen(false)
     } catch (e: any) {
       toast({ title: 'Erro ao atualizar', description: e.message, variant: 'destructive' })
@@ -205,6 +234,13 @@ export default function DashboardGestor() {
     () => applyFilters(absences),
     [absences, statusFilter, colabFilter],
   )
+
+  const selectedCount =
+    activeTab === 'pontos'
+      ? selectedPoints.length
+      : activeTab === 'ajustes'
+        ? selectedAdjustments.length
+        : selectedAbsences.length
 
   if (loading) {
     return (
@@ -346,28 +382,70 @@ export default function DashboardGestor() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="w-fit mb-2 shrink-0">
-          <TabsTrigger value="pontos">Pontos Pendentes</TabsTrigger>
-          <TabsTrigger value="ajustes">Ajustes Pendentes</TabsTrigger>
-          <TabsTrigger value="afastamentos">Afastamentos Pendentes</TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2 shrink-0">
+          <TabsList className="w-fit">
+            <TabsTrigger value="pontos">Pontos Pendentes</TabsTrigger>
+            <TabsTrigger value="ajustes">Ajustes Pendentes</TabsTrigger>
+            <TabsTrigger value="afastamentos">Afastamentos Pendentes</TabsTrigger>
+          </TabsList>
+
+          {selectedCount > 0 && (
+            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-md animate-in fade-in slide-in-from-top-2">
+              <span className="text-sm font-medium text-slate-600 mr-2">
+                {selectedCount} selecionado(s)
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 border-green-200 text-green-700 hover:bg-green-50"
+                onClick={() => openBulkModal(true)}
+              >
+                <Check className="w-4 h-4 mr-1" /> Aprovar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 border-red-200 text-red-700 hover:bg-red-50"
+                onClick={() => openBulkModal(false)}
+              >
+                <X className="w-4 h-4 mr-1" /> Reprovar
+              </Button>
+            </div>
+          )}
+        </div>
+
         <TabsContent
           value="pontos"
-          className="flex-1 flex flex-col min-h-0 data-[state=inactive]:hidden m-0 mt-2"
+          className="flex-1 flex flex-col min-h-0 data-[state=inactive]:hidden m-0"
         >
-          <PontosTab data={filteredPoints} onOpenModal={openModal} />
+          <PontosTab
+            data={filteredPoints}
+            selectedIds={selectedPoints}
+            onSelectionChange={setSelectedPoints}
+            onOpenModal={openModal}
+          />
         </TabsContent>
         <TabsContent
           value="ajustes"
-          className="flex-1 flex flex-col min-h-0 data-[state=inactive]:hidden m-0 mt-2"
+          className="flex-1 flex flex-col min-h-0 data-[state=inactive]:hidden m-0"
         >
-          <AjustesTab data={filteredAdjustments} onOpenModal={openModal} />
+          <AjustesTab
+            data={filteredAdjustments}
+            selectedIds={selectedAdjustments}
+            onSelectionChange={setSelectedAdjustments}
+            onOpenModal={openModal}
+          />
         </TabsContent>
         <TabsContent
           value="afastamentos"
-          className="flex-1 flex flex-col min-h-0 data-[state=inactive]:hidden m-0 mt-2"
+          className="flex-1 flex flex-col min-h-0 data-[state=inactive]:hidden m-0"
         >
-          <AfastamentosTab data={filteredAbsences} onOpenModal={openModal} />
+          <AfastamentosTab
+            data={filteredAbsences}
+            selectedIds={selectedAbsences}
+            onSelectionChange={setSelectedAbsences}
+            onOpenModal={openModal}
+          />
         </TabsContent>
       </Tabs>
 
@@ -375,6 +453,7 @@ export default function DashboardGestor() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         isApprove={isApprove}
+        count={selectedRecords.length}
         onConfirm={handleConfirm}
       />
     </div>
