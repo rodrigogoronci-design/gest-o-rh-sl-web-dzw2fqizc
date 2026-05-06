@@ -73,7 +73,6 @@ export function AdminApprovals() {
 
     toast.success('Ponto atualizado com sucesso')
     setPontos((prev) => prev.filter((p) => p.id !== id))
-    fetchPontos()
   }
 
   return (

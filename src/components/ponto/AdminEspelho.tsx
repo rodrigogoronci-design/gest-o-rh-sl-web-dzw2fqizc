@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
@@ -11,95 +11,110 @@ import {
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { CalendarIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { CalendarIcon, RefreshCw } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export function AdminEspelho() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [registros, setRegistros] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchRegistros = useCallback(async () => {
+    setLoading(true)
+    const start = new Date(date + 'T00:00:00').toISOString()
+    const end = new Date(date + 'T23:59:59').toISOString()
+
+    const { data: colabs } = await supabase
+      .from('colaboradores')
+      .select('id, nome, cargo, role')
+      .eq('status', 'Ativo')
+
+    const { data: pts } = await supabase
+      .from('registro_ponto')
+      .select('*')
+      .gte('data_hora', start)
+      .lte('data_hora', end)
+
+    if (colabs) {
+      const filteredColabs = colabs.filter((c) => {
+        const nome = (c.nome || '').toLowerCase()
+        const role = (c.role || '').toLowerCase()
+
+        if (
+          nome.includes('administrador geral') ||
+          nome.includes('rodrigo') ||
+          nome.includes('ismael bomfim')
+        ) {
+          return false
+        }
+
+        if (role === 'admin' || role === 'administrador') {
+          return false
+        }
+
+        return true
+      })
+
+      const normalizeTipo = (tipo: string) => (tipo || '').toLowerCase().replace(/\s+/g, '_')
+
+      const merged = filteredColabs.map((c) => {
+        const cPts =
+          pts?.filter(
+            (p) =>
+              p.colaborador_id === c.id && (p.status === 'aprovado' || p.status === 'validado'),
+          ) || []
+
+        const entradas = cPts
+          .filter((p) => normalizeTipo(p.tipo_registro) === 'entrada')
+          .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
+
+        const saidasIntervalo = cPts
+          .filter((p) =>
+            ['saida_intervalo', 'intervalo_saida', 'saida_de_intervalo'].includes(
+              normalizeTipo(p.tipo_registro),
+            ),
+          )
+          .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
+
+        const retornosIntervalo = cPts
+          .filter((p) =>
+            ['retorno_intervalo', 'intervalo_retorno', 'retorno_de_intervalo'].includes(
+              normalizeTipo(p.tipo_registro),
+            ),
+          )
+          .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
+
+        const saidas = cPts
+          .filter((p) => normalizeTipo(p.tipo_registro) === 'saida')
+          .sort((a, b) => new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime())
+
+        const formatTime = (records: any[]) =>
+          records.length > 0
+            ? new Date(records[0].data_hora).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : null
+
+        return {
+          id: c.id,
+          nome: c.nome,
+          cargo: c.cargo,
+          hora_entrada: formatTime(entradas),
+          hora_saida_intervalo: formatTime(saidasIntervalo),
+          hora_retorno_intervalo: formatTime(retornosIntervalo),
+          hora_saida: formatTime(saidas),
+        }
+      })
+      setRegistros(merged)
+    }
+    setLoading(false)
+  }, [date])
 
   useEffect(() => {
-    const fetchRegistros = async () => {
-      const start = new Date(date + 'T00:00:00').toISOString()
-      const end = new Date(date + 'T23:59:59').toISOString()
-
-      const { data: colabs } = await supabase
-        .from('colaboradores')
-        .select('id, nome, cargo, role')
-        .eq('status', 'Ativo')
-      const { data: pts } = await supabase
-        .from('registro_ponto')
-        .select('*')
-        .gte('data_hora', start)
-        .lte('data_hora', end)
-
-      if (colabs) {
-        const filteredColabs = colabs.filter((c) => {
-          const nome = (c.nome || '').toLowerCase()
-          const role = (c.role || '').toLowerCase()
-
-          if (
-            nome.includes('administrador geral') ||
-            nome.includes('rodrigo') ||
-            nome.includes('ismael bomfim')
-          ) {
-            return false
-          }
-
-          if (role === 'admin' || role === 'administrador') {
-            return false
-          }
-
-          return true
-        })
-
-        const merged = filteredColabs.map((c) => {
-          const cPts =
-            pts?.filter(
-              (p) =>
-                p.colaborador_id === c.id && (p.status === 'aprovado' || p.status === 'validado'),
-            ) || []
-
-          const entradas = cPts
-            .filter((p) => p.tipo_registro === 'entrada')
-            .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
-          const saidasIntervalo = cPts
-            .filter(
-              (p) => p.tipo_registro === 'saida_intervalo' || p.tipo_registro === 'intervalo_saida',
-            )
-            .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
-          const retornosIntervalo = cPts
-            .filter(
-              (p) =>
-                p.tipo_registro === 'retorno_intervalo' || p.tipo_registro === 'intervalo_retorno',
-            )
-            .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
-          const saidas = cPts
-            .filter((p) => p.tipo_registro === 'saida')
-            .sort((a, b) => new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime())
-
-          const formatTime = (records: any[]) =>
-            records.length > 0
-              ? new Date(records[0].data_hora).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : null
-
-          return {
-            id: c.id,
-            nome: c.nome,
-            cargo: c.cargo,
-            hora_entrada: formatTime(entradas),
-            hora_saida_intervalo: formatTime(saidasIntervalo),
-            hora_retorno_intervalo: formatTime(retornosIntervalo),
-            hora_saida: formatTime(saidas),
-          }
-        })
-        setRegistros(merged)
-      }
-    }
     fetchRegistros()
-  }, [date])
+  }, [fetchRegistros])
 
   return (
     <Card>
@@ -108,14 +123,25 @@ export function AdminEspelho() {
           <CardTitle>Espelho de Ponto Diário</CardTitle>
           <CardDescription>Acompanhe as entradas e saídas consolidadas da equipe.</CardDescription>
         </div>
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-          <Input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-[150px]"
-          />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-[150px]"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={fetchRegistros}
+            disabled={loading}
+            title="Atualizar Dados"
+          >
+            <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="pt-6">
@@ -171,10 +197,17 @@ export function AdminEspelho() {
                 </TableRow>
               )
             })}
-            {registros.length === 0 && (
+            {registros.length === 0 && !loading && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Nenhum colaborador encontrado para esta data.
+                </TableCell>
+              </TableRow>
+            )}
+            {loading && registros.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  Carregando...
                 </TableCell>
               </TableRow>
             )}

@@ -222,7 +222,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
           const expected = new Date(recordDate)
           expected.setHours(h, m, 0, 0)
           const diffMins = Math.abs(recordDate.getTime() - expected.getTime()) / 60000
-          return diffMins <= 30
+          return diffMins <= 5
         }
 
         let isWithinTolerance = false
