@@ -43,6 +43,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
   const [queueCount, setQueueCount] = useState(0)
 
   const [registrosHoje, setRegistrosHoje] = useState<any[]>([])
+  const [pendencias, setPendencias] = useState<any[]>([])
   const [loadingRegistros, setLoadingRegistros] = useState(true)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -71,6 +72,16 @@ export function PontoPunch({ colaborador, deviceId }: any) {
       .order('data_hora', { ascending: true })
 
     if (data) setRegistrosHoje(data)
+
+    const { data: pendenciasData } = await supabase
+      .from('registro_ponto')
+      .select('*')
+      .eq('colaborador_id', colaborador.id)
+      .in('status', ['pendente', 'inconsistencia'])
+      .order('data_hora', { ascending: false })
+
+    if (pendenciasData) setPendencias(pendenciasData)
+
     setLoadingRegistros(false)
   }
 
@@ -399,6 +410,19 @@ export function PontoPunch({ colaborador, deviceId }: any) {
             <p className="font-semibold text-sm">Atenção ao Intervalo</p>
             <p className="text-xs mt-1">
               Você ainda não registrou seu intervalo de descanso hoje. Lembre-se de fazer a pausa.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {pendencias.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 text-orange-800 p-4 rounded-xl flex items-start gap-3 animate-fade-in">
+          <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold text-sm">Pontos Pendentes de Validação</p>
+            <p className="text-xs mt-1">
+              Você possui <strong>{pendencias.length}</strong> registro(s) marcado(s) fora da escala
+              ou local previsto aguardando aprovação gerencial.
             </p>
           </div>
         </div>

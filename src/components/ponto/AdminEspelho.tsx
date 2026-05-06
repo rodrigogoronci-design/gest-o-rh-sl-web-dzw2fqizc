@@ -54,12 +54,7 @@ export function AdminEspelho() {
 
         const merged = filteredColabs.map((c) => {
           const cPts =
-            pts?.filter(
-              (p) =>
-                p.colaborador_id === c.id &&
-                p.status !== 'rejeitado' &&
-                p.status !== 'inconsistencia',
-            ) || []
+            pts?.filter((p) => p.colaborador_id === c.id && p.status === 'aprovado') || []
           const entradas = cPts
             .filter((p) => p.tipo_registro === 'entrada')
             .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
