@@ -38,7 +38,7 @@ export default function AfastamentosTable({ data, type, profile, onUpdate, onEdi
         ? `${af?.justificativa || ''}\n\nParecer do Gestor: ${comentario}`
         : af?.justificativa
 
-      await supabase
+      const { error } = await supabase
         .from('afastamentos')
         .update({
           status,
@@ -47,10 +47,12 @@ export default function AfastamentosTable({ data, type, profile, onUpdate, onEdi
         })
         .eq('id', id)
 
+      if (error) throw error
+
       toast({ title: `Afastamento ${status}` })
       onUpdate()
-    } catch (e) {
-      toast({ title: 'Erro', variant: 'destructive' })
+    } catch (e: any) {
+      toast({ title: 'Erro ao atualizar', description: e.message, variant: 'destructive' })
     } finally {
       setComentarioModal({ isOpen: false, id: '', action: null })
       setComentario('')
@@ -59,7 +61,11 @@ export default function AfastamentosTable({ data, type, profile, onUpdate, onEdi
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja excluir?')) return
-    await supabase.from('afastamentos').delete().eq('id', id)
+    const { error } = await supabase.from('afastamentos').delete().eq('id', id)
+    if (error) {
+      toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' })
+      return
+    }
     toast({ title: 'Excluído com sucesso' })
     onUpdate()
   }

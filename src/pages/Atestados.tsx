@@ -214,7 +214,7 @@ export default function Atestados() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <TabsList className="w-fit mb-2 shrink-0">
           <TabsTrigger value="afastamentos">Afastamentos</TabsTrigger>
-          <TabsTrigger value="atestados">Atestados (Antigo)</TabsTrigger>
+          <TabsTrigger value="atestados">Atestados</TabsTrigger>
         </TabsList>
 
         <TabsContent
