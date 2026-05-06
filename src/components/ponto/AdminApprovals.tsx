@@ -20,10 +20,33 @@ export function AdminApprovals() {
   const fetchPontos = async () => {
     const { data } = await supabase
       .from('registro_ponto')
-      .select('*, colaboradores(nome)')
+      .select('*, colaboradores(nome, role)')
       .in('status', ['pendente', 'inconsistencia'])
       .order('data_hora', { ascending: false })
-    setPontos(data || [])
+
+    if (data) {
+      const filtered = data.filter((p: any) => {
+        const nome = (p.colaboradores?.nome || '').toLowerCase()
+        const role = (p.colaboradores?.role || '').toLowerCase()
+
+        if (
+          nome.includes('administrador geral') ||
+          nome.includes('rodrigo') ||
+          nome.includes('ismael bomfim')
+        ) {
+          return false
+        }
+
+        if (role === 'admin' || role === 'administrador') {
+          return false
+        }
+
+        return true
+      })
+      setPontos(filtered)
+    } else {
+      setPontos([])
+    }
   }
 
   useEffect(() => {
@@ -31,7 +54,23 @@ export function AdminApprovals() {
   }, [])
 
   const updateStatus = async (id: string, status: string) => {
-    await supabase.from('registro_ponto').update({ status }).eq('id', id)
+    const { error, data } = await supabase
+      .from('registro_ponto')
+      .update({ status })
+      .eq('id', id)
+      .select()
+
+    if (error) {
+      toast.error('Erro ao atualizar ponto.')
+      console.error(error)
+      return
+    }
+
+    if (data && data.length === 0) {
+      toast.error('Permissão negada ou ponto não encontrado.')
+      return
+    }
+
     toast.success('Ponto atualizado com sucesso')
     fetchPontos()
   }

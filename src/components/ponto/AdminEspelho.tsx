@@ -24,7 +24,7 @@ export function AdminEspelho() {
 
       const { data: colabs } = await supabase
         .from('colaboradores')
-        .select('id, nome, cargo')
+        .select('id, nome, cargo, role')
         .eq('status', 'Ativo')
       const { data: pts } = await supabase
         .from('registro_ponto')
@@ -33,8 +33,33 @@ export function AdminEspelho() {
         .lte('data_hora', end)
 
       if (colabs) {
-        const merged = colabs.map((c) => {
-          const cPts = pts?.filter((p) => p.colaborador_id === c.id) || []
+        const filteredColabs = colabs.filter((c) => {
+          const nome = (c.nome || '').toLowerCase()
+          const role = (c.role || '').toLowerCase()
+
+          if (
+            nome.includes('administrador geral') ||
+            nome.includes('rodrigo') ||
+            nome.includes('ismael bomfim')
+          ) {
+            return false
+          }
+
+          if (role === 'admin' || role === 'administrador') {
+            return false
+          }
+
+          return true
+        })
+
+        const merged = filteredColabs.map((c) => {
+          const cPts =
+            pts?.filter(
+              (p) =>
+                p.colaborador_id === c.id &&
+                p.status !== 'rejeitado' &&
+                p.status !== 'inconsistencia',
+            ) || []
           const entradas = cPts
             .filter((p) => p.tipo_registro === 'entrada')
             .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
