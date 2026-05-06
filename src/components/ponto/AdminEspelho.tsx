@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 export function AdminEspelho() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [registros, setRegistros] = useState<any[]>([])
+  const [plantoes, setPlantoes] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
   const fetchRegistros = useCallback(async () => {
@@ -33,7 +34,9 @@ export function AdminEspelho() {
 
     const colabs = colabsRes.data
     const pts = ptsRes.data
-    const plantoes = plantoesRes.data || []
+    const fetchedPlantoes = plantoesRes.data || []
+
+    setPlantoes(fetchedPlantoes)
 
     if (colabs) {
       const filteredColabs = colabs.filter((c) => {
