@@ -112,18 +112,26 @@ export function HorasExtrasTab({
           </Table>
         </div>
 
-        <div className="bg-slate-50 border-t border-slate-100 p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div className="bg-slate-50 print:bg-white border-t border-slate-100 print:border-black p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm print:border-t-2">
           <div>
-            <p className="text-slate-500 mb-1">Total Horas Extras</p>
-            <p className="font-bold text-lg text-emerald-600">{formatHours(totalExtras)}</p>
+            <p className="text-slate-500 print:text-black mb-1 font-medium">Total Horas Extras</p>
+            <p className="font-bold text-lg text-emerald-600 print:text-black print:text-base">
+              {formatHours(totalExtras)}
+            </p>
           </div>
           <div>
-            <p className="text-slate-500 mb-1">Total Horas Noturnas</p>
-            <p className="font-bold text-lg text-indigo-600">{formatHours(totalNoturnas)}</p>
+            <p className="text-slate-500 print:text-black mb-1 font-medium">Total Horas Noturnas</p>
+            <p className="font-bold text-lg text-indigo-600 print:text-black print:text-base">
+              {formatHours(totalNoturnas)}
+            </p>
           </div>
           <div>
-            <p className="text-slate-500 mb-1">Valor Total Aproximado</p>
-            <p className="font-bold text-lg text-slate-800">{formatCurrency(valorTotal)}</p>
+            <p className="text-slate-500 print:text-black mb-1 font-medium">
+              Valor Total Aproximado
+            </p>
+            <p className="font-bold text-lg text-slate-800 print:text-black print:text-base">
+              {formatCurrency(valorTotal)}
+            </p>
           </div>
         </div>
       </Card>

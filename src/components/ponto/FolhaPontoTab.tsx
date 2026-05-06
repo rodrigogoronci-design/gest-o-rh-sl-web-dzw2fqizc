@@ -164,28 +164,34 @@ export function FolhaPontoTab({
           </>
         )}
 
-        <div className="bg-slate-50 border-t border-slate-100 p-4 md:p-6 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+        <div className="bg-slate-50 print:bg-white border-t border-slate-100 print:border-black p-4 md:p-6 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm print:border-t-2">
           <div>
-            <p className="text-slate-500 mb-1">Total Normais</p>
-            <p className="font-bold text-lg">{formatHours(totalNormais)}</p>
+            <p className="text-slate-500 print:text-black mb-1 font-medium">Total Normais</p>
+            <p className="font-bold text-lg print:text-base">{formatHours(totalNormais)}</p>
           </div>
           <div>
-            <p className="text-slate-500 mb-1">Total Extras</p>
-            <p className="font-bold text-lg text-emerald-600">{formatHours(totalExtras)}</p>
+            <p className="text-slate-500 print:text-black mb-1 font-medium">Total Extras</p>
+            <p className="font-bold text-lg text-emerald-600 print:text-black print:text-base">
+              {formatHours(totalExtras)}
+            </p>
           </div>
           <div>
-            <p className="text-slate-500 mb-1">Total Noturnas</p>
-            <p className="font-bold text-lg text-indigo-600">{formatHours(totalNoturnas)}</p>
+            <p className="text-slate-500 print:text-black mb-1 font-medium">Total Noturnas</p>
+            <p className="font-bold text-lg text-indigo-600 print:text-black print:text-base">
+              {formatHours(totalNoturnas)}
+            </p>
           </div>
           <div>
-            <p className="text-slate-500 mb-1">Total Faltas</p>
-            <p className="font-bold text-lg text-red-600">{totalFaltas}</p>
+            <p className="text-slate-500 print:text-black mb-1 font-medium">Total Faltas</p>
+            <p className="font-bold text-lg text-red-600 print:text-black print:text-base">
+              {totalFaltas}
+            </p>
           </div>
           <div className="col-span-2 md:col-span-1">
-            <p className="text-slate-500 mb-1">Saldo Banco</p>
+            <p className="text-slate-500 print:text-black mb-1 font-medium">Saldo Banco</p>
             <p
               className={cn(
-                'font-bold text-lg',
+                'font-bold text-lg print:text-black print:text-base',
                 saldoBanco >= 0 ? 'text-emerald-600' : 'text-red-600',
               )}
             >

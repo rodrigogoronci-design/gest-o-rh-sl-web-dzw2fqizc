@@ -187,10 +187,17 @@ export default function PontoRelatorios() {
     <div className="p-6 max-w-[1600px] mx-auto space-y-6 animate-fade-in-up pb-24">
       <style>{`
         @media print {
+          @page { size: landscape; margin: 15mm; }
           body * { visibility: hidden; }
-          #print-area, #print-area * { visibility: visible; }
-          #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+          #print-area, #print-area * { visibility: visible; color: black !important; }
+          #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
           .no-print { display: none !important; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #cbd5e1 !important; padding: 6px 8px !important; font-size: 11px !important; }
+          th { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .shadow-sm { box-shadow: none !important; border: none !important; }
+          .bg-slate-50 { background-color: transparent !important; }
+          .text-emerald-600, .text-indigo-600, .text-red-600 { color: black !important; }
         }
       `}</style>
 
@@ -246,16 +253,32 @@ export default function PontoRelatorios() {
       </div>
 
       <div id="print-area">
-        <div className="hidden print:block mb-8 border-b pb-4">
-          <h2 className="text-2xl font-bold">Relatório de Ponto</h2>
-          <p className="text-slate-600 capitalize">
-            Período: {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-          </p>
-          {colaboradorId !== 'all' && (
-            <p className="text-slate-600">
-              Colaborador: {colaboradores.find((c) => c.id === colaboradorId)?.nome}
-            </p>
-          )}
+        <div className="hidden print:block mb-6 border-b-2 border-slate-800 pb-4">
+          <div className="flex justify-between items-end">
+            <div>
+              <h2 className="text-2xl font-bold uppercase tracking-wider text-slate-900">
+                Relatório de Apropriação / Espelho de Ponto
+              </h2>
+              <p className="text-sm text-slate-600 mt-1">
+                Documento oficial para conferência de horas e apontamentos
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-bold capitalize text-slate-900">
+                {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+              </p>
+              {colaboradorId !== 'all' ? (
+                <p className="text-sm mt-1">
+                  Colaborador:{' '}
+                  <span className="font-semibold">
+                    {colaboradores.find((c) => c.id === colaboradorId)?.nome}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-sm mt-1">Visão Consolidada da Equipe</p>
+              )}
+            </div>
+          </div>
         </div>
 
         {isLoading ? (
@@ -287,6 +310,19 @@ export default function PontoRelatorios() {
             </TabsContent>
           </Tabs>
         )}
+
+        <div className="hidden print:flex mt-20 pt-8 justify-around items-center break-inside-avoid">
+          <div className="text-center w-72">
+            <div className="border-t border-black mb-2"></div>
+            <p className="text-sm font-semibold">Assinatura do Colaborador</p>
+            <p className="text-xs text-slate-500 mt-1">Reconheço a exatidão das horas apontadas</p>
+          </div>
+          <div className="text-center w-72">
+            <div className="border-t border-black mb-2"></div>
+            <p className="text-sm font-semibold">Assinatura do Gestor / RH</p>
+            <p className="text-xs text-slate-500 mt-1">Aprovado para processamento</p>
+          </div>
+        </div>
       </div>
     </div>
   )
