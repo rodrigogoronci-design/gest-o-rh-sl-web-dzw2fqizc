@@ -31,6 +31,7 @@ import Demissao from './pages/Demissao'
 import Settings from './pages/Settings'
 import PlanoSaude from './pages/PlanoSaude'
 import Acessos from './pages/Acessos'
+import PontoRelatorios from './pages/PontoRelatorios'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -94,6 +95,7 @@ const App = () => (
                   <Route path="configuracoes" element={<Settings />} />
                   <Route path="acessos" element={<Acessos />} />
                   <Route path="ajustes-ponto" element={<AjustesPonto />} />
+                  <Route path="relatorios-ponto" element={<PontoRelatorios />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />
                 <Route path="meritocracia" element={<Meritocracia />} />

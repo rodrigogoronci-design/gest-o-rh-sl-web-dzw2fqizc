@@ -128,7 +128,6 @@ export default function AppSidebar() {
         },
         {
           title: 'Controle de Ponto',
-          path: '/app/ponto',
           icon: Clock,
           roles: [
             'admin',
@@ -139,12 +138,34 @@ export default function AppSidebar() {
             'Personalizado',
             'personalizado',
           ],
-        },
-        {
-          title: 'Ajustes de Ponto',
-          path: '/app/ajustes-ponto',
-          icon: FileEdit,
-          roles: ['admin', 'Admin', 'Gerente'],
+          items: [
+            {
+              title: 'Meu Ponto',
+              path: '/app/ponto',
+              icon: Clock,
+              roles: [
+                'admin',
+                'Admin',
+                'Gerente',
+                'user',
+                'Colaborador',
+                'Personalizado',
+                'personalizado',
+              ],
+            },
+            {
+              title: 'Ajustes de Ponto',
+              path: '/app/ajustes-ponto',
+              icon: FileEdit,
+              roles: ['admin', 'Admin', 'Gerente'],
+            },
+            {
+              title: 'Relatórios',
+              path: '/app/relatorios-ponto',
+              icon: FileText,
+              roles: ['admin', 'Admin', 'Gerente'],
+            },
+          ],
         },
         {
           title: 'Apropriação de Horas',
