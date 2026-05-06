@@ -148,36 +148,43 @@ export default function AjustesPonto() {
         return
       }
 
-      const [ajustesRes, pontosRes, afastamentosRes, feriadosRes, feriasRes] = await Promise.all([
-        supabase
-          .from('ajustes_ponto')
-          .select('*, colaboradores(nome)')
-          .gte('data', startStr)
-          .lte('data', endStr)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('registro_ponto')
-          .select('colaborador_id, data_hora')
-          .gte('data_hora', `${startStr}T00:00:00.000Z`)
-          .lte('data_hora', `${endStr}T23:59:59.999Z`),
-        supabase
-          .from('afastamentos')
-          .select('colaborador_id, data_inicio, data_fim')
-          .lte('data_inicio', endStr)
-          .gte('data_fim', startStr),
-        supabase.from('feriados').select('data').gte('data', startStr).lte('data', endStr),
-        supabase
-          .from('ferias')
-          .select('colaborador_id, data_inicio, data_fim')
-          .lte('data_inicio', endStr)
-          .gte('data_fim', startStr),
-      ])
+      const [ajustesRes, pontosRes, afastamentosRes, feriadosRes, feriasRes, plantoesRes] =
+        await Promise.all([
+          supabase
+            .from('ajustes_ponto')
+            .select('*, colaboradores(nome)')
+            .gte('data', startStr)
+            .lte('data', endStr)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('registro_ponto')
+            .select('colaborador_id, data_hora')
+            .gte('data_hora', `${startStr}T00:00:00.000Z`)
+            .lte('data_hora', `${endStr}T23:59:59.999Z`),
+          supabase
+            .from('afastamentos')
+            .select('colaborador_id, data_inicio, data_fim')
+            .lte('data_inicio', endStr)
+            .gte('data_fim', startStr),
+          supabase.from('feriados').select('data').gte('data', startStr).lte('data', endStr),
+          supabase
+            .from('ferias')
+            .select('colaborador_id, data_inicio, data_fim')
+            .lte('data_inicio', endStr)
+            .gte('data_fim', startStr),
+          supabase
+            .from('plantoes')
+            .select('colaborador_id, data')
+            .gte('data', startStr)
+            .lte('data', endStr),
+        ])
 
       const todosAjustes = ajustesRes.data || []
       const pontos = pontosRes.data || []
       const afastamentos = afastamentosRes.data || []
       const feriados = feriadosRes.data?.map((f) => f.data) || []
       const ferias = feriasRes.data || []
+      const plantoes = plantoesRes.data || []
 
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
@@ -197,11 +204,16 @@ export default function AjustesPonto() {
         const validColabs = teamColabs.filter((c) => c.status !== 'Inativo')
 
         for (const day of days) {
-          if (isWeekend(day)) continue
           const dayStr = format(day, 'yyyy-MM-dd')
+          const isWknd = isWeekend(day)
           if (feriados.includes(dayStr)) continue
 
           for (const colab of validColabs) {
+            const hasPlantao = plantoes.some(
+              (p) => p.colaborador_id === colab.id && p.data === dayStr,
+            )
+            if (isWknd && !hasPlantao) continue
+
             if (colab.data_admissao && colab.data_admissao > dayStr) continue
             if (colab.data_demissao && colab.data_demissao < dayStr) continue
 

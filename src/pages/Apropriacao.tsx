@@ -151,31 +151,50 @@ export default function Apropriacao() {
       const start = startOfMonth(currentDate).toISOString()
       const end = endOfMonth(currentDate).toISOString()
 
-      const [pontoRes, afastamentosRes, feriadosRes, feriasRes, colabRes] = await Promise.all([
-        supabase
-          .from('registro_ponto')
-          .select('*')
-          .eq('colaborador_id', selectedColab)
-          .gte('data_hora', start)
-          .lte('data_hora', end)
-          .order('data_hora', { ascending: true }),
-        supabase
-          .from('afastamentos')
-          .select('*')
-          .eq('colaborador_id', selectedColab)
-          .lte('data_inicio', end)
-          .gte('data_fim', start),
-        supabase.from('feriados').select('*').gte('data', start).lte('data', end),
-        supabase
-          .from('ferias')
-          .select('*')
-          .eq('colaborador_id', selectedColab)
-          .lte('data_inicio', end)
-          .gte('data_fim', start),
-        supabase.from('colaboradores').select('jornada_diaria').eq('id', selectedColab).single(),
-      ])
+      const startStr = format(startOfMonth(currentDate), 'yyyy-MM-dd')
+      const endStr = format(endOfMonth(currentDate), 'yyyy-MM-dd')
+
+      const [pontoRes, afastamentosRes, feriadosRes, feriasRes, colabRes, plantoesRes, ajustesRes] =
+        await Promise.all([
+          supabase
+            .from('registro_ponto')
+            .select('*')
+            .eq('colaborador_id', selectedColab)
+            .gte('data_hora', start)
+            .lte('data_hora', end)
+            .order('data_hora', { ascending: true }),
+          supabase
+            .from('afastamentos')
+            .select('*')
+            .eq('colaborador_id', selectedColab)
+            .lte('data_inicio', endStr)
+            .gte('data_fim', startStr),
+          supabase.from('feriados').select('*').gte('data', startStr).lte('data', endStr),
+          supabase
+            .from('ferias')
+            .select('*')
+            .eq('colaborador_id', selectedColab)
+            .lte('data_inicio', endStr)
+            .gte('data_fim', startStr),
+          supabase.from('colaboradores').select('jornada_diaria').eq('id', selectedColab).single(),
+          supabase
+            .from('plantoes')
+            .select('*')
+            .eq('colaborador_id', selectedColab)
+            .gte('data', startStr)
+            .lte('data', endStr),
+          supabase
+            .from('ajustes_ponto')
+            .select('*')
+            .eq('colaborador_id', selectedColab)
+            .gte('data', startStr)
+            .lte('data', endStr),
+        ])
 
       if (pontoRes.error) throw pontoRes.error
+
+      const plantoes = plantoesRes.data || []
+      const ajustes = ajustesRes.data || []
 
       const jornadaDiaria = colabRes.data?.jornada_diaria || 8
       const days = eachDayOfInterval({
@@ -189,6 +208,7 @@ export default function Apropriacao() {
         const dayStr = format(day, 'yyyy-MM-dd')
         const isWknd = isWeekend(day)
         const isFutureDay = day > today
+        const isPlantao = plantoes.some((p) => p.data === dayStr)
 
         const dayPoints =
           pontoRes.data?.filter((p) => format(new Date(p.data_hora), 'yyyy-MM-dd') === dayStr) || []
@@ -241,11 +261,28 @@ export default function Apropriacao() {
             (a) => dayStr >= a.data_inicio && dayStr <= a.data_fim,
           )
           const feria = feriasRes.data?.find((f) => dayStr >= f.data_inicio && dayStr <= f.data_fim)
+          const ajuste = ajustes.find((a) => a.data === dayStr && a.status === 'aprovado')
+          const ajustePendente = ajustes.find((a) => a.data === dayStr && a.status === 'pendente')
 
-          if (feriado) motivo = 'Feriado'
-          else if (afastamento) motivo = 'Afastamento'
-          else if (feria) motivo = 'Férias'
-          else if (!isWknd && !isFutureDay) isFalta = true
+          if (ajuste) {
+            motivo = ajuste.motivo || 'Ajuste'
+          } else if (feriado) {
+            motivo = 'Feriado'
+          } else if (afastamento) {
+            motivo = 'Afastamento'
+          } else if (feria) {
+            motivo = 'Férias'
+          } else if ((!isWknd || isPlantao) && !isFutureDay) {
+            isFalta = true
+          }
+
+          if (isFalta && ajustePendente) {
+            motivo = 'Ajuste Pendente'
+            isFalta = false
+          }
+        } else {
+          const ajuste = ajustes.find((a) => a.data === dayStr && a.status === 'aprovado')
+          if (ajuste) motivo = ajuste.motivo || ''
         }
 
         newRecords.push({

@@ -25,16 +25,15 @@ export function AdminEspelho() {
     const start = new Date(date + 'T00:00:00').toISOString()
     const end = new Date(date + 'T23:59:59').toISOString()
 
-    const { data: colabs } = await supabase
-      .from('colaboradores')
-      .select('id, nome, cargo, role')
-      .eq('status', 'Ativo')
+    const [colabsRes, ptsRes, plantoesRes] = await Promise.all([
+      supabase.from('colaboradores').select('id, nome, cargo, role').eq('status', 'Ativo'),
+      supabase.from('registro_ponto').select('*').gte('data_hora', start).lte('data_hora', end),
+      supabase.from('plantoes').select('colaborador_id').eq('data', date),
+    ])
 
-    const { data: pts } = await supabase
-      .from('registro_ponto')
-      .select('*')
-      .gte('data_hora', start)
-      .lte('data_hora', end)
+    const colabs = colabsRes.data
+    const pts = ptsRes.data
+    const plantoes = plantoesRes.data || []
 
     if (colabs) {
       const filteredColabs = colabs.filter((c) => {
@@ -169,7 +168,9 @@ export function AdminEspelho() {
                   new Date(date + 'T12:00:00').getDay() === 0 ||
                   new Date(date + 'T12:00:00').getDay() === 6
 
-                if (isWknd && !hasAny) return false
+                const isPlantao = plantoes.some((p) => p.colaborador_id === r.id)
+
+                if (isWknd && !hasAny && !isPlantao) return false
                 return true
               })
               .map((r) => {
@@ -228,7 +229,8 @@ export function AdminEspelho() {
               const isWknd =
                 new Date(date + 'T12:00:00').getDay() === 0 ||
                 new Date(date + 'T12:00:00').getDay() === 6
-              if (isWknd && !hasAny) return false
+              const isPlantao = plantoes.some((p) => p.colaborador_id === r.id)
+              if (isWknd && !hasAny && !isPlantao) return false
               return true
             }).length === 0 &&
               !loading && (
