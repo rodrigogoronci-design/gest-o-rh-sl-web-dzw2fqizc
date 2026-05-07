@@ -136,19 +136,16 @@ export default function Transport() {
       const [
         { data: transports },
         { data: cols },
-        { data: tickets },
         { data: hoData },
         { data: faltas },
         { data: ferias },
         { data: atestados },
         { data: plantoes },
-        { data: feriadosPrevDb },
         { data: feriadosDb },
         { data: afastamentosDb },
       ] = await Promise.all([
         supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
         supabase.from('colaboradores').select('*').order('nome'),
-        supabase.from('beneficios_ticket').select('*').eq('mes_ano', selectedMonth),
         supabase
           .from('dias_home_office')
           .select('data')
@@ -161,27 +158,21 @@ export default function Transport() {
           .select('*')
           .gte('data_inicio', prevPStart)
           .lte('data_inicio', prevPEnd),
-        supabase.from('plantoes').select('*').gte('data', prevPStart).lte('data', prevPEnd),
-        supabase.from('feriados').select('*').gte('data', prevPStart).lte('data', prevPEnd),
+        supabase.from('plantoes').select('*').gte('data', pStart).lte('data', pEnd),
         supabase.from('feriados').select('*').gte('data', pStart).lte('data', pEnd),
-        supabase
-          .from('afastamentos')
-          .select('*')
-          .lte('data_inicio', prevPEnd)
-          .gte('data_fim', prevPStart),
+        supabase.from('afastamentos').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
       ])
 
-      const prevHolidaysStrs = (feriadosPrevDb || []).map((f: any) => f.data)
       const holidaysStrs = (feriadosDb || []).map((f: any) => f.data)
       const daysInPeriod = eachDayOfInterval({
-        start: parseISO(prevPStart),
-        end: parseISO(prevPEnd),
+        start: parseISO(pStart),
+        end: parseISO(pEnd),
       })
       let bDays = 0
       daysInPeriod.forEach((d) => {
         const dayOfWeek = d.getDay()
         const dStr = format(d, 'yyyy-MM-dd')
-        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !prevHolidaysStrs.includes(dStr)) {
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dStr)) {
           bDays++
         }
       })
@@ -267,8 +258,7 @@ export default function Transport() {
         daysInPeriod.forEach((d) => {
           const dStr = format(d, 'yyyy-MM-dd')
           const dayOfWeek = d.getDay()
-          const isBusinessDay =
-            dayOfWeek !== 0 && dayOfWeek !== 6 && !prevHolidaysStrs.includes(dStr)
+          const isBusinessDay = dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dStr)
 
           if (isBusinessDay && dStr >= r.data_inicio && dStr <= r.data_fim) {
             overlapDays++
@@ -304,7 +294,7 @@ export default function Transport() {
         const dStr = p.data
         const d = parseISO(dStr)
         const dayOfWeek = d.getDay()
-        const isHoliday = prevHolidaysStrs.includes(dStr)
+        const isHoliday = holidaysStrs.includes(dStr)
 
         if (isHoliday) {
           currentMonthHolidayShifts[p.colaborador_id] =
@@ -522,8 +512,7 @@ export default function Transport() {
               <CalendarIcon className="w-3.5 h-3.5 text-slate-500" />
               <span>Ciclo:</span>
               <strong className="text-slate-700">
-                {format(parseISO(prevPStart), 'dd/MM/yyyy')} a{' '}
-                {format(parseISO(prevPEnd), 'dd/MM/yyyy')}
+                {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
               </strong>
             </div>
           </div>
@@ -568,7 +557,7 @@ export default function Transport() {
                 <TableHead className="w-[110px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Padrão do ciclo (${format(parseISO(prevPStart), 'dd/MM')} a ${format(parseISO(prevPEnd), 'dd/MM')}): ${totalBusinessDays} dias. (Todos os dias menos sábados, domingos e feriados)`}
+                    title={`Padrão do ciclo (${format(parseISO(pStart), 'dd/MM')} a ${format(parseISO(pEnd), 'dd/MM')}): ${totalBusinessDays} dias. (Todos os dias menos sábados, domingos e feriados)`}
                   >
                     Dias Úteis <Info className="w-3 h-3 text-slate-400" />
                   </div>
@@ -577,7 +566,7 @@ export default function Transport() {
                 <TableHead className="w-[100px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Ciclo: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
                   >
                     Atestados <Info className="w-3 h-3 text-slate-400" />
                   </div>
@@ -587,7 +576,7 @@ export default function Transport() {
                 <TableHead className="w-[100px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Ciclo: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
                   >
                     Faltas <Info className="w-3 h-3 text-slate-400" />
                   </div>
@@ -595,7 +584,7 @@ export default function Transport() {
                 <TableHead className="w-[110px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Ciclo: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
                   >
                     Home Office <Info className="w-3 h-3 text-slate-400" />
                   </div>

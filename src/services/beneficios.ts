@@ -81,11 +81,8 @@ export const syncAllUsersBeneficios = async (month: string) => {
     tickets,
     transports,
     hoData,
-    plantoesPrev,
     feriadosDataDb,
-    feriadosPrevDataDb,
     afastamentosDb,
-    afastamentosPrevDb,
   ] = await Promise.all([
     supabase.from('colaboradores').select('id, role, recebe_transporte'),
     supabase.from('faltas').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
@@ -103,15 +100,8 @@ export const syncAllUsersBeneficios = async (month: string) => {
       .select('data')
       .gte('data', prevStartStr)
       .lte('data', prevEndStr),
-    supabase.from('plantoes').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
     supabase.from('feriados').select('*').gte('data', startStr).lte('data', endStr),
-    supabase.from('feriados').select('*').gte('data', prevStartStr).lte('data', prevEndStr),
     supabase.from('afastamentos').select('*').lte('data_inicio', endStr).gte('data_fim', startStr),
-    supabase
-      .from('afastamentos')
-      .select('*')
-      .lte('data_inicio', prevEndStr)
-      .gte('data_fim', prevStartStr),
   ])
 
   const users = cols.data || []
@@ -122,14 +112,10 @@ export const syncAllUsersBeneficios = async (month: string) => {
   const ticketsData = tickets.data || []
   const transportsData = transports.data || []
   const hoDataResult = hoData.data || []
-  const plantoesPrevData = plantoesPrev.data || []
   const homeOfficeCount = hoDataResult.length
 
   const feriadosData = feriadosDataDb.data || []
   const holidaysStrs = feriadosData.map((f: any) => f.data)
-
-  const feriadosPrevData = feriadosPrevDataDb.data || []
-  const prevHolidaysStrs = feriadosPrevData.map((f: any) => f.data)
 
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd })
   const daysStrs = days.map((d) => format(d, 'yyyy-MM-dd'))
@@ -145,20 +131,6 @@ export const syncAllUsersBeneficios = async (month: string) => {
 
   const afastamentosData =
     afastamentosDb.data?.filter((a) => a.status !== 'rejeitado' && a.status !== 'cancelado') || []
-  const afastamentosPrevData =
-    afastamentosPrevDb.data?.filter((a) => a.status !== 'rejeitado' && a.status !== 'cancelado') ||
-    []
-
-  const daysPrev = eachDayOfInterval({ start: prevPeriodStart, end: prevPeriodEnd })
-  const daysPrevStrs = daysPrev.map((d) => format(d, 'yyyy-MM-dd'))
-  let prevBDays = 0
-  daysPrev.forEach((d) => {
-    const dayOfWeek = d.getDay()
-    const dStr = format(d, 'yyyy-MM-dd')
-    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !prevHolidaysStrs.includes(dStr)) {
-      prevBDays++
-    }
-  })
 
   const ticketUpdates: any[] = []
   const ticketDeletes: string[] = []
@@ -254,42 +226,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
 
     const receivesTransport = user.recebe_transporte === true
 
-    const userPlantoesPrevFiltered = plantoesPrevData.filter((p) => p.colaborador_id === userId)
-    let userPrevShifts = 0
-    let userPrevBusinessShifts = 0
-    let userPrevHolidayShifts = 0
-
-    userPlantoesPrevFiltered.forEach((p) => {
-      const dStr = p.data
-      const d = parseISO(dStr)
-      const dayOfWeek = d.getDay()
-      const isHoliday = prevHolidaysStrs.includes(dStr)
-
-      if (isHoliday) {
-        userPrevHolidayShifts++
-      } else if (dayOfWeek === 0 || dayOfWeek === 6) {
-        userPrevShifts++
-      } else {
-        userPrevBusinessShifts++
-      }
-    })
-
-    let prevADays = 0
-    const userPrevAfasts = afastamentosPrevData.filter((a) => a.colaborador_id === userId)
-    daysPrevStrs.forEach((dStr) => {
-      const d = parseISO(dStr)
-      const dayOfWeek = d.getDay()
-      if (dayOfWeek !== 0 && dayOfWeek !== 6 && !prevHolidaysStrs.includes(dStr)) {
-        if (userPrevAfasts.some((a) => dStr >= a.data_inicio && dStr <= a.data_fim)) {
-          prevADays++
-        }
-      }
-    })
-
-    const defaultPrevReg = Math.max(0, prevBDays - prevADays)
-
-    const isFullyAwayTransport = prevADays >= prevBDays && prevBDays > 0
-    if (receivesTransport && !isFullyAwayTransport) {
+    if (receivesTransport && !isFullyAwayTicket) {
       transportUpdates.push({
         colaborador_id: userId,
         mes_ano: month,
@@ -297,9 +234,9 @@ export const syncAllUsersBeneficios = async (month: string) => {
         ferias: userFerias,
         atestados: userAtestados,
         home_office: homeOfficeCount,
-        plantoes: userPrevShifts,
-        dias_uteis: defaultPrevReg,
-        feriados_trabalhados: userPrevHolidayShifts,
+        plantoes: userShifts,
+        dias_uteis: defaultReg,
+        feriados_trabalhados: userHolidayShifts,
         credito: existingTransport ? existingTransport.credito : 0,
         desconto: existingTransport ? existingTransport.desconto : 0,
         credito_justificativa: existingTransport ? existingTransport.credito_justificativa : '',
