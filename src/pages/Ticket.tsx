@@ -317,9 +317,9 @@ export default function Ticket() {
           const defaultReg = Math.max(0, bDays - (afastamentosDaysCount[u.id] || 0))
 
           initial[u.id] = {
-            regular: isStored ? t.dias_uteis : defaultReg,
+            regular: defaultReg,
             shifts: calcShifts,
-            holidaysWorked: isStored ? t.feriados_trabalhados || 0 : calcHolidays,
+            holidaysWorked: calcHolidays,
             vacation: vacationDaysCount[u.id] || 0,
             sick: atestadoDaysCount[u.id] || 0,
             faltas: currentMonthFaltas[u.id] || 0,
@@ -340,7 +340,7 @@ export default function Ticket() {
   }
 
   const handleInputChange = (userId: string, field: keyof TicketRecord, value: string) => {
-    if (field === 'shifts') return
+    if (field === 'shifts' || field === 'holidaysWorked' || field === 'regular') return
     if (field === 'credito_justificativa' || field === 'desconto_justificativa') {
       setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: value } }))
       return
@@ -363,12 +363,6 @@ export default function Ticket() {
       checkWarning('vacation', preCalculatedVacations[userId] || 0, 'férias')
     if (field === 'sick') checkWarning('sick', preCalculatedAtestados[userId] || 0, 'atestados')
     if (field === 'faltas') checkWarning('faltas', preCalculatedFaltas[userId] || 0, 'faltas')
-    if (field === 'regular') {
-      const expected = Math.max(0, totalBusinessDays - (preCalculatedAfastamentos[userId] || 0))
-      checkWarning('regular', expected, 'dias úteis')
-    }
-    if (field === 'holidaysWorked')
-      checkWarning('holidaysWorked', preCalculatedHolidays[userId] || 0, 'feriados trabalhados')
 
     setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: num } }))
   }
@@ -608,7 +602,6 @@ export default function Ticket() {
                           readOnly
                           multiplier={ticketValue}
                           type="addition"
-                          isWarning={data.regular !== expectedReg}
                           title="Dias Úteis (Padrão do mês)"
                           items={[...(details.diasUteis || []), ...(details.afastamentos || [])]}
                           emptyText={`Padrão da escala: ${totalBusinessDays} dias.`}
@@ -640,12 +633,9 @@ export default function Ticket() {
                       <TableCell>
                         <FieldWithInfo
                           value={data.holidaysWorked || 0}
-                          onChange={(e: any) =>
-                            handleInputChange(u.id, 'holidaysWorked', e.target.value)
-                          }
+                          readOnly
                           multiplier={ticketValue}
                           type="addition"
-                          isWarning={data.holidaysWorked !== (preCalculatedHolidays[u.id] || 0)}
                           title="Feriados Trabalhados"
                           items={details.feriados?.length > 0 ? details.feriados : []}
                           emptyText="Nenhum feriado trabalhado"

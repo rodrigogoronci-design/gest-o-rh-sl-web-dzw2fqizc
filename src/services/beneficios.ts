@@ -238,9 +238,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
         atestados: userAtestados,
         plantoes: userShifts,
         dias_uteis: defaultReg,
-        feriados_trabalhados: existingTicket
-          ? (existingTicket as any).feriados_trabalhados || 0
-          : userHolidayShifts,
+        feriados_trabalhados: userHolidayShifts,
         credito: existingTicket ? existingTicket.credito : 0,
         desconto: existingTicket ? existingTicket.desconto : 0,
         credito_justificativa: existingTicket ? existingTicket.credito_justificativa : '',
@@ -294,10 +292,8 @@ export const syncAllUsersBeneficios = async (month: string) => {
         atestados: userAtestados,
         home_office: homeOfficeCount,
         plantoes: userPrevShifts,
-        dias_uteis: existingTransport ? existingTransport.dias_uteis : defaultPrevReg,
-        feriados_trabalhados: existingTransport
-          ? (existingTransport as any).feriados_trabalhados || 0
-          : userPrevHolidayShifts,
+        dias_uteis: defaultPrevReg,
+        feriados_trabalhados: userPrevHolidayShifts,
         credito: existingTransport ? existingTransport.credito : 0,
         desconto: existingTransport ? existingTransport.desconto : 0,
         credito_justificativa: existingTransport ? existingTransport.credito_justificativa : '',
