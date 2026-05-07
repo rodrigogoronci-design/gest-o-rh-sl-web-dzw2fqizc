@@ -186,7 +186,13 @@ export default function Ticket() {
           }),
       )
 
-      const calcDays = (records: any[], startStr: string, endStr: string, type: string) => {
+      const calcDays = (
+        records: any[],
+        startStr: string,
+        endStr: string,
+        type: string,
+        holidays: string[] = [],
+      ) => {
         const counts: Record<string, number> = {}
         const start = parseISO(startStr)
         const end = parseISO(endStr)
@@ -198,8 +204,16 @@ export default function Ticket() {
             const overlapStart = rStart < start ? start : rStart
             const overlapEnd = rEnd > end ? end : rEnd
 
-            let days = eachDayOfInterval({ start: overlapStart, end: overlapEnd }).length
-            if (type === 'atestados' && r.quantidade_dias) {
+            const intervalDays = eachDayOfInterval({ start: overlapStart, end: overlapEnd })
+            let days = intervalDays.length
+
+            if (type === 'ferias') {
+              days = intervalDays.filter((d) => {
+                const dayOfWeek = d.getDay()
+                const dStr = format(d, 'yyyy-MM-dd')
+                return dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.includes(dStr)
+              }).length
+            } else if (type === 'atestados' && r.quantidade_dias) {
               days = r.quantidade_dias
             }
 
@@ -207,7 +221,7 @@ export default function Ticket() {
 
             if (dDetails[r.colaborador_id]) {
               dDetails[r.colaborador_id][type].push(
-                `${format(rStart, 'dd/MM')} a ${format(rEnd, 'dd/MM')}${type === 'atestados' && r.quantidade_dias ? ` (${r.quantidade_dias} ${r.quantidade_dias === 1 ? 'dia' : 'dias'})` : ''}`,
+                `${format(rStart, 'dd/MM')} a ${format(rEnd, 'dd/MM')}${type === 'atestados' && r.quantidade_dias ? ` (${r.quantidade_dias} ${r.quantidade_dias === 1 ? 'dia' : 'dias'})` : ''}${type === 'ferias' ? ` (${days} dias úteis)` : ''}`,
               )
             }
           }
@@ -215,7 +229,7 @@ export default function Ticket() {
         return counts
       }
 
-      const vacationDaysCount = calcDays(ferias || [], pStart, pEnd, 'ferias')
+      const vacationDaysCount = calcDays(ferias || [], pStart, pEnd, 'ferias', holidaysStrs)
       const atestadoDaysCount = calcDays(atestados || [], prevPStart, prevPEnd, 'atestados')
 
       setPreCalculatedVacations(vacationDaysCount)

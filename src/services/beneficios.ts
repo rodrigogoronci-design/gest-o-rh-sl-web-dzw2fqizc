@@ -176,10 +176,16 @@ export const syncAllUsersBeneficios = async (month: string) => {
     const userFeriasList = feriasData.filter((f) => f.colaborador_id === userId)
     if (userFeriasList.length > 0) {
       daysStrs.forEach((dateStr) => {
-        const isFeria = userFeriasList.some(
-          (f) => dateStr >= f.data_inicio && dateStr <= f.data_fim,
-        )
-        if (isFeria) userFerias++
+        const d = parseISO(dateStr)
+        const dayOfWeek = d.getDay()
+        const isBusinessDay = dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dateStr)
+
+        if (isBusinessDay) {
+          const isFeria = userFeriasList.some(
+            (f) => dateStr >= f.data_inicio && dateStr <= f.data_fim,
+          )
+          if (isFeria) userFerias++
+        }
       })
     }
 
