@@ -344,13 +344,13 @@ export default function Transport() {
           const defaultReg = Math.max(0, bDays - (afastamentosDaysCount[u.id] || 0))
 
           initial[u.id] = {
-            businessDays: isStored ? t.dias_uteis : defaultReg,
+            businessDays: defaultReg,
             vacation: vacationDaysCount[u.id] || 0,
             sick: atestadoDaysCount[u.id] || 0,
             faltas: currentMonthFaltas[u.id] || 0,
             homeOffice: isStored ? (t.home_office ?? hoDates.length) : hoDates.length,
             shifts: calcShifts,
-            holidaysWorked: isStored ? t.feriados_trabalhados || 0 : calcHolidays,
+            holidaysWorked: calcHolidays,
             credito: isStored ? t.credito : 0,
             desconto: isStored ? t.desconto : 0,
             credito_justificativa: isStored ? t.credito_justificativa : '',
@@ -373,7 +373,7 @@ export default function Transport() {
     field: keyof TransportRecord | 'holidaysWorked',
     value: string,
   ) => {
-    if (field === 'shifts') return
+    if (field === 'shifts' || field === 'holidaysWorked' || field === 'businessDays') return
     if (field === 'credito_justificativa' || field === 'desconto_justificativa') {
       setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: value } }))
       return
@@ -395,12 +395,6 @@ export default function Transport() {
       checkWarning('vacation', preCalculatedVacations[userId] || 0, 'férias')
     if (field === 'sick') checkWarning('sick', preCalculatedAtestados[userId] || 0, 'atestados')
     if (field === 'faltas') checkWarning('faltas', preCalculatedFaltas[userId] || 0, 'faltas')
-    if (field === 'businessDays') {
-      const expected = Math.max(0, totalBusinessDays - (preCalculatedAfastamentos[userId] || 0))
-      checkWarning('businessDays', expected, 'dias úteis')
-    }
-    if (field === 'holidaysWorked')
-      checkWarning('holidaysWorked', preCalculatedHolidays[userId] || 0, 'feriados trabalhados')
 
     setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: num } }))
   }
@@ -658,12 +652,9 @@ export default function Transport() {
                       <TableCell>
                         <FieldWithInfo
                           value={data.businessDays}
-                          onChange={(e: any) =>
-                            handleInputChange(u.id, 'businessDays', e.target.value)
-                          }
+                          readOnly
                           multiplier={transportValue}
                           type="addition"
-                          isWarning={data.businessDays !== expectedReg}
                           title="Dias Úteis (Padrão do mês)"
                           items={[...(details.diasUteis || []), ...(details.afastamentos || [])]}
                           emptyText={`Padrão da escala: ${totalBusinessDays} dias.`}
@@ -695,12 +686,9 @@ export default function Transport() {
                       <TableCell>
                         <FieldWithInfo
                           value={data.holidaysWorked || 0}
-                          onChange={(e: any) =>
-                            handleInputChange(u.id, 'holidaysWorked', e.target.value)
-                          }
+                          readOnly
                           multiplier={transportValue}
                           type="addition"
-                          isWarning={data.holidaysWorked !== (preCalculatedHolidays[u.id] || 0)}
                           title="Feriados Trabalhados"
                           items={details.feriados?.length > 0 ? details.feriados : []}
                           emptyText="Nenhum feriado trabalhado"
