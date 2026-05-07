@@ -73,6 +73,9 @@ export default function Transport() {
   const [preCalculatedVacations, setPreCalculatedVacations] = useState<Record<string, number>>({})
   const [preCalculatedAtestados, setPreCalculatedAtestados] = useState<Record<string, number>>({})
   const [preCalculatedFaltas, setPreCalculatedFaltas] = useState<Record<string, number>>({})
+  const [preCalculatedAfastamentos, setPreCalculatedAfastamentos] = useState<
+    Record<string, number>
+  >({})
 
   const [totalBusinessDays, setTotalBusinessDays] = useState(20)
   const [isSaving, setIsSaving] = useState(false)
@@ -140,6 +143,7 @@ export default function Transport() {
         { data: atestados },
         { data: plantoes },
         { data: feriadosDb },
+        { data: afastamentosDb },
       ] = await Promise.all([
         supabase.from('beneficios_transporte').select('*').eq('mes_ano', selectedMonth),
         supabase.from('colaboradores').select('*').order('nome'),
@@ -158,6 +162,11 @@ export default function Transport() {
           .lte('data_inicio', prevPEnd),
         supabase.from('plantoes').select('*').gte('data', prevPStart).lte('data', prevPEnd),
         supabase.from('feriados').select('*').gte('data', prevPStart).lte('data', prevPEnd),
+        supabase
+          .from('afastamentos')
+          .select('*')
+          .lte('data_inicio', prevPEnd)
+          .gte('data_fim', prevPStart),
       ])
 
       const holidaysStrs = (feriadosDb || []).map((f: any) => f.data)
@@ -190,6 +199,7 @@ export default function Transport() {
           plantoes: [],
           diasUteis: [],
           feriados: [],
+          afastamentos: [],
         }
       })
 
@@ -227,6 +237,36 @@ export default function Transport() {
 
       setPreCalculatedVacations(vacationDaysCount)
       setPreCalculatedAtestados(atestadoDaysCount)
+
+      const afastamentos =
+        afastamentosDb?.filter((a) => a.status !== 'rejeitado' && a.status !== 'cancelado') || []
+      const afastamentosDaysCount: Record<string, number> = {}
+      afastamentos.forEach((r) => {
+        if (!r.colaborador_id) return
+        const rStart = parseISO(r.data_inicio)
+        const rEnd = parseISO(r.data_fim)
+
+        let overlapDays = 0
+        daysInPeriod.forEach((d) => {
+          const dStr = format(d, 'yyyy-MM-dd')
+          const dayOfWeek = d.getDay()
+          const isBusinessDay = dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dStr)
+
+          if (isBusinessDay && dStr >= r.data_inicio && dStr <= r.data_fim) {
+            overlapDays++
+          }
+        })
+
+        afastamentosDaysCount[r.colaborador_id] =
+          (afastamentosDaysCount[r.colaborador_id] || 0) + overlapDays
+
+        if (dDetails[r.colaborador_id] && overlapDays > 0) {
+          dDetails[r.colaborador_id].afastamentos.push(
+            `Afastamento: ${format(rStart, 'dd/MM')} a ${format(rEnd, 'dd/MM')} (${r.tipo}) - ${overlapDays} dias`,
+          )
+        }
+      })
+      setPreCalculatedAfastamentos(afastamentosDaysCount)
 
       const currentMonthFaltas: Record<string, number> = {}
       faltas?.forEach((f) => {
@@ -282,7 +322,8 @@ export default function Transport() {
             (u.role === 'user' || u.role === 'Colaborador') &&
             u.recebe_transporte === true &&
             u.status !== 'Inativo' &&
-            u.status !== 'Demitido',
+            u.status !== 'Demitido' &&
+            (afastamentosDaysCount[u.id] || 0) < bDays,
         )
         .forEach((u) => {
           const t = transportsByColab[u.id]
@@ -292,7 +333,7 @@ export default function Transport() {
           const calcShifts = currentMonthShifts[u.id] || 0
           const calcHolidays = currentMonthHolidayShifts[u.id] || 0
 
-          const defaultReg = bDays
+          const defaultReg = Math.max(0, bDays - (afastamentosDaysCount[u.id] || 0))
 
           initial[u.id] = {
             businessDays: isStored ? t.dias_uteis : defaultReg,
@@ -347,7 +388,7 @@ export default function Transport() {
     if (field === 'sick') checkWarning('sick', preCalculatedAtestados[userId] || 0, 'atestados')
     if (field === 'faltas') checkWarning('faltas', preCalculatedFaltas[userId] || 0, 'faltas')
     if (field === 'businessDays') {
-      const expected = totalBusinessDays
+      const expected = Math.max(0, totalBusinessDays - (preCalculatedAfastamentos[userId] || 0))
       checkWarning('businessDays', expected, 'dias úteis')
     }
     if (field === 'holidaysWorked')
@@ -373,6 +414,14 @@ export default function Transport() {
 
   const handleSave = async () => {
     setIsSaving(true)
+
+    const fullyAwayUsers = activeUsers.filter(
+      (u) =>
+        (u.role === 'user' || u.role === 'Colaborador') &&
+        (preCalculatedAfastamentos[u.id] || 0) >= totalBusinessDays &&
+        totalBusinessDays > 0,
+    )
+
     const rows = Object.entries(localData).map(([colaborador_id, data]) => ({
       colaborador_id,
       mes_ano: selectedMonth,
@@ -389,6 +438,18 @@ export default function Transport() {
       desconto_justificativa: data.desconto_justificativa || '',
     }))
     const { error } = await saveTransportBatch(rows, selectedMonth)
+
+    if (fullyAwayUsers.length > 0) {
+      await supabase
+        .from('beneficios_transporte')
+        .delete()
+        .eq('mes_ano', selectedMonth)
+        .in(
+          'colaborador_id',
+          fullyAwayUsers.map((u) => u.id),
+        )
+    }
+
     setIsSaving(false)
 
     if (error)
@@ -534,7 +595,8 @@ export default function Transport() {
                     (u.role === 'user' || u.role === 'Colaborador') &&
                     u.recebe_transporte === true &&
                     u.status !== 'Inativo' &&
-                    u.status !== 'Demitido',
+                    u.status !== 'Demitido' &&
+                    (preCalculatedAfastamentos[u.id] || 0) < totalBusinessDays,
                 )
                 .map((u) => {
                   const data = localData[u.id] || {
@@ -556,9 +618,13 @@ export default function Transport() {
                     plantoes: [],
                     diasUteis: [],
                     feriados: [],
+                    afastamentos: [],
                   }
 
-                  const expectedReg = totalBusinessDays
+                  const expectedReg = Math.max(
+                    0,
+                    totalBusinessDays - (preCalculatedAfastamentos[u.id] || 0),
+                  )
                   const eligibleDays = Math.max(
                     0,
                     data.businessDays +
@@ -592,7 +658,7 @@ export default function Transport() {
                           type="addition"
                           isWarning={data.businessDays !== expectedReg}
                           title="Dias Úteis (Padrão do mês)"
-                          items={details.diasUteis?.length > 0 ? details.diasUteis : []}
+                          items={[...(details.diasUteis || []), ...(details.afastamentos || [])]}
                           emptyText={`Padrão da escala: ${totalBusinessDays} dias.`}
                         />
                       </TableCell>

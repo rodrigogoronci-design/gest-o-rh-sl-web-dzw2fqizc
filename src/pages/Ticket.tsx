@@ -74,6 +74,9 @@ export default function Ticket() {
   const [preCalculatedRegular, setPreCalculatedRegular] = useState<Record<string, number>>({})
   const [preCalculatedShifts, setPreCalculatedShifts] = useState<Record<string, number>>({})
   const [preCalculatedHolidays, setPreCalculatedHolidays] = useState<Record<string, number>>({})
+  const [preCalculatedAfastamentos, setPreCalculatedAfastamentos] = useState<
+    Record<string, number>
+  >({})
 
   const [totalBusinessDays, setTotalBusinessDays] = useState(20)
   const [isSaving, setIsSaving] = useState(false)
@@ -138,6 +141,7 @@ export default function Ticket() {
         { data: faltas },
         { data: cols },
         { data: feriadosDb },
+        { data: afastamentosDb },
       ] = await Promise.all([
         supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
         supabase
@@ -150,6 +154,7 @@ export default function Ticket() {
         supabase.from('faltas').select('*').gte('data', prevPStart).lte('data', prevPEnd),
         supabase.from('colaboradores').select('*').order('nome'),
         supabase.from('feriados').select('*').gte('data', pStart).lte('data', pEnd),
+        supabase.from('afastamentos').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
       ])
 
       const holidaysStrs = (feriadosDb || []).map((f: any) => f.data)
@@ -177,6 +182,7 @@ export default function Ticket() {
             faltas: [],
             diasUteis: [],
             feriados: [],
+            afastamentos: [],
           }),
       )
 
@@ -214,6 +220,36 @@ export default function Ticket() {
 
       setPreCalculatedVacations(vacationDaysCount)
       setPreCalculatedAtestados(atestadoDaysCount)
+
+      const afastamentos =
+        afastamentosDb?.filter((a) => a.status !== 'rejeitado' && a.status !== 'cancelado') || []
+      const afastamentosDaysCount: Record<string, number> = {}
+      afastamentos.forEach((r) => {
+        if (!r.colaborador_id) return
+        const rStart = parseISO(r.data_inicio)
+        const rEnd = parseISO(r.data_fim)
+
+        let overlapDays = 0
+        daysInPeriod.forEach((d) => {
+          const dStr = format(d, 'yyyy-MM-dd')
+          const dayOfWeek = d.getDay()
+          const isBusinessDay = dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dStr)
+
+          if (isBusinessDay && dStr >= r.data_inicio && dStr <= r.data_fim) {
+            overlapDays++
+          }
+        })
+
+        afastamentosDaysCount[r.colaborador_id] =
+          (afastamentosDaysCount[r.colaborador_id] || 0) + overlapDays
+
+        if (dDetails[r.colaborador_id] && overlapDays > 0) {
+          dDetails[r.colaborador_id].afastamentos.push(
+            `Afastamento: ${format(rStart, 'dd/MM')} a ${format(rEnd, 'dd/MM')} (${r.tipo}) - ${overlapDays} dias`,
+          )
+        }
+      })
+      setPreCalculatedAfastamentos(afastamentosDaysCount)
 
       const currentMonthShifts: Record<string, number> = {}
       const currentMonthBusinessShifts: Record<string, number> = {}
@@ -267,7 +303,8 @@ export default function Ticket() {
           (u) =>
             (u.role === 'user' || u.role === 'Colaborador') &&
             u.status !== 'Inativo' &&
-            u.status !== 'Demitido',
+            u.status !== 'Demitido' &&
+            (afastamentosDaysCount[u.id] || 0) < bDays,
         )
         .forEach((u) => {
           const t = ticketsByColab[u.id]
@@ -277,10 +314,10 @@ export default function Ticket() {
           const calcShifts = currentMonthShifts[u.id] || 0
           const calcHolidays = currentMonthHolidayShifts[u.id] || 0
 
-          const defaultReg = bDays
+          const defaultReg = Math.max(0, bDays - (afastamentosDaysCount[u.id] || 0))
 
           initial[u.id] = {
-            regular: defaultReg,
+            regular: isStored ? t.dias_uteis : defaultReg,
             shifts: calcShifts,
             holidaysWorked: isStored ? t.feriados_trabalhados || 0 : calcHolidays,
             vacation: vacationDaysCount[u.id] || 0,
@@ -327,7 +364,7 @@ export default function Ticket() {
     if (field === 'sick') checkWarning('sick', preCalculatedAtestados[userId] || 0, 'atestados')
     if (field === 'faltas') checkWarning('faltas', preCalculatedFaltas[userId] || 0, 'faltas')
     if (field === 'regular') {
-      const expected = totalBusinessDays
+      const expected = Math.max(0, totalBusinessDays - (preCalculatedAfastamentos[userId] || 0))
       checkWarning('regular', expected, 'dias úteis')
     }
     if (field === 'holidaysWorked')
@@ -351,6 +388,14 @@ export default function Ticket() {
 
   const handleSave = async () => {
     setIsSaving(true)
+
+    const fullyAwayUsers = activeUsers.filter(
+      (u) =>
+        (u.role === 'user' || u.role === 'Colaborador') &&
+        (preCalculatedAfastamentos[u.id] || 0) >= totalBusinessDays &&
+        totalBusinessDays > 0,
+    )
+
     const rows = Object.entries(localData).map(([colaborador_id, data]) => ({
       colaborador_id,
       mes_ano: selectedMonth,
@@ -366,6 +411,18 @@ export default function Ticket() {
       desconto_justificativa: data.desconto_justificativa || '',
     }))
     const { error } = await saveTicketsBatch(rows, selectedMonth)
+
+    if (fullyAwayUsers.length > 0) {
+      await supabase
+        .from('beneficios_ticket')
+        .delete()
+        .eq('mes_ano', selectedMonth)
+        .in(
+          'colaborador_id',
+          fullyAwayUsers.map((u) => u.id),
+        )
+    }
+
     setIsSaving(false)
     if (error)
       toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' })
@@ -498,7 +555,8 @@ export default function Ticket() {
                   (u) =>
                     (u.role === 'user' || u.role === 'Colaborador') &&
                     u.status !== 'Inativo' &&
-                    u.status !== 'Demitido',
+                    u.status !== 'Demitido' &&
+                    (preCalculatedAfastamentos[u.id] || 0) < totalBusinessDays,
                 )
                 .map((u) => {
                   const data = localData[u.id] || {
@@ -518,9 +576,13 @@ export default function Ticket() {
                     faltas: [],
                     diasUteis: [],
                     feriados: [],
+                    afastamentos: [],
                   }
 
-                  const expectedReg = totalBusinessDays
+                  const expectedReg = Math.max(
+                    0,
+                    totalBusinessDays - (preCalculatedAfastamentos[u.id] || 0),
+                  )
                   const eligibleDays = Math.max(
                     0,
                     data.regular +
@@ -548,7 +610,7 @@ export default function Ticket() {
                           type="addition"
                           isWarning={data.regular !== expectedReg}
                           title="Dias Úteis (Padrão do mês)"
-                          items={details.diasUteis?.length > 0 ? details.diasUteis : []}
+                          items={[...(details.diasUteis || []), ...(details.afastamentos || [])]}
                           emptyText={`Padrão da escala: ${totalBusinessDays} dias.`}
                         />
                       </TableCell>
