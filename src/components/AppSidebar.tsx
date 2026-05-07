@@ -412,9 +412,18 @@ export default function AppSidebar() {
 
   const renderSubItem = (subItem: any) => {
     if (subItem.items) {
+      const isInnerActive = subItem.items.some(
+        (n: any) => location.pathname === n.path || location.pathname.startsWith(`${n.path}/`),
+      )
+
       return (
-        <Collapsible key={subItem.title} asChild className="group/sub-collapsible">
-          <SidebarMenuSubItem>
+        <Collapsible
+          key={subItem.title}
+          asChild
+          defaultOpen={isInnerActive}
+          className="group/sub-collapsible"
+        >
+          <SidebarMenuSubItem className="shrink-0">
             <CollapsibleTrigger asChild>
               <SidebarMenuSubButton className="w-full flex justify-between cursor-pointer font-medium text-slate-700">
                 <div className="flex items-center">
@@ -424,10 +433,10 @@ export default function AppSidebar() {
                 <ChevronRight className="w-3 h-3 ml-auto transition-transform duration-200 group-data-[state=open]/sub-collapsible:rotate-90" />
               </SidebarMenuSubButton>
             </CollapsibleTrigger>
-            <CollapsibleContent>
+            <CollapsibleContent className="overflow-hidden">
               <SidebarMenuSub className="pr-0 mr-0 border-l-0 ml-3 pl-3 border-sidebar-border border-l mt-1 space-y-1">
                 {subItem.items.map((nestedItem: any) => (
-                  <SidebarMenuSubItem key={nestedItem.title}>
+                  <SidebarMenuSubItem key={nestedItem.title} className="shrink-0">
                     <SidebarMenuSubButton asChild isActive={location.pathname === nestedItem.path}>
                       <Link to={nestedItem.path}>
                         <nestedItem.icon className="w-3.5 h-3.5 mr-2" />
@@ -443,7 +452,7 @@ export default function AppSidebar() {
       )
     }
     return (
-      <SidebarMenuSubItem key={subItem.title}>
+      <SidebarMenuSubItem key={subItem.title} className="shrink-0">
         <SidebarMenuSubButton asChild isActive={location.pathname === subItem.path}>
           <Link to={subItem.path}>
             <subItem.icon className="w-4 h-4 mr-2" />
@@ -475,13 +484,13 @@ export default function AppSidebar() {
           )}
           <span className="truncate">{appName}</span>
         </div>
-        <SidebarGroup>
+        <SidebarGroup className="pb-16">
           <SidebarGroupContent>
             <SidebarMenu>
               {sortedItems.map((item) =>
                 item.items ? (
                   <Collapsible key={item.title} asChild defaultOpen className="group/collapsible">
-                    <SidebarMenuItem>
+                    <SidebarMenuItem className="shrink-0">
                       <CollapsibleTrigger asChild>
                         <SidebarMenuButton tooltip={item.title}>
                           <item.icon className="w-5 h-5" />
@@ -489,7 +498,7 @@ export default function AppSidebar() {
                           <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
-                      <CollapsibleContent>
+                      <CollapsibleContent className="overflow-hidden">
                         <SidebarMenuSub>
                           {item.items.map((subItem: any) => renderSubItem(subItem))}
                         </SidebarMenuSub>
@@ -497,7 +506,7 @@ export default function AppSidebar() {
                     </SidebarMenuItem>
                   </Collapsible>
                 ) : (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={item.title} className="shrink-0">
                     <SidebarMenuButton
                       asChild
                       isActive={location.pathname === item.path}
