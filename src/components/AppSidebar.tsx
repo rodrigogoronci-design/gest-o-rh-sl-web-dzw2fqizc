@@ -473,8 +473,8 @@ export default function AppSidebar() {
 
   return (
     <Sidebar className="border-r border-sidebar-border bg-sidebar">
-      <SidebarContent>
-        <div className="p-4 py-6 text-lg font-bold text-primary flex items-center gap-2">
+      <SidebarContent className="scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400">
+        <div className="p-4 py-6 text-lg font-bold text-primary flex items-center gap-2 shrink-0">
           {logoUrl ? (
             <img src={logoUrl} alt="Logo" className="max-h-8 max-w-[40px] object-contain rounded" />
           ) : (
@@ -484,7 +484,7 @@ export default function AppSidebar() {
           )}
           <span className="truncate">{appName}</span>
         </div>
-        <SidebarGroup className="pb-16">
+        <SidebarGroup className="pb-8 shrink-0">
           <SidebarGroupContent>
             <SidebarMenu>
               {sortedItems.map((item) =>
