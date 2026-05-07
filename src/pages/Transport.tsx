@@ -349,8 +349,8 @@ export default function Transport() {
             sick: atestadoDaysCount[u.id] || 0,
             faltas: currentMonthFaltas[u.id] || 0,
             homeOffice: isStored ? (t.home_office ?? hoDates.length) : hoDates.length,
-            shifts: calcShifts,
-            holidaysWorked: calcHolidays,
+            shifts: 0,
+            holidaysWorked: 0,
             credito: isStored ? t.credito : 0,
             desconto: isStored ? t.desconto : 0,
             credito_justificativa: isStored ? t.credito_justificativa : '',
@@ -429,8 +429,8 @@ export default function Transport() {
       mes_ano: selectedMonth,
       dias_uteis: data.businessDays,
       home_office: data.homeOffice || 0,
-      plantoes: data.shifts || 0,
-      feriados_trabalhados: data.holidaysWorked || 0,
+      plantoes: 0,
+      feriados_trabalhados: 0,
       ferias: data.vacation,
       atestados: data.sick,
       faltas: data.faltas,
@@ -556,7 +556,6 @@ export default function Transport() {
                     Dias Úteis <Info className="w-3 h-3 text-slate-400" />
                   </div>
                 </TableHead>
-                <TableHead className="w-[90px] text-center">Plantões</TableHead>
                 <TableHead className="w-[100px] text-center">
                   <div
                     className="flex items-center justify-center gap-1 cursor-help"
@@ -565,7 +564,6 @@ export default function Transport() {
                     Atestados <Info className="w-3 h-3 text-slate-400" />
                   </div>
                 </TableHead>
-                <TableHead className="w-[90px] text-center">Feriados</TableHead>
                 <TableHead className="w-[90px] text-center">Férias</TableHead>
                 <TableHead className="w-[100px] text-center">
                   <div
@@ -629,8 +627,6 @@ export default function Transport() {
                   const eligibleDays = Math.max(
                     0,
                     data.businessDays +
-                      (data.shifts || 0) +
-                      (data.holidaysWorked || 0) +
                       (data.credito || 0) -
                       data.vacation -
                       (data.sick || 0) -
@@ -662,17 +658,6 @@ export default function Transport() {
                       </TableCell>
                       <TableCell>
                         <FieldWithInfo
-                          value={data.shifts || 0}
-                          readOnly
-                          multiplier={transportValue}
-                          type="addition"
-                          title="Finais de Semana (Mural)"
-                          items={details.plantoes?.length > 0 ? details.plantoes : []}
-                          emptyText="Nenhum plantão de fim de semana"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <FieldWithInfo
                           value={data.sick || 0}
                           onChange={(e: any) => handleInputChange(u.id, 'sick', e.target.value)}
                           multiplier={transportValue}
@@ -681,17 +666,6 @@ export default function Transport() {
                           title="Períodos de Atestados"
                           items={details.atestados}
                           emptyText="Sem atestados registrados"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <FieldWithInfo
-                          value={data.holidaysWorked || 0}
-                          readOnly
-                          multiplier={transportValue}
-                          type="addition"
-                          title="Feriados Trabalhados"
-                          items={details.feriados?.length > 0 ? details.feriados : []}
-                          emptyText="Nenhum feriado trabalhado"
                         />
                       </TableCell>
                       <TableCell>
