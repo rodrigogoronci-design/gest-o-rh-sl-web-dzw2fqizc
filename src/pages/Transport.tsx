@@ -142,6 +142,7 @@ export default function Transport() {
         { data: ferias },
         { data: atestados },
         { data: plantoes },
+        { data: feriadosPrevDb },
         { data: feriadosDb },
         { data: afastamentosDb },
       ] = await Promise.all([
@@ -162,6 +163,7 @@ export default function Transport() {
           .lte('data_inicio', prevPEnd),
         supabase.from('plantoes').select('*').gte('data', prevPStart).lte('data', prevPEnd),
         supabase.from('feriados').select('*').gte('data', prevPStart).lte('data', prevPEnd),
+        supabase.from('feriados').select('*').gte('data', pStart).lte('data', pEnd),
         supabase
           .from('afastamentos')
           .select('*')
@@ -169,6 +171,7 @@ export default function Transport() {
           .gte('data_fim', prevPStart),
       ])
 
+      const prevHolidaysStrs = (feriadosPrevDb || []).map((f: any) => f.data)
       const holidaysStrs = (feriadosDb || []).map((f: any) => f.data)
       const daysInPeriod = eachDayOfInterval({
         start: parseISO(prevPStart),
@@ -178,7 +181,7 @@ export default function Transport() {
       daysInPeriod.forEach((d) => {
         const dayOfWeek = d.getDay()
         const dStr = format(d, 'yyyy-MM-dd')
-        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dStr)) {
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !prevHolidaysStrs.includes(dStr)) {
           bDays++
         }
       })
@@ -203,7 +206,13 @@ export default function Transport() {
         }
       })
 
-      const calcDays = (records: any[], startStr: string, endStr: string, type: string) => {
+      const calcDays = (
+        records: any[],
+        startStr: string,
+        endStr: string,
+        type: string,
+        holidays: string[] = [],
+      ) => {
         const counts: Record<string, number> = {}
         const start = parseISO(startStr)
         const end = parseISO(endStr)
@@ -215,8 +224,16 @@ export default function Transport() {
             const overlapStart = rStart < start ? start : rStart
             const overlapEnd = rEnd > end ? end : rEnd
 
-            let days = eachDayOfInterval({ start: overlapStart, end: overlapEnd }).length
-            if (type === 'atestados' && r.quantidade_dias) {
+            const intervalDays = eachDayOfInterval({ start: overlapStart, end: overlapEnd })
+            let days = intervalDays.length
+
+            if (type === 'ferias') {
+              days = intervalDays.filter((d) => {
+                const dayOfWeek = d.getDay()
+                const dStr = format(d, 'yyyy-MM-dd')
+                return dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.includes(dStr)
+              }).length
+            } else if (type === 'atestados' && r.quantidade_dias) {
               days = r.quantidade_dias
             }
 
@@ -224,7 +241,7 @@ export default function Transport() {
 
             if (dDetails[r.colaborador_id]) {
               dDetails[r.colaborador_id][type].push(
-                `${format(rStart, 'dd/MM')} a ${format(rEnd, 'dd/MM')}${type === 'atestados' && r.quantidade_dias ? ` (${r.quantidade_dias} ${r.quantidade_dias === 1 ? 'dia' : 'dias'})` : ''}`,
+                `${format(rStart, 'dd/MM')} a ${format(rEnd, 'dd/MM')}${type === 'atestados' && r.quantidade_dias ? ` (${r.quantidade_dias} ${r.quantidade_dias === 1 ? 'dia' : 'dias'})` : ''}${type === 'ferias' ? ` (${days} dias úteis)` : ''}`,
               )
             }
           }
@@ -232,7 +249,7 @@ export default function Transport() {
         return counts
       }
 
-      const vacationDaysCount = calcDays(ferias || [], pStart, pEnd, 'ferias')
+      const vacationDaysCount = calcDays(ferias || [], pStart, pEnd, 'ferias', holidaysStrs)
       const atestadoDaysCount = calcDays(atestados || [], prevPStart, prevPEnd, 'atestados')
 
       setPreCalculatedVacations(vacationDaysCount)
@@ -250,7 +267,8 @@ export default function Transport() {
         daysInPeriod.forEach((d) => {
           const dStr = format(d, 'yyyy-MM-dd')
           const dayOfWeek = d.getDay()
-          const isBusinessDay = dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaysStrs.includes(dStr)
+          const isBusinessDay =
+            dayOfWeek !== 0 && dayOfWeek !== 6 && !prevHolidaysStrs.includes(dStr)
 
           if (isBusinessDay && dStr >= r.data_inicio && dStr <= r.data_fim) {
             overlapDays++
@@ -286,7 +304,7 @@ export default function Transport() {
         const dStr = p.data
         const d = parseISO(dStr)
         const dayOfWeek = d.getDay()
-        const isHoliday = holidaysStrs.includes(dStr)
+        const isHoliday = prevHolidaysStrs.includes(dStr)
 
         if (isHoliday) {
           currentMonthHolidayShifts[p.colaborador_id] =
@@ -706,7 +724,7 @@ export default function Transport() {
                           multiplier={transportValue}
                           type="deduction"
                           isWarning={data.vacation !== (preCalculatedVacations[u.id] || 0)}
-                          title="Períodos de Férias"
+                          title="Períodos de Férias (Dias Úteis)"
                           items={details.ferias}
                           emptyText="Sem férias registradas"
                         />
