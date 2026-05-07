@@ -646,7 +646,7 @@ export default function Ticket() {
                           multiplier={ticketValue}
                           type="addition"
                           isWarning={data.holidaysWorked !== (preCalculatedHolidays[u.id] || 0)}
-                          title="Feriados Trabalhados (Mural)"
+                          title="Feriados Trabalhados"
                           items={details.feriados?.length > 0 ? details.feriados : []}
                           emptyText="Nenhum feriado trabalhado"
                         />

@@ -187,18 +187,6 @@ export default function Mural() {
   const isAllowedToEdit = allowedEscalaUsers.includes(currentUser?.id || '')
   const canEdit = isAdmin || (isAllowedToEdit && escalaStatus === 'Rascunho')
 
-  const toggleFeriado = async (dateStr: string, isFeriado: boolean) => {
-    if (isFeriado) {
-      await supabase.from('feriados').insert({ data: dateStr, descricao: 'Feriado' })
-      setFeriados((prev) => ({ ...prev, [dateStr]: true }))
-    } else {
-      await supabase.from('feriados').delete().match({ data: dateStr })
-      const next = { ...feriados }
-      delete next[dateStr]
-      setFeriados(next)
-    }
-  }
-
   const toggleHomeOffice = async (dateStr: string, isHO: boolean) => {
     if (isHO) {
       await supabase.from('dias_home_office').insert({ data: dateStr })
@@ -652,20 +640,6 @@ export default function Mural() {
                       </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-6 pt-4">
-                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
-                        <div className="space-y-0.5">
-                          <Label className="text-base">Feriado</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Marcar este dia como feriado
-                          </p>
-                        </div>
-                        <Switch
-                          checked={!!feriados[dateStr]}
-                          onCheckedChange={(c) => toggleFeriado(dateStr, c)}
-                          disabled={!canEdit}
-                        />
-                      </div>
-
                       <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
                         <div className="space-y-0.5">
                           <Label className="text-base">Home Office</Label>
