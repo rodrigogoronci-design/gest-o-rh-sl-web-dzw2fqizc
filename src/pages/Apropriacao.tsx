@@ -129,9 +129,17 @@ export default function Apropriacao() {
 
       const { data } = await query.order('nome')
       if (data) {
-        setColaboradores(data)
-        if (data.length > 0) {
-          setSelectedColab(data[0].id)
+        const filteredColabs = data.filter((c) => {
+          const nomeLower = (c.nome || '').toLowerCase()
+          return (
+            !nomeLower.includes('administrador geral') &&
+            !nomeLower.includes('ismael') &&
+            !nomeLower.includes('rodrigo')
+          )
+        })
+        setColaboradores(filteredColabs)
+        if (filteredColabs.length > 0) {
+          setSelectedColab(filteredColabs[0].id)
         }
       }
     }
