@@ -32,6 +32,7 @@ import Settings from './pages/Settings'
 import PlanoSaude from './pages/PlanoSaude'
 import Acessos from './pages/Acessos'
 import PontoRelatorios from './pages/PontoRelatorios'
+import BancoHoras from './pages/BancoHoras'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -102,6 +103,7 @@ const App = () => (
                 <Route path="meritocracia/:setor" element={<MeritocraciaSetor />} />
                 <Route path="ponto" element={<Ponto />} />
                 <Route path="apropriacao" element={<Apropriacao />} />
+                <Route path="banco-horas" element={<BancoHoras />} />
                 <Route path="contracheque" element={<ContraCheque />} />
                 <Route path="perfil" element={<Profile />} />
               </Route>

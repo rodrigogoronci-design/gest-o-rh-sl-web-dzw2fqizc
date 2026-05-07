@@ -21,9 +21,11 @@ export const formatTime = (iso?: string) => (iso ? format(new Date(iso), 'HH:mm'
 
 export const formatHours = (h: number) => {
   if (!h) return '0h 00m'
-  const intH = Math.floor(h)
-  const mins = Math.round((h - intH) * 60)
-  return `${intH}h ${mins.toString().padStart(2, '0')}m`
+  const isNeg = h < 0
+  const absH = Math.abs(h)
+  const intH = Math.floor(absH)
+  const mins = Math.round((absH - intH) * 60)
+  return `${isNeg ? '-' : ''}${intH}h ${mins.toString().padStart(2, '0')}m`
 }
 
 export const formatCurrency = (v: number) =>

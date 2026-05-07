@@ -166,6 +166,20 @@ export default function AppSidebar() {
               roles: ['admin', 'Admin', 'Gerente'],
             },
             {
+              title: 'Banco de Horas',
+              path: '/app/banco-horas',
+              icon: Clock,
+              roles: [
+                'admin',
+                'Admin',
+                'Gerente',
+                'user',
+                'Colaborador',
+                'Personalizado',
+                'personalizado',
+              ],
+            },
+            {
               title: 'Apropriação de Horas',
               path: '/app/apropriacao',
               icon: Clock,
@@ -472,7 +486,7 @@ export default function AppSidebar() {
   })
 
   return (
-    <Sidebar className="border-r border-sidebar-border bg-sidebar">
+    <Sidebar className="border-r border-sidebar-border bg-sidebar print:hidden">
       <SidebarContent className="scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 overflow-y-auto overflow-x-hidden">
         <div className="p-4 py-6 text-lg font-bold text-primary flex items-center gap-2 shrink-0">
           {logoUrl ? (
