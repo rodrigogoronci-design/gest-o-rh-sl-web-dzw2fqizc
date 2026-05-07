@@ -33,6 +33,7 @@ import PlanoSaude from './pages/PlanoSaude'
 import Acessos from './pages/Acessos'
 import PontoRelatorios from './pages/PontoRelatorios'
 import BancoHoras from './pages/BancoHoras'
+import ConfiguracoesPonto from './pages/ConfiguracoesPonto'
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth()
@@ -97,6 +98,7 @@ const App = () => (
                   <Route path="acessos" element={<Acessos />} />
                   <Route path="ajustes-ponto" element={<AjustesPonto />} />
                   <Route path="relatorios-ponto" element={<PontoRelatorios />} />
+                  <Route path="configuracoes-ponto" element={<ConfiguracoesPonto />} />
                 </Route>
                 <Route path="mural" element={<Mural />} />
                 <Route path="meritocracia" element={<Meritocracia />} />

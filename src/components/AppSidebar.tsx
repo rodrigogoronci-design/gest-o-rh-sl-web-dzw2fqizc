@@ -193,6 +193,12 @@ export default function AppSidebar() {
                 'personalizado',
               ],
             },
+            {
+              title: 'Configuração de Regras',
+              path: '/app/configuracoes-ponto',
+              icon: Settings,
+              roles: ['admin', 'Admin', 'Gerente'],
+            },
           ],
         },
         {
