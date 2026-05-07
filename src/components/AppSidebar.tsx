@@ -423,24 +423,24 @@ export default function AppSidebar() {
           defaultOpen={isInnerActive}
           className="group/sub-collapsible"
         >
-          <SidebarMenuSubItem className="shrink-0">
+          <SidebarMenuSubItem className="shrink-0 flex flex-col">
             <CollapsibleTrigger asChild>
               <SidebarMenuSubButton className="w-full flex justify-between cursor-pointer font-medium text-slate-700">
-                <div className="flex items-center">
-                  <subItem.icon className="w-4 h-4 mr-2" />
-                  <span>{subItem.title}</span>
+                <div className="flex items-center text-left">
+                  <subItem.icon className="w-4 h-4 mr-2 shrink-0" />
+                  <span className="break-words">{subItem.title}</span>
                 </div>
-                <ChevronRight className="w-3 h-3 ml-auto transition-transform duration-200 group-data-[state=open]/sub-collapsible:rotate-90" />
+                <ChevronRight className="w-3 h-3 ml-auto shrink-0 transition-transform duration-200 group-data-[state=open]/sub-collapsible:rotate-90" />
               </SidebarMenuSubButton>
             </CollapsibleTrigger>
-            <CollapsibleContent className="overflow-hidden">
+            <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
               <SidebarMenuSub className="pr-0 mr-0 border-l-0 ml-3 pl-3 border-sidebar-border border-l mt-1 space-y-1">
                 {subItem.items.map((nestedItem: any) => (
                   <SidebarMenuSubItem key={nestedItem.title} className="shrink-0">
                     <SidebarMenuSubButton asChild isActive={location.pathname === nestedItem.path}>
-                      <Link to={nestedItem.path}>
-                        <nestedItem.icon className="w-3.5 h-3.5 mr-2" />
-                        <span>{nestedItem.title}</span>
+                      <Link to={nestedItem.path} className="h-auto py-1.5">
+                        <nestedItem.icon className="w-3.5 h-3.5 mr-2 shrink-0" />
+                        <span className="break-words text-left">{nestedItem.title}</span>
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
@@ -454,9 +454,9 @@ export default function AppSidebar() {
     return (
       <SidebarMenuSubItem key={subItem.title} className="shrink-0">
         <SidebarMenuSubButton asChild isActive={location.pathname === subItem.path}>
-          <Link to={subItem.path}>
-            <subItem.icon className="w-4 h-4 mr-2" />
-            <span>{subItem.title}</span>
+          <Link to={subItem.path} className="h-auto py-1.5">
+            <subItem.icon className="w-4 h-4 mr-2 shrink-0" />
+            <span className="break-words text-left">{subItem.title}</span>
           </Link>
         </SidebarMenuSubButton>
       </SidebarMenuSubItem>
@@ -473,7 +473,7 @@ export default function AppSidebar() {
 
   return (
     <Sidebar className="border-r border-sidebar-border bg-sidebar">
-      <SidebarContent className="scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400">
+      <SidebarContent className="scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 overflow-y-auto overflow-x-hidden">
         <div className="p-4 py-6 text-lg font-bold text-primary flex items-center gap-2 shrink-0">
           {logoUrl ? (
             <img src={logoUrl} alt="Logo" className="max-h-8 max-w-[40px] object-contain rounded" />
@@ -490,15 +490,15 @@ export default function AppSidebar() {
               {sortedItems.map((item) =>
                 item.items ? (
                   <Collapsible key={item.title} asChild defaultOpen className="group/collapsible">
-                    <SidebarMenuItem className="shrink-0">
+                    <SidebarMenuItem className="shrink-0 flex flex-col">
                       <CollapsibleTrigger asChild>
-                        <SidebarMenuButton tooltip={item.title}>
-                          <item.icon className="w-5 h-5" />
-                          <span>{item.title}</span>
-                          <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        <SidebarMenuButton tooltip={item.title} className="h-auto py-2">
+                          <item.icon className="w-5 h-5 shrink-0" />
+                          <span className="break-words text-left">{item.title}</span>
+                          <ChevronRight className="ml-auto shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
-                      <CollapsibleContent className="overflow-hidden">
+                      <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
                         <SidebarMenuSub>
                           {item.items.map((subItem: any) => renderSubItem(subItem))}
                         </SidebarMenuSub>
@@ -511,13 +511,14 @@ export default function AppSidebar() {
                       asChild
                       isActive={location.pathname === item.path}
                       className={cn(
+                        'h-auto py-2',
                         item.disabled && 'opacity-50 cursor-not-allowed pointer-events-none',
                       )}
                       tooltip={item.title}
                     >
                       <Link to={item.path!}>
-                        <item.icon className="w-5 h-5" />
-                        <span>{item.title}</span>
+                        <item.icon className="w-5 h-5 shrink-0" />
+                        <span className="break-words text-left">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
