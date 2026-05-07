@@ -58,10 +58,20 @@ export default function BancoHoras() {
             .from('colaboradores')
             .select('id, nome')
             .order('nome')
-          setColaboradores(allColabs || [])
-          if (allColabs && allColabs.length > 0) {
-            const me = allColabs.find((c) => c.id === myColab?.id)
-            setSelectedColab(me ? me.id : allColabs[0].id)
+
+          const filteredColabs = (allColabs || []).filter((c) => {
+            const nomeLower = c.nome.toLowerCase()
+            return (
+              !nomeLower.includes('administrador geral') &&
+              !nomeLower.includes('ismael') &&
+              !nomeLower.includes('rodrigo')
+            )
+          })
+
+          setColaboradores(filteredColabs)
+          if (filteredColabs.length > 0) {
+            const me = filteredColabs.find((c) => c.id === myColab?.id)
+            setSelectedColab(me ? me.id : filteredColabs[0].id)
           }
         } else if (myColab) {
           setSelectedColab(myColab.id)
