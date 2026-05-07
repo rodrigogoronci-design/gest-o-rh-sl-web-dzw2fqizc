@@ -280,7 +280,7 @@ export default function Ticket() {
           const defaultReg = bDays
 
           initial[u.id] = {
-            regular: isStored ? t.dias_uteis : defaultReg,
+            regular: defaultReg,
             shifts: calcShifts,
             holidaysWorked: isStored ? t.feriados_trabalhados || 0 : calcHolidays,
             vacation: vacationDaysCount[u.id] || 0,
@@ -543,7 +543,7 @@ export default function Ticket() {
                       <TableCell>
                         <FieldWithInfo
                           value={data.regular}
-                          onChange={(e: any) => handleInputChange(u.id, 'regular', e.target.value)}
+                          readOnly
                           multiplier={ticketValue}
                           type="addition"
                           isWarning={data.regular !== expectedReg}

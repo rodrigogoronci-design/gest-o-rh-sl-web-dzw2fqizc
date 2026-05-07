@@ -205,7 +205,7 @@ export const syncAllUsersBeneficios = async (month: string) => {
       ferias: userFerias,
       atestados: userAtestados,
       plantoes: userShifts,
-      dias_uteis: existingTicket ? existingTicket.dias_uteis : defaultReg,
+      dias_uteis: defaultReg,
       feriados_trabalhados: existingTicket
         ? (existingTicket as any).feriados_trabalhados || 0
         : userHolidayShifts,
