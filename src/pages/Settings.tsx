@@ -26,6 +26,7 @@ import {
   Check,
   ChevronsUpDown,
   X,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -33,6 +34,13 @@ export default function Settings() {
   const [appName, setAppName] = useState('Gestão RH SL Web')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string>('')
+
+  const [loginLogoFile, setLoginLogoFile] = useState<File | null>(null)
+  const [loginLogoPreview, setLoginLogoPreview] = useState<string>('')
+  const [loginBgFile, setLoginBgFile] = useState<File | null>(null)
+  const [loginBgPreview, setLoginBgPreview] = useState<string>('')
+  const [loginTemplate, setLoginTemplate] = useState('default')
+
   const [savingAppearance, setSavingAppearance] = useState(false)
 
   const [requireApproval, setRequireApproval] = useState(false)
@@ -52,6 +60,13 @@ export default function Settings() {
 
           const name = data.find((d) => d.chave === 'app_name')?.valor as any
           if (name?.text) setAppName(name.text)
+
+          const loginSettings = data.find((d) => d.chave === 'app_login_settings')?.valor as any
+          if (loginSettings) {
+            if (loginSettings.logoUrl) setLoginLogoPreview(loginSettings.logoUrl)
+            if (loginSettings.bgUrl) setLoginBgPreview(loginSettings.bgUrl)
+            if (loginSettings.template) setLoginTemplate(loginSettings.template)
+          }
 
           const perms = data.find((d) => d.chave === 'app_permissions')?.valor as any
           if (perms) {
@@ -87,9 +102,41 @@ export default function Settings() {
         finalLogoUrl = data.publicUrl
       }
 
+      let finalLoginLogoUrl = loginLogoPreview
+      if (loginLogoFile) {
+        const fileExt = loginLogoFile.name.split('.').pop()
+        const filePath = `login-logo-${Date.now()}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, loginLogoFile)
+        if (uploadError) throw uploadError
+        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+        finalLoginLogoUrl = data.publicUrl
+      }
+
+      let finalLoginBgUrl = loginBgPreview
+      if (loginBgFile) {
+        const fileExt = loginBgFile.name.split('.').pop()
+        const filePath = `login-bg-${Date.now()}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, loginBgFile)
+        if (uploadError) throw uploadError
+        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+        finalLoginBgUrl = data.publicUrl
+      }
+
       await supabase.from('configuracoes').upsert([
         { chave: 'app_name', valor: { text: appName } },
         { chave: 'app_logo', valor: { url: finalLogoUrl } },
+        {
+          chave: 'app_login_settings',
+          valor: {
+            logoUrl: finalLoginLogoUrl,
+            bgUrl: finalLoginBgUrl,
+            template: loginTemplate,
+          },
+        },
       ])
 
       toast.success('Configurações de aparência salvas! A página será recarregada.', {
@@ -193,6 +240,167 @@ export default function Settings() {
                   onChange={(e) => setAppName(e.target.value)}
                   placeholder="Ex: Meu RH Web"
                 />
+              </div>
+
+              <div className="pt-8 mt-8 border-t space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium">Tela de Login</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Customize a experiência de autenticação do sistema.
+                  </p>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="flex flex-col gap-3">
+                    <Label>Logotipo Específico (Login)</Label>
+                    <div className="flex items-end gap-6">
+                      <div className="w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-slate-50 relative overflow-hidden group">
+                        {loginLogoPreview ? (
+                          <img
+                            src={loginLogoPreview}
+                            alt="Login Logo Preview"
+                            className="max-w-full max-h-full object-contain p-2"
+                          />
+                        ) : (
+                          <span className="text-sm text-muted-foreground text-center p-2">
+                            Igual ao principal
+                          </span>
+                        )}
+                        <label className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                          <Camera className="w-6 h-6 mb-1" />
+                          <span className="text-xs font-medium">Alterar</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) {
+                                setLoginLogoFile(e.target.files[0])
+                                setLoginLogoPreview(URL.createObjectURL(e.target.files[0]))
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {loginLogoPreview && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setLoginLogoFile(null)
+                              setLoginLogoPreview('')
+                            }}
+                          >
+                            Remover
+                          </Button>
+                        )}
+                        <div className="text-sm text-muted-foreground max-w-[200px]">
+                          Opcional. Se vazio, usará o logotipo principal da empresa.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <Label>Imagem de Fundo</Label>
+                    <div className="flex items-end gap-6">
+                      <div className="w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-slate-50 relative overflow-hidden group">
+                        {loginBgPreview ? (
+                          <img
+                            src={loginBgPreview}
+                            alt="Background Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm text-muted-foreground text-center p-2">
+                            Sem imagem
+                          </span>
+                        )}
+                        <label className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                          <Camera className="w-6 h-6 mb-1" />
+                          <span className="text-xs font-medium">Alterar</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) {
+                                setLoginBgFile(e.target.files[0])
+                                setLoginBgPreview(URL.createObjectURL(e.target.files[0]))
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {loginBgPreview && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setLoginBgFile(null)
+                              setLoginBgPreview('')
+                            }}
+                          >
+                            Remover
+                          </Button>
+                        )}
+                        <div className="text-sm text-muted-foreground max-w-[200px]">
+                          Utilizada nos templates "Tela Dividida" e "Glassmorphism".
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Template da Tela</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div
+                      className={cn(
+                        'border-2 rounded-xl p-4 cursor-pointer transition-all',
+                        loginTemplate === 'default'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                          : 'hover:border-primary/50',
+                      )}
+                      onClick={() => setLoginTemplate('default')}
+                    >
+                      <div className="font-medium mb-1">Padrão</div>
+                      <div className="text-xs text-muted-foreground">
+                        Card centralizado em fundo claro. Layout original do sistema.
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        'border-2 rounded-xl p-4 cursor-pointer transition-all',
+                        loginTemplate === 'split'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                          : 'hover:border-primary/50',
+                      )}
+                      onClick={() => setLoginTemplate('split')}
+                    >
+                      <div className="font-medium mb-1">Tela Dividida</div>
+                      <div className="text-xs text-muted-foreground">
+                        Formulário em uma lateral e imagem de destaque na outra.
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        'border-2 rounded-xl p-4 cursor-pointer transition-all',
+                        loginTemplate === 'glass'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                          : 'hover:border-primary/50',
+                      )}
+                      onClick={() => setLoginTemplate('glass')}
+                    >
+                      <div className="font-medium mb-1">Glassmorphism</div>
+                      <div className="text-xs text-muted-foreground">
+                        Card translúcido centralizado sobre a imagem de fundo.
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <Button onClick={handleSaveAppearance} disabled={savingAppearance}>
