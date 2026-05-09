@@ -3,7 +3,14 @@ import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -583,6 +590,40 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
   const [extractedData, setExtractedData] = useState<any[]>([])
   const [previewData, setPreviewData] = useState<any>(null)
   const [parsingErrorDetails, setParsingErrorDetails] = useState<string[] | null>(null)
+  const [availableColabs, setAvailableColabs] = useState<any[]>([])
+  const [manualMapItemIndex, setManualMapItemIndex] = useState<number | null>(null)
+
+  const handleManualMapSave = (colabId: string) => {
+    if (manualMapItemIndex === null) return
+    const colab = availableColabs.find((c) => c.id === colabId)
+    if (!colab) return
+
+    setExtractedData((prev) => {
+      const newData = [...prev]
+      const item = newData[manualMapItemIndex]
+      item.colaborador_id = colab.id
+      item.cargo = item.cargo || colab.cargo || ''
+      item.salario = colab.salario || item.salario
+      item.departamento = colab.departamento || item.departamento
+      item.data_admissao = colab.data_admissao || item.data_admissao
+      item.is_mapped = true
+      item.has_error = false
+      item.error_msg = ''
+
+      // Atualiza cabeçalho interno
+      if (item.dados_extraidos?.cabecalho) {
+        item.dados_extraidos.cabecalho.cargo = item.cargo
+        item.dados_extraidos.cabecalho.departamento = item.departamento
+        if (colab.codigo_funcionario) {
+          item.dados_extraidos.cabecalho.codigo = colab.codigo_funcionario
+        }
+      }
+
+      return newData
+    })
+    setManualMapItemIndex(null)
+    toast.success('Mapeamento manual aplicado com sucesso!')
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -638,6 +679,8 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         if (isAdmin && !isRodrigo) return false
         return true
       })
+
+      setAvailableColabs(colabs)
 
       let finalExtracted: any[] = []
       const logs: string[] = []
@@ -1416,6 +1459,16 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
+                        {(d.is_mapped === false || d.has_error) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mr-2 border-dashed border-blue-400 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => setManualMapItemIndex(i)}
+                          >
+                            <PenTool className="w-4 h-4 mr-2" /> Mapear
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1449,7 +1502,72 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
         isOpen={!!previewData}
         onClose={() => setPreviewData(null)}
       />
+      <ManualMapDialog
+        isOpen={manualMapItemIndex !== null}
+        itemName={manualMapItemIndex !== null ? extractedData[manualMapItemIndex]?.nome : ''}
+        availableColabs={availableColabs}
+        onClose={() => setManualMapItemIndex(null)}
+        onSave={handleManualMapSave}
+      />
     </Card>
+  )
+}
+
+function ManualMapDialog({
+  isOpen,
+  itemName,
+  availableColabs,
+  onClose,
+  onSave,
+}: {
+  isOpen: boolean
+  itemName: string
+  availableColabs: any[]
+  onClose: () => void
+  onSave: (colabId: string) => void
+}) {
+  const [selectedId, setSelectedId] = useState('')
+
+  useEffect(() => {
+    if (isOpen) setSelectedId('')
+  }, [isOpen])
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Mapeamento Manual</DialogTitle>
+          <DialogDescription>
+            Selecione o colaborador correspondente para vincular o contracheque de{' '}
+            <strong>{itemName}</strong>.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <Select value={selectedId} onValueChange={setSelectedId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione um colaborador no sistema..." />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              {availableColabs
+                .sort((a, b) => a.nome.localeCompare(b.nome))
+                .map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nome} {c.codigo_funcionario ? `(Cód: ${c.codigo_funcionario})` : ''}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button disabled={!selectedId} onClick={() => onSave(selectedId)}>
+            Salvar Mapeamento
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
