@@ -34,7 +34,18 @@ export function AdminJornadas() {
     saida_intervalo: '',
     retorno_intervalo: '',
     saida: '',
+    dias: [] as string[],
   })
+
+  const diasSemana = [
+    { id: '1', label: 'Segunda-feira' },
+    { id: '2', label: 'Terça-feira' },
+    { id: '3', label: 'Quarta-feira' },
+    { id: '4', label: 'Quinta-feira' },
+    { id: '5', label: 'Sexta-feira' },
+    { id: '6', label: 'Sábado' },
+    { id: '0', label: 'Domingo' },
+  ]
 
   useEffect(() => {
     fetchColaboradores()
@@ -43,8 +54,18 @@ export function AdminJornadas() {
   const fetchColaboradores = async () => {
     const { data } = await supabase.from('colaboradores').select('*').order('nome')
     if (data) {
-      setColaboradores(data)
-      const deps = Array.from(new Set(data.map((c) => c.departamento).filter(Boolean))) as string[]
+      const filtered = data.filter((c) => {
+        const nome = (c.nome || '').toLowerCase()
+        return !(
+          nome.includes('administrador geral') ||
+          nome.includes('ismael bomfim') ||
+          nome.includes('rodrigo')
+        )
+      })
+      setColaboradores(filtered)
+      const deps = Array.from(
+        new Set(filtered.map((c) => c.departamento).filter(Boolean)),
+      ) as string[]
       setDepartamentos(deps)
     }
     setLoading(false)
@@ -78,15 +99,15 @@ export function AdminJornadas() {
     }
 
     try {
-      const { error } = await supabase
-        .from('colaboradores')
-        .update({
-          jornada_entrada: jornada.entrada || null,
-          jornada_saida_intervalo: jornada.saida_intervalo || null,
-          jornada_retorno_intervalo: jornada.retorno_intervalo || null,
-          jornada_saida: jornada.saida || null,
-        })
-        .in('id', selectedIds)
+      const payload: any = {
+        jornada_entrada: jornada.entrada || null,
+        jornada_saida_intervalo: jornada.saida_intervalo || null,
+        jornada_retorno_intervalo: jornada.retorno_intervalo || null,
+        jornada_saida: jornada.saida || null,
+        jornada_dias: jornada.dias.length > 0 ? jornada.dias : null,
+      }
+
+      const { error } = await supabase.from('colaboradores').update(payload).in('id', selectedIds)
 
       if (error) throw error
 
@@ -137,6 +158,29 @@ export function AdminJornadas() {
               value={jornada.saida}
               onChange={(e) => setJornada({ ...jornada, saida: e.target.value })}
             />
+          </div>
+          <div className="space-y-3 pt-2 pb-1 border-t">
+            <Label>Dias da Semana</Label>
+            <div className="grid grid-cols-2 gap-3">
+              {diasSemana.map((dia) => (
+                <div key={dia.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`dia-${dia.id}`}
+                    checked={jornada.dias.includes(dia.id)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setJornada({ ...jornada, dias: [...jornada.dias, dia.id] })
+                      } else {
+                        setJornada({ ...jornada, dias: jornada.dias.filter((d) => d !== dia.id) })
+                      }
+                    }}
+                  />
+                  <Label htmlFor={`dia-${dia.id}`} className="text-sm font-normal cursor-pointer">
+                    {dia.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
           </div>
           <Button className="w-full mt-4" onClick={handleSave}>
             Aplicar aos {selectedIds.length} Selecionados
@@ -204,7 +248,13 @@ export function AdminJornadas() {
                     <TableCell>{c.departamento || '-'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {c.jornada_entrada
-                        ? `${c.jornada_entrada} às ${c.jornada_saida}`
+                        ? `${c.jornada_entrada} às ${c.jornada_saida}${
+                            c.jornada_dias &&
+                            Array.isArray(c.jornada_dias) &&
+                            c.jornada_dias.length > 0
+                              ? ` (${c.jornada_dias.length} dias)`
+                              : ''
+                          }`
                         : 'Não definida'}
                     </TableCell>
                   </TableRow>
