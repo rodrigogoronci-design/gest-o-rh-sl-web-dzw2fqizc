@@ -22,8 +22,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
@@ -40,7 +38,6 @@ export function PontoPunch({ colaborador, deviceId }: any) {
   const [loadingRegistros, setLoadingRegistros] = useState(true)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [tipoRegistro, setTipoRegistro] = useState('entrada')
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -49,6 +46,28 @@ export function PontoPunch({ colaborador, deviceId }: any) {
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent,
   )
+
+  const tipoLabels: Record<string, string> = {
+    entrada: 'Entrada',
+    saida_intervalo: 'Saída Intervalo',
+    retorno_intervalo: 'Retorno Intervalo',
+    saida: 'Saída Final de Jornada',
+  }
+
+  const getNextTipoRegistro = () => {
+    if (registrosHoje.length === 0) return 'entrada'
+    const sorted = [...registrosHoje].sort(
+      (a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime(),
+    )
+    const last = sorted[sorted.length - 1]
+    if (last.tipo_registro === 'entrada') return 'saida_intervalo'
+    if (last.tipo_registro === 'saida_intervalo') return 'retorno_intervalo'
+    if (last.tipo_registro === 'retorno_intervalo') return 'saida'
+    if (last.tipo_registro === 'saida') return 'entrada'
+    return 'entrada'
+  }
+
+  const nextTipo = getNextTipoRegistro()
 
   const fetchRegistros = async () => {
     const today = new Date()
@@ -192,7 +211,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
     try {
       const lat = location?.coords.latitude || null
       const lng = location?.coords.longitude || null
-      const tipo = tipoRegistro
+      const tipo = nextTipo
 
       let status = 'pendente'
 
@@ -296,25 +315,6 @@ export function PontoPunch({ colaborador, deviceId }: any) {
 
     return false
   })()
-
-  const tipoLabels: Record<string, string> = {
-    entrada: 'Entrada',
-    saida_intervalo: 'Saída Intervalo',
-    retorno_intervalo: 'Retorno Intervalo',
-    saida: 'Saída Final de Jornada',
-  }
-
-  const getNextTipoRegistro = () => {
-    if (registrosHoje.length === 0) return 'entrada'
-    const last = registrosHoje[registrosHoje.length - 1]
-    if (last.tipo_registro === 'entrada') return 'saida_intervalo'
-    if (last.tipo_registro === 'saida_intervalo') return 'retorno_intervalo'
-    if (last.tipo_registro === 'retorno_intervalo') return 'saida'
-    if (last.tipo_registro === 'saida') return 'entrada'
-    return 'entrada'
-  }
-
-  const nextTipo = getNextTipoRegistro()
 
   if (loadingRegistros && registrosHoje.length === 0) {
     return (
@@ -494,15 +494,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={isModalOpen}
-        onOpenChange={(open) => {
-          if (open) {
-            setTipoRegistro(getNextTipoRegistro())
-          }
-          setIsModalOpen(open)
-        }}
-      >
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md p-4 pt-6">
           <DialogHeader className="mb-2">
             <DialogTitle className="text-xl">Confirmar Registro</DialogTitle>
@@ -540,7 +532,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
                 {time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} é:
               </p>
               <div className="h-14 flex items-center justify-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl w-full text-slate-800 shadow-sm">
-                {tipoLabels[tipoRegistro] || 'Registro'}
+                {tipoLabels[nextTipo] || 'Registro'}
               </div>
             </div>
           </div>
@@ -559,7 +551,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
               onClick={registerPoint}
               disabled={loading || (isMobile && !location)}
             >
-              {loading ? 'Salvando...' : `Confirmar ${tipoLabels[tipoRegistro] || 'Registro'}`}
+              {loading ? 'Salvando...' : `Confirmar ${tipoLabels[nextTipo] || 'Registro'}`}
             </Button>
           </DialogFooter>
         </DialogContent>
