@@ -6,6 +6,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -28,6 +38,9 @@ export function AdminJornadas() {
   const [setorFilter, setSetorFilter] = useState<string>('todos')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+
+  const [showMismatchDialog, setShowMismatchDialog] = useState(false)
+  const [pendingSelection, setPendingSelection] = useState<string | 'ALL' | null>(null)
 
   const [jornada, setJornada] = useState({
     entrada: '',
@@ -76,20 +89,148 @@ export function AdminJornadas() {
       ? colaboradores
       : colaboradores.filter((c) => c.departamento === setorFilter)
 
+  const areJornadasEqual = (c1: any, c2: any) => {
+    if (!c1 && !c2) return true
+    if (!c1 || !c2) return false
+
+    const normStr = (s: any) => s || ''
+    const normArr = (a: any) => {
+      if (!a) return []
+      if (!Array.isArray(a)) return []
+      return [...a].sort()
+    }
+
+    return (
+      normStr(c1.jornada_entrada) === normStr(c2.jornada_entrada) &&
+      normStr(c1.jornada_saida_intervalo) === normStr(c2.jornada_saida_intervalo) &&
+      normStr(c1.jornada_retorno_intervalo) === normStr(c2.jornada_retorno_intervalo) &&
+      normStr(c1.jornada_saida) === normStr(c2.jornada_saida) &&
+      JSON.stringify(normArr(c1.jornada_dias)) === JSON.stringify(normArr(c2.jornada_dias))
+    )
+  }
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(filteredColaboradores.map((c) => c.id))
+      if (filteredColaboradores.length === 0) return
+
+      let referenceColab = null
+      if (selectedIds.length > 0) {
+        referenceColab = colaboradores.find((c) => c.id === selectedIds[0])
+      } else {
+        referenceColab = filteredColaboradores[0]
+      }
+
+      const allMatch = filteredColaboradores.every((c) => areJornadasEqual(c, referenceColab))
+
+      if (!allMatch) {
+        setPendingSelection('ALL')
+        setShowMismatchDialog(true)
+        return
+      }
+
+      const newSelected = Array.from(
+        new Set([...selectedIds, ...filteredColaboradores.map((c) => c.id)]),
+      )
+      setSelectedIds(newSelected)
+
+      if (selectedIds.length === 0 && referenceColab) {
+        setJornada({
+          entrada: referenceColab.jornada_entrada || '',
+          saida_intervalo: referenceColab.jornada_saida_intervalo || '',
+          retorno_intervalo: referenceColab.jornada_retorno_intervalo || '',
+          saida: referenceColab.jornada_saida || '',
+          dias: referenceColab.jornada_dias || [],
+        })
+      }
     } else {
-      setSelectedIds([])
+      const idsToRemove = new Set(filteredColaboradores.map((c) => c.id))
+      const newSelected = selectedIds.filter((id) => !idsToRemove.has(id))
+      setSelectedIds(newSelected)
     }
   }
 
   const handleSelect = (id: string, checked: boolean) => {
     if (checked) {
-      setSelectedIds([...selectedIds, id])
+      const newSelected = [...selectedIds, id]
+      const colabToSelect = colaboradores.find((c) => c.id === id)
+
+      if (selectedIds.length === 0) {
+        setSelectedIds(newSelected)
+        if (colabToSelect) {
+          setJornada({
+            entrada: colabToSelect.jornada_entrada || '',
+            saida_intervalo: colabToSelect.jornada_saida_intervalo || '',
+            retorno_intervalo: colabToSelect.jornada_retorno_intervalo || '',
+            saida: colabToSelect.jornada_saida || '',
+            dias: colabToSelect.jornada_dias || [],
+          })
+        }
+      } else {
+        const firstSelected = colaboradores.find((c) => c.id === selectedIds[0])
+        if (!areJornadasEqual(colabToSelect, firstSelected)) {
+          setPendingSelection(id)
+          setShowMismatchDialog(true)
+          return
+        }
+        setSelectedIds(newSelected)
+      }
     } else {
-      setSelectedIds(selectedIds.filter((i) => i !== id))
+      const newSelected = selectedIds.filter((i) => i !== id)
+      setSelectedIds(newSelected)
     }
+  }
+
+  const handleConfirmMismatch = () => {
+    if (pendingSelection === 'ALL') {
+      const newSelected = Array.from(
+        new Set([...selectedIds, ...filteredColaboradores.map((c) => c.id)]),
+      )
+
+      if (selectedIds.length === 0) {
+        const firstColab = filteredColaboradores[0]
+        if (firstColab) {
+          setJornada({
+            entrada: firstColab.jornada_entrada || '',
+            saida_intervalo: firstColab.jornada_saida_intervalo || '',
+            retorno_intervalo: firstColab.jornada_retorno_intervalo || '',
+            saida: firstColab.jornada_saida || '',
+            dias: firstColab.jornada_dias || [],
+          })
+        }
+      }
+      setSelectedIds(newSelected)
+    } else if (pendingSelection) {
+      const newSelected = [...selectedIds, pendingSelection]
+      setSelectedIds(newSelected)
+    }
+    setShowMismatchDialog(false)
+    setPendingSelection(null)
+  }
+
+  const handleCancelMismatch = () => {
+    if (pendingSelection === 'ALL') {
+      let referenceColab = null
+      if (selectedIds.length > 0) {
+        referenceColab = colaboradores.find((c) => c.id === selectedIds[0])
+      } else {
+        referenceColab = filteredColaboradores[0]
+        if (referenceColab) {
+          setJornada({
+            entrada: referenceColab.jornada_entrada || '',
+            saida_intervalo: referenceColab.jornada_saida_intervalo || '',
+            retorno_intervalo: referenceColab.jornada_retorno_intervalo || '',
+            saida: referenceColab.jornada_saida || '',
+            dias: referenceColab.jornada_dias || [],
+          })
+        }
+      }
+
+      const matching = filteredColaboradores.filter((c) => areJornadasEqual(c, referenceColab))
+      const newSelected = Array.from(new Set([...selectedIds, ...matching.map((c) => c.id)]))
+      setSelectedIds(newSelected)
+    }
+    setShowMismatchDialog(false)
+    setPendingSelection(null)
   }
 
   const handleSave = async () => {
@@ -121,6 +262,27 @@ export function AdminJornadas() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <AlertDialog open={showMismatchDialog} onOpenChange={setShowMismatchDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Jornadas Diferentes Detectadas</AlertDialogTitle>
+            <AlertDialogDescription>
+              Alguns dos colaboradores selecionados possuem jornadas diferentes da seleção atual.
+              Deseja mantê-los na seleção (suas jornadas serão sobrescritas ao salvar) ou desmarcar
+              os divergentes?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelMismatch}>
+              Desmarcar Divergentes
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmMismatch}>
+              Manter e Sobrescrever
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Card className="md:col-span-1 h-fit">
         <CardHeader>
           <CardTitle>Configurar Jornada</CardTitle>
