@@ -24,13 +24,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
@@ -308,7 +301,7 @@ export function PontoPunch({ colaborador, deviceId }: any) {
     entrada: 'Entrada',
     saida_intervalo: 'Saída Intervalo',
     retorno_intervalo: 'Retorno Intervalo',
-    saida: 'Saída',
+    saida: 'Saída Final de Jornada',
   }
 
   const getNextTipoRegistro = () => {
@@ -322,16 +315,6 @@ export function PontoPunch({ colaborador, deviceId }: any) {
   }
 
   const nextTipo = getNextTipoRegistro()
-
-  const availableTypes = [
-    { value: 'entrada', label: 'Entrada' },
-    { value: 'saida_intervalo', label: 'Saída Intervalo' },
-    { value: 'retorno_intervalo', label: 'Retorno Intervalo' },
-    { value: 'saida', label: 'Saída' },
-  ].filter((t) => {
-    if (isPontoAberto && t.value === 'entrada') return false
-    return true
-  })
 
   if (loadingRegistros && registrosHoje.length === 0) {
     return (
@@ -553,21 +536,12 @@ export function PontoPunch({ colaborador, deviceId }: any) {
 
             <div className="space-y-3 text-center">
               <p className="text-sm text-slate-500">
-                Selecione o registro e confirme para{' '}
-                {time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                O próximo registro esperado para{' '}
+                {time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} é:
               </p>
-              <Select value={tipoRegistro} onValueChange={setTipoRegistro}>
-                <SelectTrigger className="h-14 text-lg font-bold bg-slate-50 border-slate-200 w-full justify-center gap-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTypes.map((t) => (
-                    <SelectItem key={t.value} value={t.value} className="text-base">
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="h-14 flex items-center justify-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl w-full text-slate-800 shadow-sm">
+                {tipoLabels[tipoRegistro] || 'Registro'}
+              </div>
             </div>
           </div>
 
