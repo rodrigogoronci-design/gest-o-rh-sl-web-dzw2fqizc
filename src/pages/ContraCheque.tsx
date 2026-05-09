@@ -34,7 +34,19 @@ import {
   Search,
   Table as TableIcon,
   PenTool,
+  Trash2,
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -131,6 +143,7 @@ function AdminMemoriaCalculo() {
   const [registros, setRegistros] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [previewData, setPreviewData] = useState<any>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     supabase
@@ -242,6 +255,27 @@ function AdminMemoriaCalculo() {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
+  const handleDeleteMonth = async () => {
+    if (!selectedMonth) return
+    setIsDeleting(true)
+    try {
+      const { error } = await supabase.from('contracheques').delete().eq('mes_ano', selectedMonth)
+
+      if (error) throw error
+
+      toast.success('Importação excluída com sucesso!')
+
+      const newMonths = months.filter((m) => m.value !== selectedMonth)
+      setMonths(newMonths)
+      setSelectedMonth(newMonths.length > 0 ? newMonths[0].value : '')
+      setRegistros([])
+    } catch (err: any) {
+      toast.error('Erro ao excluir importação: ' + err.message)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -252,18 +286,58 @@ function AdminMemoriaCalculo() {
           </CardDescription>
         </div>
         {isMonthLoaded && selectedMonth && (
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[180px] capitalize">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {months.map((m) => (
-                <SelectItem key={m.value} value={m.value} className="capitalize">
-                  {m.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[180px] capitalize">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map((m) => (
+                  <SelectItem key={m.value} value={m.value} className="capitalize">
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  title="Excluir Importação"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir Importação?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir toda a memória de cálculo referente a{' '}
+                    <strong className="capitalize">
+                      {months.find((m) => m.value === selectedMonth)?.label}
+                    </strong>
+                    ? Esta ação removerá todos os contracheques deste período e não pode ser
+                    desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteMonth}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Sim, excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         )}
       </CardHeader>
       <CardContent className="space-y-8">
@@ -1110,6 +1184,16 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
     }
     setPublishing(true)
     try {
+      // Remove prev data to avoid ghost records from previous flawed imports
+      const { error: deleteError } = await supabase
+        .from('contracheques')
+        .delete()
+        .eq('mes_ano', selectedMonth)
+
+      if (deleteError) {
+        console.error('Error removing previous records for this month:', deleteError)
+      }
+
       const insertsMap = new Map()
       validData.forEach((e) => {
         if (!insertsMap.has(e.colaborador_id)) {
@@ -1135,7 +1219,7 @@ function AdminUpload({ onPublishSuccess }: { onPublishSuccess?: () => void }) {
       }
       const unmappedCount = extractedData.length - validData.length
       toast.success(
-        `Contracheques publicados com sucesso! ${unmappedCount > 0 ? `(${unmappedCount} ignorados)` : ''}`,
+        `Contracheques publicados com sucesso! Importação anterior sobrescrita. ${unmappedCount > 0 ? `(${unmappedCount} ignorados)` : ''}`,
       )
       setExtractedData([])
       setFile(null)
