@@ -313,13 +313,25 @@ export function PontoPunch({ colaborador, deviceId }: any) {
 
   const getNextTipoRegistro = () => {
     if (registrosHoje.length === 0) return 'entrada'
-    if (registrosHoje.length === 1) return 'saida_intervalo'
-    if (registrosHoje.length === 2) return 'retorno_intervalo'
-    if (registrosHoje.length === 3) return 'saida'
+    const last = registrosHoje[registrosHoje.length - 1]
+    if (last.tipo_registro === 'entrada') return 'saida_intervalo'
+    if (last.tipo_registro === 'saida_intervalo') return 'retorno_intervalo'
+    if (last.tipo_registro === 'retorno_intervalo') return 'saida'
+    if (last.tipo_registro === 'saida') return 'entrada'
     return 'entrada'
   }
 
   const nextTipo = getNextTipoRegistro()
+
+  const availableTypes = [
+    { value: 'entrada', label: 'Entrada' },
+    { value: 'saida_intervalo', label: 'Saída Intervalo' },
+    { value: 'retorno_intervalo', label: 'Retorno Intervalo' },
+    { value: 'saida', label: 'Saída' },
+  ].filter((t) => {
+    if (isPontoAberto && t.value === 'entrada') return false
+    return true
+  })
 
   if (loadingRegistros && registrosHoje.length === 0) {
     return (
@@ -539,12 +551,23 @@ export function PontoPunch({ colaborador, deviceId }: any) {
               </div>
             </div>
 
-            <div className="space-y-2 text-center">
-              <p className="text-sm text-slate-500">Confirme o registro para o momento atual</p>
-              <div className="h-14 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center px-4 text-slate-800 font-bold text-lg">
-                {tipoLabels[tipoRegistro] || tipoRegistro} às{' '}
+            <div className="space-y-3 text-center">
+              <p className="text-sm text-slate-500">
+                Selecione o registro e confirme para{' '}
                 {time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-              </div>
+              </p>
+              <Select value={tipoRegistro} onValueChange={setTipoRegistro}>
+                <SelectTrigger className="h-14 text-lg font-bold bg-slate-50 border-slate-200 w-full justify-center gap-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTypes.map((t) => (
+                    <SelectItem key={t.value} value={t.value} className="text-base">
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
