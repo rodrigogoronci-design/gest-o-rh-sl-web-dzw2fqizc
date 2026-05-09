@@ -27,7 +27,16 @@ import {
   ChevronsUpDown,
   X,
   Image as ImageIcon,
+  Building2,
+  Eye,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 export default function Settings() {
@@ -169,6 +178,144 @@ export default function Settings() {
     } finally {
       setSavingPermissions(false)
     }
+  }
+
+  const renderMockLogin = () => {
+    const bgUrl = loginBgPreview
+    const logoToUse = loginLogoPreview || logoPreview
+    const isDarkTemplate = loginTemplate === 'glass'
+
+    const mockHeader = (isDark = false) => (
+      <div className="flex flex-col items-center text-center mb-6">
+        {logoToUse ? (
+          <img src={logoToUse} alt="Logo" className="h-20 w-auto object-contain mb-6" />
+        ) : (
+          <div
+            className={cn(
+              'w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-lg',
+              isDark ? 'bg-white/20 shadow-black/20' : 'bg-primary shadow-primary/20',
+            )}
+          >
+            <Building2
+              className={cn('w-8 h-8', isDark ? 'text-white' : 'text-primary-foreground')}
+            />
+          </div>
+        )}
+        <h1
+          className={cn(
+            'text-3xl font-bold tracking-tight',
+            isDark ? 'text-white' : 'text-slate-900',
+          )}
+        >
+          {appName || 'Gestão RH SL Web'}
+        </h1>
+        <p className={cn('mt-2 text-base', isDark ? 'text-white/80' : 'text-slate-500')}>
+          Entre com suas credenciais para acessar o sistema
+        </p>
+      </div>
+    )
+
+    const mockForm = (isDark = false) => (
+      <div className="space-y-4">
+        <div className="space-y-2 text-left">
+          <Label className={cn(isDark && 'text-white')}>Email corporativo</Label>
+          <Input
+            disabled
+            placeholder="seu.nome@empresa.com.br"
+            className={cn(
+              'h-11',
+              isDark && 'bg-black/20 border-white/20 text-white placeholder:text-white/50',
+            )}
+          />
+        </div>
+        <div className="space-y-2 text-left">
+          <div className="flex items-center justify-between">
+            <Label className={cn(isDark && 'text-white')}>Senha</Label>
+            <span className={cn('text-sm font-medium', isDark ? 'text-white/80' : 'text-primary')}>
+              Esqueceu a senha?
+            </span>
+          </div>
+          <Input
+            disabled
+            type="password"
+            placeholder="••••••••"
+            className={cn(
+              'h-11',
+              isDark && 'bg-black/20 border-white/20 text-white placeholder:text-white/50',
+            )}
+          />
+        </div>
+        <div className="pt-4">
+          <Button
+            disabled
+            className={cn(
+              'w-full h-11 text-base',
+              isDark && 'bg-white text-black hover:bg-white/90',
+            )}
+          >
+            Entrar no Sistema
+          </Button>
+        </div>
+      </div>
+    )
+
+    if (loginTemplate === 'split') {
+      return (
+        <div className="w-full min-h-[700px] h-full flex bg-background overflow-hidden relative">
+          <div className="flex-1 hidden md:flex items-center justify-center relative bg-slate-900">
+            {bgUrl ? (
+              <img
+                src={bgUrl}
+                alt="Background"
+                className="absolute inset-0 w-full h-full object-cover opacity-60"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-primary/20" />
+            )}
+          </div>
+          <div className="w-full md:w-[500px] flex flex-col items-center justify-center p-8 bg-white shadow-[-20px_0_40px_-10px_rgba(0,0,0,0.05)] z-20">
+            <div className="w-full max-w-sm">
+              {mockHeader()}
+              {mockForm()}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (loginTemplate === 'glass') {
+      return (
+        <div className="w-full min-h-[700px] h-full flex items-center justify-center p-4 relative overflow-hidden">
+          {bgUrl ? (
+            <img
+              src={bgUrl}
+              alt="Background"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-slate-900" />
+          )}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative z-10 w-full max-w-md">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-2xl shadow-2xl text-white">
+              {mockHeader(true)}
+              {mockForm(true)}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="w-full min-h-[700px] h-full flex flex-col items-center justify-center bg-slate-50 p-4 overflow-hidden">
+        <div className="w-full max-w-md space-y-8">
+          {mockHeader()}
+          <Card className="border-0 shadow-elevation">
+            <CardContent className="pt-6">{mockForm()}</CardContent>
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -403,14 +550,38 @@ export default function Settings() {
                 </div>
               </div>
 
-              <Button onClick={handleSaveAppearance} disabled={savingAppearance}>
-                {savingAppearance ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Salvar Aparência
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button onClick={handleSaveAppearance} disabled={savingAppearance}>
+                  {savingAppearance ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar Aparência
+                </Button>
+
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" type="button">
+                      <Eye className="w-4 h-4 mr-2" />
+                      Pré-visualizar Tela
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-6xl w-[90vw] p-0 overflow-hidden border-0 gap-0">
+                    <DialogHeader className="px-6 py-4 bg-white border-b shrink-0 flex flex-row items-center justify-between">
+                      <DialogTitle className="text-base font-semibold">
+                        Pré-visualização da Tela de Login
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div
+                      className="w-full relative bg-slate-100 overflow-y-auto"
+                      style={{ maxHeight: 'calc(90vh - 60px)' }}
+                    >
+                      {renderMockLogin()}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
