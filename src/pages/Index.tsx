@@ -89,13 +89,22 @@ export default function Index() {
 
   const bgUrl = appSettings.loginSettings.bgUrl
   const logoToUse = appSettings.loginSettings.logoUrl || appSettings.appLogo
-  const isDarkTemplate = appSettings.loginSettings.template === 'glass'
+  const template = appSettings.loginSettings.template
 
-  const renderHeader = (isDark = false) => {
+  const renderHeader = (isDark = false, alignLeft = false) => {
     return (
-      <div className="flex flex-col items-center text-center mb-6">
+      <div
+        className={cn(
+          'flex flex-col mb-8',
+          alignLeft ? 'items-start text-left' : 'items-center text-center',
+        )}
+      >
         {logoToUse ? (
-          <img src={logoToUse} alt="Logo" className="h-20 w-auto object-contain mb-6" />
+          <img
+            src={logoToUse}
+            alt="Logo"
+            className={cn('h-16 w-auto object-contain mb-6', alignLeft && 'ml-0')}
+          />
         ) : (
           <div
             className={cn(
@@ -112,11 +121,18 @@ export default function Index() {
           className={cn(
             'text-3xl font-bold tracking-tight',
             isDark ? 'text-white' : 'text-slate-900',
+            template === 'dark-split' && 'text-4xl',
           )}
         >
-          {appSettings.appName}
+          {template === 'dark-split' ? (
+            <>
+              Faça o seu login<span className="text-pink-500">.</span>
+            </>
+          ) : (
+            appSettings.appName
+          )}
         </h1>
-        <p className={cn('mt-2', isDark ? 'text-white/80' : 'text-slate-500')}>
+        <p className={cn('mt-2 text-base', isDark ? 'text-white/60' : 'text-slate-500')}>
           Entre com suas credenciais para acessar o sistema
         </p>
       </div>
@@ -124,85 +140,115 @@ export default function Index() {
   }
 
   const renderForm = (isDark = false) => {
+    let inputClasses = 'h-11'
+    let buttonClasses = 'w-full h-11 text-base transition-all'
+    let labelClasses = ''
+
+    if (isDark) {
+      inputClasses = cn(
+        inputClasses,
+        'bg-black/20 border-white/20 text-white placeholder:text-white/50 focus-visible:ring-white/30',
+      )
+      buttonClasses = cn(buttonClasses, 'bg-white text-black hover:bg-white/90')
+      labelClasses = 'text-white'
+    }
+
+    if (template === 'modern-glass') {
+      inputClasses =
+        'h-12 bg-transparent border-0 border-b-2 border-white/30 rounded-none px-2 focus-visible:ring-0 focus-visible:border-white text-white placeholder:text-white/50 transition-colors'
+      buttonClasses =
+        'w-full h-12 text-base rounded-full bg-gradient-to-r from-[#4A00E0] to-[#8E2DE2] text-white hover:opacity-90 border-0 shadow-lg hover:shadow-[#8E2DE2]/25'
+      labelClasses = 'text-white/80 text-sm font-normal'
+    } else if (template === 'dark-split') {
+      inputClasses =
+        'h-14 bg-[#1e1e24] border-0 text-white rounded-xl px-4 focus-visible:ring-1 focus-visible:ring-pink-500 placeholder:text-white/40'
+      buttonClasses =
+        'w-full h-14 text-base rounded-xl bg-gradient-to-r from-pink-500 to-orange-400 text-white font-semibold hover:opacity-90 border-0 shadow-lg hover:shadow-pink-500/25'
+      labelClasses = 'text-white/70 text-sm font-normal mb-1'
+    }
+
     return (
-      <form onSubmit={handleLogin} className="space-y-4">
+      <form onSubmit={handleLogin} className="space-y-6">
         <div className="space-y-2 text-left">
-          <Label htmlFor="email" className={cn(isDark && 'text-white')}>
-            Email corporativo
+          <Label htmlFor="email" className={labelClasses}>
+            {template === 'dark-split' ? 'email' : 'Email corporativo'}
           </Label>
           <Input
             id="email"
             type="email"
-            placeholder="seu.nome@empresa.com.br"
+            placeholder={template === 'dark-split' ? '' : 'seu.nome@empresa.com.br'}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className={cn(
-              'h-11',
-              isDark &&
-                'bg-black/20 border-white/20 text-white placeholder:text-white/50 focus-visible:ring-white/30',
-            )}
+            className={inputClasses}
             disabled={isLoading}
           />
         </div>
         {!isRecovering && (
           <div className="space-y-2 animate-fade-in text-left">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password" className={cn(isDark && 'text-white')}>
-                Senha
+              <Label htmlFor="password" className={labelClasses}>
+                {template === 'dark-split' ? 'senha' : 'Senha'}
               </Label>
-              <button
-                type="button"
-                onClick={() => setIsRecovering(true)}
-                className={cn(
-                  'text-sm font-medium focus:outline-none hover:underline',
-                  isDark ? 'text-white/80 hover:text-white' : 'text-primary',
-                )}
-              >
-                Esqueceu a senha?
-              </button>
+              {template !== 'dark-split' && (
+                <button
+                  type="button"
+                  onClick={() => setIsRecovering(true)}
+                  className={cn(
+                    'text-sm font-medium focus:outline-none hover:underline',
+                    isDark ? 'text-white/80 hover:text-white' : 'text-primary',
+                  )}
+                >
+                  Esqueceu a senha?
+                </button>
+              )}
             </div>
             <Input
               id="password"
               type="password"
-              placeholder="••••••••"
+              placeholder={template === 'dark-split' ? '' : '••••••••'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required={!isRecovering}
               minLength={6}
-              className={cn(
-                'h-11',
-                isDark &&
-                  'bg-black/20 border-white/20 text-white placeholder:text-white/50 focus-visible:ring-white/30',
-              )}
+              className={inputClasses}
               disabled={isLoading}
             />
+            {template === 'dark-split' && (
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsRecovering(true)}
+                  className="text-sm font-medium text-white/60 hover:text-white focus:outline-none hover:underline"
+                >
+                  esqueci minha senha
+                </button>
+              </div>
+            )}
           </div>
         )}
-        <div className="pt-4 space-y-3">
-          <Button
-            type="submit"
-            className={cn(
-              'w-full h-11 text-base',
-              isDark && 'bg-white text-black hover:bg-white/90',
-            )}
-            disabled={isLoading}
-          >
+        <div className="pt-2 space-y-3">
+          <Button type="submit" className={buttonClasses} disabled={isLoading}>
             {isLoading
               ? isRecovering
                 ? 'Enviando...'
                 : 'Autenticando...'
               : isRecovering
                 ? 'Enviar link de recuperação'
-                : 'Entrar no Sistema'}
+                : 'Entrar'}
           </Button>
           {isRecovering && (
             <Button
               type="button"
               variant="ghost"
               className={cn(
-                'w-full h-11',
-                isDark && 'text-white hover:bg-white/10 hover:text-white',
+                'w-full',
+                template === 'dark-split'
+                  ? 'h-14 text-white/60 hover:text-white hover:bg-white/5'
+                  : 'h-11',
+                isDark &&
+                  template !== 'dark-split' &&
+                  'text-white hover:bg-white/10 hover:text-white',
               )}
               onClick={() => setIsRecovering(false)}
               disabled={isLoading}
@@ -219,7 +265,7 @@ export default function Index() {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50" />
   }
 
-  if (appSettings.loginSettings.template === 'split') {
+  if (template === 'split') {
     return (
       <div className="min-h-screen w-full flex bg-background animate-in fade-in duration-500">
         <div className="flex-1 hidden lg:flex items-center justify-center relative overflow-hidden bg-slate-900">
@@ -244,7 +290,7 @@ export default function Index() {
     )
   }
 
-  if (appSettings.loginSettings.template === 'glass') {
+  if (template === 'glass') {
     return (
       <div className="min-h-screen w-full flex items-center justify-center p-4 relative animate-in fade-in duration-500">
         {bgUrl ? (
@@ -262,6 +308,52 @@ export default function Index() {
             {renderHeader(true)}
             {renderForm(true)}
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (template === 'modern-glass') {
+    return (
+      <div
+        className="min-h-screen w-full flex items-center justify-center p-4 relative animate-in fade-in duration-500"
+        style={{
+          background: bgUrl
+            ? `url(${bgUrl}) center/cover no-repeat`
+            : 'linear-gradient(135deg, #2a0845 0%, #6441A5 100%)',
+        }}
+      >
+        <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+        <div className="relative z-10 w-full max-w-[420px]">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-10 rounded-[2.5rem] shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] text-white">
+            {renderHeader(true)}
+            {renderForm(true)}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (template === 'dark-split') {
+    return (
+      <div className="min-h-screen w-full flex bg-[#0A0A0B] animate-in fade-in duration-500">
+        <div className="w-full lg:w-1/2 xl:w-[45%] flex flex-col justify-center p-8 sm:p-12 md:p-20 z-20">
+          <div className="w-full max-w-md mx-auto">
+            {renderHeader(true, true)}
+            {renderForm(true)}
+          </div>
+        </div>
+        <div className="flex-1 hidden lg:flex relative overflow-hidden bg-[#121214]">
+          {bgUrl ? (
+            <img
+              src={bgUrl}
+              alt="Background"
+              className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-screen"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2094&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-screen" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0A0A0B] via-transparent to-transparent" />
         </div>
       </div>
     )

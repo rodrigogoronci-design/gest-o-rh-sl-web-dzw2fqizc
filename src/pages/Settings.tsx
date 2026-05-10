@@ -183,12 +183,20 @@ export default function Settings() {
   const renderMockLogin = () => {
     const bgUrl = loginBgPreview
     const logoToUse = loginLogoPreview || logoPreview
-    const isDarkTemplate = loginTemplate === 'glass'
 
-    const mockHeader = (isDark = false) => (
-      <div className="flex flex-col items-center text-center mb-6">
+    const mockHeader = (isDark = false, alignLeft = false) => (
+      <div
+        className={cn(
+          'flex flex-col mb-8',
+          alignLeft ? 'items-start text-left' : 'items-center text-center',
+        )}
+      >
         {logoToUse ? (
-          <img src={logoToUse} alt="Logo" className="h-20 w-auto object-contain mb-6" />
+          <img
+            src={logoToUse}
+            alt="Logo"
+            className={cn('h-16 w-auto object-contain mb-6', alignLeft && 'ml-0')}
+          />
         ) : (
           <div
             className={cn(
@@ -205,59 +213,96 @@ export default function Settings() {
           className={cn(
             'text-3xl font-bold tracking-tight',
             isDark ? 'text-white' : 'text-slate-900',
+            loginTemplate === 'dark-split' && 'text-4xl',
           )}
         >
-          {appName || 'Gestão RH SL Web'}
+          {loginTemplate === 'dark-split' ? (
+            <>
+              Faça o seu login<span className="text-pink-500">.</span>
+            </>
+          ) : (
+            appName || 'Gestão RH SL Web'
+          )}
         </h1>
-        <p className={cn('mt-2 text-base', isDark ? 'text-white/80' : 'text-slate-500')}>
+        <p className={cn('mt-2 text-base', isDark ? 'text-white/60' : 'text-slate-500')}>
           Entre com suas credenciais para acessar o sistema
         </p>
       </div>
     )
 
-    const mockForm = (isDark = false) => (
-      <div className="space-y-4">
-        <div className="space-y-2 text-left">
-          <Label className={cn(isDark && 'text-white')}>Email corporativo</Label>
-          <Input
-            disabled
-            placeholder="seu.nome@empresa.com.br"
-            className={cn(
-              'h-11',
-              isDark && 'bg-black/20 border-white/20 text-white placeholder:text-white/50',
-            )}
-          />
-        </div>
-        <div className="space-y-2 text-left">
-          <div className="flex items-center justify-between">
-            <Label className={cn(isDark && 'text-white')}>Senha</Label>
-            <span className={cn('text-sm font-medium', isDark ? 'text-white/80' : 'text-primary')}>
-              Esqueceu a senha?
-            </span>
+    const mockForm = (isDark = false) => {
+      let inputClasses = 'h-11'
+      let buttonClasses = 'w-full h-11 text-base transition-all'
+      let labelClasses = ''
+
+      if (isDark) {
+        inputClasses = cn(
+          inputClasses,
+          'bg-black/20 border-white/20 text-white placeholder:text-white/50',
+        )
+        buttonClasses = cn(buttonClasses, 'bg-white text-black hover:bg-white/90')
+        labelClasses = 'text-white'
+      }
+
+      if (loginTemplate === 'modern-glass') {
+        inputClasses =
+          'h-12 bg-transparent border-0 border-b-2 border-white/30 rounded-none px-2 text-white placeholder:text-white/50 transition-colors'
+        buttonClasses =
+          'w-full h-12 text-base rounded-full bg-gradient-to-r from-[#4A00E0] to-[#8E2DE2] text-white hover:opacity-90 border-0 shadow-lg'
+        labelClasses = 'text-white/80 text-sm font-normal'
+      } else if (loginTemplate === 'dark-split') {
+        inputClasses =
+          'h-14 bg-[#1e1e24] border-0 text-white rounded-xl px-4 placeholder:text-white/40'
+        buttonClasses =
+          'w-full h-14 text-base rounded-xl bg-gradient-to-r from-pink-500 to-orange-400 text-white font-semibold hover:opacity-90 border-0 shadow-lg'
+        labelClasses = 'text-white/70 text-sm font-normal mb-1'
+      }
+
+      return (
+        <div className="space-y-6">
+          <div className="space-y-2 text-left">
+            <Label className={labelClasses}>
+              {loginTemplate === 'dark-split' ? 'email' : 'Email corporativo'}
+            </Label>
+            <Input
+              disabled
+              placeholder={loginTemplate === 'dark-split' ? '' : 'seu.nome@empresa.com.br'}
+              className={inputClasses}
+            />
           </div>
-          <Input
-            disabled
-            type="password"
-            placeholder="••••••••"
-            className={cn(
-              'h-11',
-              isDark && 'bg-black/20 border-white/20 text-white placeholder:text-white/50',
+          <div className="space-y-2 text-left">
+            <div className="flex items-center justify-between">
+              <Label className={labelClasses}>
+                {loginTemplate === 'dark-split' ? 'senha' : 'Senha'}
+              </Label>
+              {loginTemplate !== 'dark-split' && (
+                <span
+                  className={cn('text-sm font-medium', isDark ? 'text-white/80' : 'text-primary')}
+                >
+                  Esqueceu a senha?
+                </span>
+              )}
+            </div>
+            <Input
+              disabled
+              type="password"
+              placeholder={loginTemplate === 'dark-split' ? '' : '••••••••'}
+              className={inputClasses}
+            />
+            {loginTemplate === 'dark-split' && (
+              <div className="flex justify-end pt-1">
+                <span className="text-sm font-medium text-white/60">esqueci minha senha</span>
+              </div>
             )}
-          />
+          </div>
+          <div className="pt-2">
+            <Button disabled className={buttonClasses}>
+              Entrar
+            </Button>
+          </div>
         </div>
-        <div className="pt-4">
-          <Button
-            disabled
-            className={cn(
-              'w-full h-11 text-base',
-              isDark && 'bg-white text-black hover:bg-white/90',
-            )}
-          >
-            Entrar no Sistema
-          </Button>
-        </div>
-      </div>
-    )
+      )
+    }
 
     if (loginTemplate === 'split') {
       return (
@@ -301,6 +346,52 @@ export default function Settings() {
               {mockHeader(true)}
               {mockForm(true)}
             </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (loginTemplate === 'modern-glass') {
+      return (
+        <div
+          className="w-full min-h-[700px] h-full flex items-center justify-center p-4 relative overflow-hidden"
+          style={{
+            background: bgUrl
+              ? `url(${bgUrl}) center/cover no-repeat`
+              : 'linear-gradient(135deg, #2a0845 0%, #6441A5 100%)',
+          }}
+        >
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+          <div className="relative z-10 w-full max-w-[420px]">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-10 rounded-[2.5rem] shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] text-white">
+              {mockHeader(true)}
+              {mockForm(true)}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (loginTemplate === 'dark-split') {
+      return (
+        <div className="w-full min-h-[700px] h-full flex bg-[#0A0A0B] overflow-hidden relative">
+          <div className="w-full md:w-1/2 flex flex-col justify-center p-12 z-20">
+            <div className="w-full max-w-sm mx-auto">
+              {mockHeader(true, true)}
+              {mockForm(true)}
+            </div>
+          </div>
+          <div className="flex-1 hidden md:flex relative overflow-hidden bg-[#121214]">
+            {bgUrl ? (
+              <img
+                src={bgUrl}
+                alt="Background"
+                className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-screen"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2094&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-screen" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0A0A0B] via-transparent to-transparent" />
           </div>
         </div>
       )
@@ -494,7 +585,7 @@ export default function Settings() {
                           </Button>
                         )}
                         <div className="text-sm text-muted-foreground max-w-[200px]">
-                          Utilizada nos templates "Tela Dividida" e "Glassmorphism".
+                          Utilizada para definir o background principal da tela.
                         </div>
                       </div>
                     </div>
@@ -503,7 +594,7 @@ export default function Settings() {
 
                 <div className="space-y-3">
                   <Label>Template da Tela</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div
                       className={cn(
                         'border-2 rounded-xl p-4 cursor-pointer transition-all',
@@ -544,6 +635,34 @@ export default function Settings() {
                       <div className="font-medium mb-1">Glassmorphism</div>
                       <div className="text-xs text-muted-foreground">
                         Card translúcido centralizado sobre a imagem de fundo.
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        'border-2 rounded-xl p-4 cursor-pointer transition-all',
+                        loginTemplate === 'modern-glass'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                          : 'hover:border-primary/50',
+                      )}
+                      onClick={() => setLoginTemplate('modern-glass')}
+                    >
+                      <div className="font-medium mb-1">Glass Moderno</div>
+                      <div className="text-xs text-muted-foreground">
+                        Efeito blur aprimorado com inputs transparentes e gradientes vibrantes.
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        'border-2 rounded-xl p-4 cursor-pointer transition-all',
+                        loginTemplate === 'dark-split'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                          : 'hover:border-primary/50',
+                      )}
+                      onClick={() => setLoginTemplate('dark-split')}
+                    >
+                      <div className="font-medium mb-1">Escuro Elegante</div>
+                      <div className="text-xs text-muted-foreground">
+                        Modo noturno imersivo, com gradientes quentes e formulário minimalista.
                       </div>
                     </div>
                   </div>
