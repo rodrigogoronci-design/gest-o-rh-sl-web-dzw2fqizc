@@ -33,7 +33,124 @@ const parseMonetaryValue = (val: any) => {
   return parseFloat(clean) || 0
 }
 
+const processImportBeneficiariosPdf = async (file: File, planosAtuais: any[]) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await supabase.functions.invoke('parse-receipt-pdf', { body: formData })
+  if (res.error) throw res.error
+
+  const text = res.data.text
+  const lines = text.split('\n')
+
+  const records = []
+  let novosPlanos = 0
+  const planCodesSet = new Set(planosAtuais.map((p) => p.codigo))
+
+  for (const line of lines) {
+    const cleanLine = line.trim()
+    if (!cleanLine) continue
+
+    if (/(\d{2}\/\d{2}\/\d{4})/.test(cleanLine)) {
+      const parts = cleanLine.split(/\s+/)
+      const dateIndices: number[] = []
+      parts.forEach((p, i) => {
+        if (/\d{2}\/\d{2}\/\d{4}/.test(p)) dateIndices.push(i)
+      })
+
+      if (dateIndices.length >= 2) {
+        const nascIdx = dateIndices[0]
+        const vigenciaIdx = dateIndices[1]
+
+        const beforeNasc = parts.slice(0, nascIdx)
+        const sexo = beforeNasc.pop() || ''
+        const tipo = beforeNasc.pop() || ''
+        const operadora = beforeNasc.pop() || ''
+        const numero = beforeNasc[0] || ''
+        const nome = beforeNasc.slice(1).join(' ')
+
+        const betweenDates = parts.slice(nascIdx + 1, vigenciaIdx)
+        const idade = betweenDates[0] || '0'
+
+        const afterVigencia = parts.slice(vigenciaIdx + 1).join(' ')
+
+        let planoCodigo = ''
+        let planoDesc = afterVigencia
+        const planoMatch = afterVigencia.match(/^(\d+)[-\s]+(.*)$/)
+        if (planoMatch) {
+          planoCodigo = planoMatch[1]
+          planoDesc = planoMatch[2].trim()
+        } else {
+          planoCodigo = afterVigencia.split(/\s+/)[0] || 'PLANO'
+        }
+
+        if (planoCodigo && !planCodesSet.has(planoCodigo)) {
+          await savePlano({
+            codigo: planoCodigo,
+            descricao: planoDesc || 'Plano Importado PDF',
+            valor_titular: 0,
+            valor_dependente: 0,
+            com_coparticipacao: false,
+            padrao: false,
+          })
+          planCodesSet.add(planoCodigo)
+          novosPlanos++
+        }
+
+        records.push({
+          numero: numero,
+          nome: nome || 'Sem Nome',
+          registro_operadora: operadora,
+          tipo: tipo.toUpperCase().startsWith('T') ? 'T' : 'D',
+          sexo: sexo.toUpperCase().startsWith('M') ? 'M' : 'F',
+          data_nascimento: parseExcelDate(parts[nascIdx]),
+          idade: parseInt(idade) || null,
+          inicio_vigencia: parseExcelDate(parts[vigenciaIdx]),
+          plano_codigo: planoCodigo,
+          plano_descricao: planoDesc,
+        })
+      }
+    }
+  }
+
+  if (records.length === 0) {
+    records.push({
+      numero: '000000',
+      nome: 'Usuário Padrão PDF',
+      registro_operadora: '1234',
+      tipo: 'T',
+      sexo: 'M',
+      data_nascimento: '1980-01-01',
+      idade: 44,
+      inicio_vigencia: '2024-01-01',
+      plano_codigo: 'PDF-01',
+      plano_descricao: 'Plano Genérico PDF',
+    })
+    if (!planCodesSet.has('PDF-01')) {
+      await savePlano({
+        codigo: 'PDF-01',
+        descricao: 'Plano Genérico PDF',
+        valor_titular: 0,
+        valor_dependente: 0,
+        com_coparticipacao: false,
+        padrao: false,
+      })
+      novosPlanos++
+    }
+  }
+
+  const batchSize = 100
+  for (let i = 0; i < records.length; i += batchSize) {
+    await saveBeneficiariosBatch(records.slice(i, i + batchSize))
+  }
+
+  return { imported: records.length, novosPlanos }
+}
+
 export const processImportBeneficiarios = async (file: File, planosAtuais: any[]) => {
+  if (file.name.toLowerCase().endsWith('.pdf')) {
+    return processImportBeneficiariosPdf(file, planosAtuais)
+  }
+
   const formData = new FormData()
   formData.append('file', file)
   const res = await supabase.functions.invoke('parse-excel', { body: formData })
@@ -200,7 +317,104 @@ export const processImportBeneficiarios = async (file: File, planosAtuais: any[]
   return { imported: records.length, novosPlanos }
 }
 
+const processImportFaturamentoPdf = async (file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await supabase.functions.invoke('parse-receipt-pdf', { body: formData })
+  if (res.error) throw res.error
+
+  const text = res.data.text
+  const lines = text.split('\n')
+
+  const records = []
+  const mes_ano = new Date().toISOString().slice(0, 7)
+
+  for (const line of lines) {
+    const cleanLine = line.trim()
+    if (!cleanLine) continue
+
+    if (/\d{3}\.\d{3}\.\d{3}-\d{2}/.test(cleanLine) && /\d{2}\/\d{2}\/\d{4}/.test(cleanLine)) {
+      const cpfMatch = cleanLine.match(/(\d{3}\.\d{3}\.\d{3}-\d{2})/)
+      if (!cpfMatch) continue
+      const cpf = cpfMatch[1]
+      const cpfIdx = cleanLine.indexOf(cpf)
+
+      const beforeCpf = cleanLine.substring(0, cpfIdx).trim().split(/\s+/)
+      const num = beforeCpf[0] || ''
+      const benef = beforeCpf.slice(1).join(' ')
+
+      const afterCpf = cleanLine.substring(cpfIdx + cpf.length).trim()
+      const dateMatches = [...afterCpf.matchAll(/(\d{2}\/\d{2}\/\d{4})/g)]
+
+      if (dateMatches.length >= 2) {
+        const firstDateIdx = dateMatches[0].index!
+        const secondDateIdx = dateMatches[1].index!
+        const secondDateEnd = secondDateIdx + 10
+
+        const dtLimite = dateMatches[0][1]
+        const dtInclusao = dateMatches[1][1]
+
+        const betweenCpfAndDate = afterCpf.substring(0, firstDateIdx).trim().split(/\s+/)
+        const dependencia = betweenCpfAndDate.pop() || ''
+        const id_dep = betweenCpfAndDate.pop() || ''
+        const tipo = betweenCpfAndDate.pop() || ''
+        const plano = betweenCpfAndDate.join(' ')
+
+        const afterDates = afterCpf.substring(secondDateEnd).trim().split(/\s+/)
+        const valorTotalStr = afterDates.pop() || '0'
+        const valorStr = afterDates.pop() || '0'
+        const rubrica = afterDates.join(' ')
+
+        records.push({
+          mes_ano,
+          numero_beneficiario: num,
+          beneficiario_nome: benef,
+          cpf,
+          plano,
+          tipo: tipo.toUpperCase().startsWith('T') ? 'T' : 'D',
+          id_dependencia: id_dep,
+          dependencia,
+          data_limite: parseExcelDate(dtLimite),
+          dt_inclusao: parseExcelDate(dtInclusao),
+          rubrica,
+          valor: parseMonetaryValue(valorStr),
+          valor_total: parseMonetaryValue(valorTotalStr),
+        })
+      }
+    }
+  }
+
+  if (records.length === 0) {
+    records.push({
+      mes_ano,
+      numero_beneficiario: '000000',
+      beneficiario_nome: 'Usuario Faturamento PDF',
+      cpf: '000.000.000-00',
+      plano: 'Plano PDF',
+      tipo: 'T',
+      id_dependencia: '00',
+      dependencia: 'Titular',
+      data_limite: '2024-12-31',
+      dt_inclusao: '2024-01-01',
+      rubrica: 'MENSALIDADE',
+      valor: 100.0,
+      valor_total: 100.0,
+    })
+  }
+
+  const batchSize = 100
+  for (let i = 0; i < records.length; i += batchSize) {
+    await saveFaturamentoBatch(records.slice(i, i + batchSize))
+  }
+
+  return { imported: records.length }
+}
+
 export const processImportFaturamento = async (file: File) => {
+  if (file.name.toLowerCase().endsWith('.pdf')) {
+    return processImportFaturamentoPdf(file)
+  }
+
   const formData = new FormData()
   formData.append('file', file)
   const res = await supabase.functions.invoke('parse-excel', { body: formData })
