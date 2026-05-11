@@ -16,6 +16,16 @@ const parseExcelDate = (val: any) => {
   return null
 }
 
+const parseMonetaryValue = (val: any) => {
+  if (val === null || val === undefined || val === '') return 0
+  if (typeof val === 'number') return val
+  const clean = String(val)
+    .replace(/[R$\s]/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+  return parseFloat(clean) || 0
+}
+
 export const processImportBeneficiarios = async (file: File, planosAtuais: any[]) => {
   const formData = new FormData()
   formData.append('file', file)
@@ -40,10 +50,13 @@ export const processImportBeneficiarios = async (file: File, planosAtuais: any[]
     }
   }
 
-  if (headerRowIdx === -1) throw new Error('Cabeçalho não encontrado no arquivo.')
+  if (headerRowIdx === -1)
+    throw new Error('Cabeçalho não encontrado no Relatório de Beneficiários.')
 
   const colBenef = headers.findIndex((h) => h.includes('benefici'))
-  const colOperadora = headers.findIndex((h) => h.includes('operadora') || h.includes('registro'))
+  const colOperadora = headers.findIndex(
+    (h) => h.includes('operadora') || h.includes('registro') || h.includes('numero da operadora'),
+  )
   const colTipo = headers.findIndex((h) => h === 'tipo' || h.includes('tp'))
   const colSexo = headers.findIndex((h) => h === 'sexo')
   const colNascimento = headers.findIndex((h) => h.includes('nascimento') || h.includes('nasc'))
@@ -64,7 +77,11 @@ export const processImportBeneficiarios = async (file: File, planosAtuais: any[]
     const benefStr = String(row[colBenef] || '')
     let numero = ''
     let nome = benefStr
-    if (benefStr.includes('-')) {
+    const benefMatch = benefStr.match(/^(\d+)[-\s]+(.*)$/)
+    if (benefMatch) {
+      numero = benefMatch[1]
+      nome = benefMatch[2].trim()
+    } else if (benefStr.includes('-')) {
       const parts = benefStr.split('-')
       numero = parts[0].trim()
       nome = parts.slice(1).join('-').trim()
@@ -73,7 +90,11 @@ export const processImportBeneficiarios = async (file: File, planosAtuais: any[]
     const planoStr = String(row[colPlano] || '')
     let planoCodigo = ''
     let planoDesc = planoStr
-    if (planoStr.includes('-')) {
+    const planoMatch = planoStr.match(/^(\d+)[-\s]+(.*)$/)
+    if (planoMatch) {
+      planoCodigo = planoMatch[1]
+      planoDesc = planoMatch[2].trim()
+    } else if (planoStr.includes('-')) {
       const parts = planoStr.split('-')
       planoCodigo = parts[0].trim()
       planoDesc = parts.slice(1).join('-').trim()
@@ -142,19 +163,36 @@ export const processImportFaturamento = async (file: File) => {
     }
   }
 
-  if (headerRowIdx === -1) throw new Error('Cabeçalho não encontrado no arquivo.')
+  if (headerRowIdx === -1)
+    throw new Error('Cabeçalho não encontrado no Demonstrativo Analítico de Faturamento.')
 
-  const colNum = headers.findIndex((h) => h.includes('numero') || h.includes('número'))
-  const colBenef = headers.findIndex((h) => h.includes('benefici'))
-  const colCpf = headers.findIndex((h) => h === 'cpf')
-  const colPlano = headers.findIndex((h) => h === 'plano')
-  const colTipo = headers.findIndex((h) => h === 'tipo' || h === 'tp')
-  const colId = headers.findIndex((h) => h === 'id')
+  const colNum = headers.findIndex(
+    (h) =>
+      h === 'numero beneficiario' ||
+      h === 'número beneficiário' ||
+      h.includes('numero') ||
+      h.includes('número'),
+  )
+  const colBenef = headers.findIndex(
+    (h) =>
+      h === 'beneficiario' ||
+      h === 'beneficiário' ||
+      h === 'nome' ||
+      (h.includes('benefici') && !h.includes('numero')),
+  )
+  const colCpf = headers.findIndex((h) => h === 'cpf' || h.includes('cpf'))
+  const colPlano = headers.findIndex((h) => h === 'plano' || h.includes('plano'))
+  const colTipo = headers.findIndex(
+    (h) => h === 'tipo' || h === 'tp' || h === 'tipo (tp)' || h.includes('tipo'),
+  )
+  const colId = headers.findIndex((h) => h === 'id' || h === 'código' || h === 'codigo')
   const colDep = headers.findIndex((h) => h.includes('dependencia') || h.includes('dependência'))
   const colLimite = headers.findIndex((h) => h.includes('limite'))
   const colInclusao = headers.findIndex((h) => h.includes('inclusão') || h.includes('inclusao'))
   const colRubrica = headers.findIndex((h) => h.includes('rubrica') || h.includes('rublica'))
-  const colValor = headers.findIndex((h) => h === 'valor' || h === 'valor unitário')
+  const colValor = headers.findIndex(
+    (h) => h === 'valor' || h === 'valor unitário' || h === 'valor unitario',
+  )
   const colTotal = headers.findIndex((h) => h.includes('total'))
 
   const records = []
@@ -162,7 +200,7 @@ export const processImportFaturamento = async (file: File) => {
 
   for (let i = headerRowIdx + 1; i < rows.length; i++) {
     const row = rows[i]
-    if (!row || row.length === 0 || !row[colBenef]) continue
+    if (!row || row.length === 0 || (!row[colBenef] && !row[colNum])) continue
 
     records.push({
       mes_ano,
@@ -176,8 +214,8 @@ export const processImportFaturamento = async (file: File) => {
       data_limite: colLimite >= 0 ? parseExcelDate(row[colLimite]) : null,
       dt_inclusao: colInclusao >= 0 ? parseExcelDate(row[colInclusao]) : null,
       rubrica: colRubrica >= 0 ? String(row[colRubrica] || '') : '',
-      valor: colValor >= 0 ? parseFloat(String(row[colValor]).replace(',', '.')) || 0 : 0,
-      valor_total: colTotal >= 0 ? parseFloat(String(row[colTotal]).replace(',', '.')) || 0 : 0,
+      valor: colValor >= 0 ? parseMonetaryValue(row[colValor]) : 0,
+      valor_total: colTotal >= 0 ? parseMonetaryValue(row[colTotal]) : 0,
     })
   }
 
