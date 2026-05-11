@@ -91,7 +91,6 @@ const App = () => (
                   <Route path="usuarios" element={<Users />} />
                   <Route path="ticket" element={<Ticket />} />
                   <Route path="transporte" element={<Transport />} />
-                  <Route path="plano-saude" element={<PlanoSaude />} />
                   <Route path="admissao" element={<Admissao />} />
                   <Route path="demissao" element={<Demissao />} />
                   <Route path="configuracoes" element={<Settings />} />
@@ -107,6 +106,7 @@ const App = () => (
                 <Route path="apropriacao" element={<Apropriacao />} />
                 <Route path="banco-horas" element={<BancoHoras />} />
                 <Route path="contracheque" element={<ContraCheque />} />
+                <Route path="plano-saude" element={<PlanoSaude />} />
                 <Route path="perfil" element={<Profile />} />
               </Route>
             </Route>
