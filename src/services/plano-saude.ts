@@ -25,6 +25,16 @@ export const savePlano = async (plano: any) => {
   }
 }
 
+export const saveBeneficiariosBatch = async (beneficiarios: any[]) => {
+  const { error } = await supabase.from('beneficiarios_plano_saude').insert(beneficiarios)
+  if (error) throw error
+}
+
+export const saveFaturamentoBatch = async (faturamentos: any[]) => {
+  const { error } = await supabase.from('faturamento_plano_saude').insert(faturamentos)
+  if (error) throw error
+}
+
 export const deletePlano = async (id: string) => {
   const { error } = await supabase.from('planos_saude').delete().eq('id', id)
   if (error) throw error

@@ -20,8 +20,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { getPlanos, savePlano, deletePlano } from '@/services/plano-saude'
+import { processImportBeneficiarios, processImportFaturamento } from '@/services/plano-saude-import'
 import { toast } from '@/hooks/use-toast'
-import { supabase } from '@/lib/supabase/client'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export function GestaoPlanos() {
   const [planos, setPlanos] = useState<any[]>([])
@@ -79,37 +85,37 @@ export function GestaoPlanos() {
     }
   }
 
-  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportBeneficiarios = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await supabase.functions.invoke('parse-excel', {
-        body: formData,
+      const res = await processImportBeneficiarios(file, planos)
+      toast({
+        title: 'Sucesso',
+        description: `${res.imported} beneficiários e ${res.novosPlanos} planos importados.`,
       })
-      if (res.error) throw res.error
-      const data = res.data.data
-
-      const sheetName = Object.keys(data)[0]
-      const rows = data[sheetName]
-
-      let imported = 0
-      for (const row of rows.slice(1)) {
-        if (!row[0]) continue
-        await savePlano({
-          codigo: String(row[0]),
-          descricao: String(row[1] || `Plano ${row[0]}`),
-          valor_titular: Number(row[2] || 0),
-          valor_dependente: Number(row[3] || 0),
-        })
-        imported++
-      }
-      toast({ title: 'Sucesso', description: `${imported} planos importados.` })
       load()
     } catch (err: any) {
-      toast({ title: 'Erro na importação', description: err.message, variant: 'destructive' })
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleImportFaturamento = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const res = await processImportFaturamento(file)
+      toast({
+        title: 'Sucesso',
+        description: `${res.imported} registros de faturamento importados.`,
+      })
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -126,16 +132,37 @@ export function GestaoPlanos() {
           <div>
             <input
               type="file"
-              id="excel-upload"
+              id="import-beneficiarios"
               className="hidden"
-              accept=".xlsx,.xls"
-              onChange={handleImportExcel}
+              accept=".xlsx,.xls,.pdf"
+              onChange={handleImportBeneficiarios}
             />
-            <Button variant="outline" asChild disabled={uploading}>
-              <label htmlFor="excel-upload" className="cursor-pointer">
-                {uploading ? 'Importando...' : 'Importar Excel'}
-              </label>
-            </Button>
+            <input
+              type="file"
+              id="import-faturamento"
+              className="hidden"
+              accept=".xlsx,.xls,.pdf"
+              onChange={handleImportFaturamento}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={uploading}>
+                  {uploading ? 'Importando...' : 'Importar Operadora'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem
+                  onSelect={() => document.getElementById('import-beneficiarios')?.click()}
+                >
+                  Relatório de Beneficiários
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => document.getElementById('import-faturamento')?.click()}
+                >
+                  Demonstrativo Analítico
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <Dialog
             open={open}
