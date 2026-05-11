@@ -1,11 +1,17 @@
 // AVOID UPDATING THIS FILE DIRECTLY. It is automatically generated.
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: '14.4'
+    PostgrestVersion: "14.4"
   }
   public: {
     Tables: {
@@ -51,18 +57,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'afastamentos_aprovado_por_fkey'
-            columns: ['aprovado_por']
+            foreignKeyName: "afastamentos_aprovado_por_fkey"
+            columns: ["aprovado_por"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'afastamentos_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "afastamentos_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -108,18 +114,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'ajustes_ponto_aprovado_por_fkey'
-            columns: ['aprovado_por']
+            foreignKeyName: "ajustes_ponto_aprovado_por_fkey"
+            columns: ["aprovado_por"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'ajustes_ponto_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "ajustes_ponto_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -159,18 +165,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'atestados_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "atestados_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'atestados_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "atestados_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -228,11 +234,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'atividades_comerciais_cliente_id_fkey'
-            columns: ['cliente_id']
+            foreignKeyName: "atividades_comerciais_cliente_id_fkey"
+            columns: ["cliente_id"]
             isOneToOne: false
-            referencedRelation: 'clientes'
-            referencedColumns: ['id']
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -296,25 +302,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'avaliacoes_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "avaliacoes_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'fk_avaliacoes_avaliador'
-            columns: ['avaliador_id']
+            foreignKeyName: "fk_avaliacoes_avaliador"
+            columns: ["avaliador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'fk_avaliacoes_colaborador'
-            columns: ['colaborador_id']
+            foreignKeyName: "fk_avaliacoes_colaborador"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -369,11 +375,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'beneficios_ticket_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "beneficios_ticket_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -431,11 +437,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'beneficios_transporte_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "beneficios_transporte_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -475,18 +481,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'calculos_horas_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "calculos_horas_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'calculos_horas_periodo_id_fkey'
-            columns: ['periodo_id']
+            foreignKeyName: "calculos_horas_periodo_id_fkey"
+            columns: ["periodo_id"]
             isOneToOne: false
-            referencedRelation: 'periodos_folha'
-            referencedColumns: ['id']
+            referencedRelation: "periodos_folha"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -558,6 +564,48 @@ export type Database = {
           valor_total?: number | null
         }
         Relationships: []
+      }
+      colaborador_planos: {
+        Row: {
+          colaborador_id: string | null
+          created_at: string
+          data_adesao: string | null
+          id: string
+          plano_id: string | null
+          status: string | null
+        }
+        Insert: {
+          colaborador_id?: string | null
+          created_at?: string
+          data_adesao?: string | null
+          id?: string
+          plano_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          colaborador_id?: string | null
+          created_at?: string
+          data_adesao?: string | null
+          id?: string
+          plano_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "colaborador_planos_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: true
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "colaborador_planos_plano_id_fkey"
+            columns: ["plano_id"]
+            isOneToOne: false
+            referencedRelation: "planos_saude"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       colaboradores: {
         Row: {
@@ -673,11 +721,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'colaboradores_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "colaboradores_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -738,11 +786,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'contracheques_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "contracheques_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -800,6 +848,47 @@ export type Database = {
         }
         Relationships: []
       }
+      dependentes_plano: {
+        Row: {
+          colaborador_id: string | null
+          cpf: string | null
+          created_at: string
+          data_nascimento: string | null
+          id: string
+          nome: string
+          parentesco: string | null
+          status: string | null
+        }
+        Insert: {
+          colaborador_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          id?: string
+          nome: string
+          parentesco?: string | null
+          status?: string | null
+        }
+        Update: {
+          colaborador_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          id?: string
+          nome?: string
+          parentesco?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dependentes_plano_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dias_home_office: {
         Row: {
           created_at: string
@@ -848,11 +937,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'dispositivos_autorizados_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "dispositivos_autorizados_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -895,11 +984,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'faltas_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "faltas_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -960,18 +1049,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'ferias_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "ferias_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'ferias_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "ferias_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -999,11 +1088,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'historico_ajustes_user_id_fkey'
-            columns: ['user_id']
+            foreignKeyName: "historico_ajustes_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1046,11 +1135,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'historico_contratos_cliente_id_fkey'
-            columns: ['cliente_id']
+            foreignKeyName: "historico_contratos_cliente_id_fkey"
+            columns: ["cliente_id"]
             isOneToOne: false
-            referencedRelation: 'clientes'
-            referencedColumns: ['id']
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1135,13 +1224,46 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'periodos_folha_fechado_por_fkey'
-            columns: ['fechado_por']
+            foreignKeyName: "periodos_folha_fechado_por_fkey"
+            columns: ["fechado_por"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
+      }
+      planos_saude: {
+        Row: {
+          codigo: string
+          com_coparticipacao: boolean | null
+          created_at: string
+          descricao: string
+          id: string
+          padrao: boolean | null
+          valor_dependente: number | null
+          valor_titular: number | null
+        }
+        Insert: {
+          codigo: string
+          com_coparticipacao?: boolean | null
+          created_at?: string
+          descricao: string
+          id?: string
+          padrao?: boolean | null
+          valor_dependente?: number | null
+          valor_titular?: number | null
+        }
+        Update: {
+          codigo?: string
+          com_coparticipacao?: boolean | null
+          created_at?: string
+          descricao?: string
+          id?: string
+          padrao?: boolean | null
+          valor_dependente?: number | null
+          valor_titular?: number | null
+        }
+        Relationships: []
       }
       plantoes: {
         Row: {
@@ -1167,11 +1289,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'plantoes_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "plantoes_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1205,18 +1327,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'ponto_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "ponto_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'ponto_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "ponto_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1277,11 +1399,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'recebimentos_cliente_id_fkey'
-            columns: ['cliente_id']
+            foreignKeyName: "recebimentos_cliente_id_fkey"
+            columns: ["cliente_id"]
             isOneToOne: false
-            referencedRelation: 'clientes'
-            referencedColumns: ['id']
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1327,18 +1449,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'recrutamento_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "recrutamento_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'recrutamento_vaga_id_fkey'
-            columns: ['vaga_id']
+            foreignKeyName: "recrutamento_vaga_id_fkey"
+            columns: ["vaga_id"]
             isOneToOne: false
-            referencedRelation: 'vagas'
-            referencedColumns: ['id']
+            referencedRelation: "vagas"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1384,11 +1506,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'registro_ponto_colaborador_id_fkey'
-            columns: ['colaborador_id']
+            foreignKeyName: "registro_ponto_colaborador_id_fkey"
+            columns: ["colaborador_id"]
             isOneToOne: false
-            referencedRelation: 'colaboradores'
-            referencedColumns: ['id']
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1427,6 +1549,54 @@ export type Database = {
           jornada_diaria?: number | null
         }
         Relationships: []
+      }
+      solicitacoes_plano: {
+        Row: {
+          aprovado_por: string | null
+          colaborador_id: string | null
+          data_aprovacao: string | null
+          data_solicitacao: string | null
+          detalhes: Json | null
+          id: string
+          status: string | null
+          tipo: string
+        }
+        Insert: {
+          aprovado_por?: string | null
+          colaborador_id?: string | null
+          data_aprovacao?: string | null
+          data_solicitacao?: string | null
+          detalhes?: Json | null
+          id?: string
+          status?: string | null
+          tipo: string
+        }
+        Update: {
+          aprovado_por?: string | null
+          colaborador_id?: string | null
+          data_aprovacao?: string | null
+          data_solicitacao?: string | null
+          detalhes?: Json | null
+          id?: string
+          status?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitacoes_plano_aprovado_por_fkey"
+            columns: ["aprovado_por"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitacoes_plano_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       solicitacoes_servico: {
         Row: {
@@ -1470,11 +1640,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'solicitacoes_servico_cliente_id_fkey'
-            columns: ['cliente_id']
+            foreignKeyName: "solicitacoes_servico_cliente_id_fkey"
+            columns: ["cliente_id"]
             isOneToOne: false
-            referencedRelation: 'clientes'
-            referencedColumns: ['id']
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1517,11 +1687,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'vagas_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "vagas_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1542,31 +1712,33 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
-    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -1575,23 +1747,23 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -1600,23 +1772,23 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -1625,36 +1797,36 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema['Enums']
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
-    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema['CompositeTypes']
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
-    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
@@ -1662,6 +1834,7 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
 
 // ====== DATABASE EXTENDED CONTEXT (auto-generated) ======
 // This section contains actual PostgreSQL column types, constraints, RLS policies,
@@ -1801,6 +1974,13 @@ export const Constants = {
 //   documentos_urls: jsonb (nullable, default: '[]'::jsonb)
 //   diagnostico: jsonb (nullable, default: '{}'::jsonb)
 //   tags: jsonb (nullable, default: '[]'::jsonb)
+// Table: colaborador_planos
+//   id: uuid (not null, default: gen_random_uuid())
+//   colaborador_id: uuid (nullable)
+//   plano_id: uuid (nullable)
+//   data_adesao: date (nullable, default: CURRENT_DATE)
+//   status: text (nullable, default: 'ativo'::text)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: colaboradores
 //   id: uuid (not null, default: gen_random_uuid())
 //   created_at: timestamp with time zone (not null, default: timezone('utc'::text, now()))
@@ -1868,6 +2048,15 @@ export const Constants = {
 //   data_followup: date (nullable)
 //   diagnostico: jsonb (nullable, default: '{}'::jsonb)
 //   tags: jsonb (nullable, default: '[]'::jsonb)
+// Table: dependentes_plano
+//   id: uuid (not null, default: gen_random_uuid())
+//   colaborador_id: uuid (nullable)
+//   nome: text (not null)
+//   cpf: text (nullable)
+//   data_nascimento: date (nullable)
+//   parentesco: text (nullable)
+//   status: text (nullable, default: 'ativo'::text)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: dias_home_office
 //   id: uuid (not null, default: gen_random_uuid())
 //   data: date (not null)
@@ -1942,6 +2131,15 @@ export const Constants = {
 //   created_at: timestamp with time zone (not null, default: now())
 //   fechado_por: uuid (nullable)
 //   data_fechamento: timestamp with time zone (nullable)
+// Table: planos_saude
+//   id: uuid (not null, default: gen_random_uuid())
+//   codigo: text (not null)
+//   descricao: text (not null)
+//   valor_titular: numeric (nullable, default: 0)
+//   valor_dependente: numeric (nullable, default: 0)
+//   com_coparticipacao: boolean (nullable, default: false)
+//   padrao: boolean (nullable, default: false)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: plantoes
 //   id: uuid (not null, default: gen_random_uuid())
 //   colaborador_id: uuid (not null)
@@ -2007,6 +2205,15 @@ export const Constants = {
 //   intervalo_minutos: integer (nullable)
 //   adicional_noturno_percentual: numeric (nullable)
 //   created_at: timestamp with time zone (not null, default: now())
+// Table: solicitacoes_plano
+//   id: uuid (not null, default: gen_random_uuid())
+//   colaborador_id: uuid (nullable)
+//   tipo: text (not null)
+//   status: text (nullable, default: 'pendente'::text)
+//   detalhes: jsonb (nullable)
+//   data_solicitacao: timestamp with time zone (nullable, default: now())
+//   aprovado_por: uuid (nullable)
+//   data_aprovacao: timestamp with time zone (nullable)
 // Table: solicitacoes_servico
 //   id: uuid (not null, default: gen_random_uuid())
 //   cliente_id: uuid (not null)
@@ -2069,6 +2276,11 @@ export const Constants = {
 //   PRIMARY KEY calculos_horas_pkey: PRIMARY KEY (id)
 // Table: clientes
 //   PRIMARY KEY clientes_pkey: PRIMARY KEY (id)
+// Table: colaborador_planos
+//   FOREIGN KEY colaborador_planos_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
+//   UNIQUE colaborador_planos_colaborador_id_key: UNIQUE (colaborador_id)
+//   PRIMARY KEY colaborador_planos_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY colaborador_planos_plano_id_fkey: FOREIGN KEY (plano_id) REFERENCES planos_saude(id) ON DELETE RESTRICT
 // Table: colaboradores
 //   FOREIGN KEY colaboradores_organization_id_fkey: FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 //   PRIMARY KEY colaboradores_pkey: PRIMARY KEY (id)
@@ -2082,6 +2294,9 @@ export const Constants = {
 // Table: crm_prospects
 //   PRIMARY KEY crm_prospects_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY crm_prospects_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL
+// Table: dependentes_plano
+//   FOREIGN KEY dependentes_plano_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
+//   PRIMARY KEY dependentes_plano_pkey: PRIMARY KEY (id)
 // Table: dias_home_office
 //   UNIQUE dias_home_office_data_key: UNIQUE (data)
 //   PRIMARY KEY dias_home_office_pkey: PRIMARY KEY (id)
@@ -2116,6 +2331,8 @@ export const Constants = {
 // Table: periodos_folha
 //   FOREIGN KEY periodos_folha_fechado_por_fkey: FOREIGN KEY (fechado_por) REFERENCES colaboradores(id)
 //   PRIMARY KEY periodos_folha_pkey: PRIMARY KEY (id)
+// Table: planos_saude
+//   PRIMARY KEY planos_saude_pkey: PRIMARY KEY (id)
 // Table: plantoes
 //   UNIQUE plantoes_colaborador_id_data_key: UNIQUE (colaborador_id, data)
 //   FOREIGN KEY plantoes_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
@@ -2136,6 +2353,10 @@ export const Constants = {
 //   PRIMARY KEY registro_ponto_pkey: PRIMARY KEY (id)
 // Table: regras_ponto
 //   PRIMARY KEY regras_ponto_pkey: PRIMARY KEY (id)
+// Table: solicitacoes_plano
+//   FOREIGN KEY solicitacoes_plano_aprovado_por_fkey: FOREIGN KEY (aprovado_por) REFERENCES colaboradores(id) ON DELETE SET NULL
+//   FOREIGN KEY solicitacoes_plano_colaborador_id_fkey: FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
+//   PRIMARY KEY solicitacoes_plano_pkey: PRIMARY KEY (id)
 // Table: solicitacoes_servico
 //   FOREIGN KEY solicitacoes_servico_cliente_id_fkey: FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
 //   PRIMARY KEY solicitacoes_servico_pkey: PRIMARY KEY (id)
@@ -2207,6 +2428,16 @@ export const Constants = {
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+// Table: colaborador_planos
+//   Policy "colab_planos_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "colab_planos_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "colab_planos_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "colab_planos_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: colaboradores
 //   Policy "colaboradores_select" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: ((user_id = auth.uid()) OR is_in_my_team(id))
@@ -2228,6 +2459,16 @@ export const Constants = {
 //     USING: true
 //     WITH CHECK: true
 //   Policy "Allow all access to authenticated users" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: dependentes_plano
+//   Policy "dep_planos_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "dep_planos_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "dep_planos_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "dep_planos_update" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
 // Table: dias_home_office
@@ -2298,6 +2539,16 @@ export const Constants = {
 //   Policy "periodos_folha_all" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+// Table: planos_saude
+//   Policy "planos_saude_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "planos_saude_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "planos_saude_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "planos_saude_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: plantoes
 //   Policy "Allow all access to anon users" (ALL, PERMISSIVE) roles={anon}
 //     USING: true
@@ -2342,6 +2593,16 @@ export const Constants = {
 //   Policy "regras_ponto_all" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+// Table: solicitacoes_plano
+//   Policy "solic_planos_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "solic_planos_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "solic_planos_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "solic_planos_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: solicitacoes_servico
 //   Policy "solicitacoes_servico_delete" (DELETE, PERMISSIVE) roles={public}
 //     USING: true
@@ -2379,16 +2640,16 @@ export const Constants = {
 //     IF NEW.status IN ('validado', 'aprovado') THEN
 //       RETURN NEW;
 //     END IF;
-//
+//   
 //     SELECT * INTO v_colab FROM public.colaboradores WHERE id = NEW.colaborador_id;
-//
+//     
 //     IF NOT FOUND THEN
 //       RETURN NEW;
 //     END IF;
-//
+//   
 //     -- Converter o data_hora para a hora local
 //     v_time := (NEW.data_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::time;
-//
+//   
 //     -- Obter horário esperado de acordo com o tipo de registro
 //     IF NEW.tipo_registro = 'entrada' AND v_colab.jornada_entrada IS NOT NULL THEN
 //       v_expected := v_colab.jornada_entrada::time;
@@ -2403,28 +2664,28 @@ export const Constants = {
 //       NEW.status := 'pendente';
 //       RETURN NEW;
 //     END IF;
-//
+//   
 //     -- Calcular diferença de horas
 //     v_diff := v_time - v_expected;
-//
+//     
 //     -- Lidar com virada de dia (ex: esperado 23:55, batido 00:02 = diferença 7 minutos real, não 23h)
 //     IF v_diff < interval '-12 hours' THEN
 //       v_diff := v_diff + interval '24 hours';
 //     ELSIF v_diff > interval '12 hours' THEN
 //       v_diff := v_diff - interval '24 hours';
 //     END IF;
-//
+//   
 //     -- Se a variação for de até 5 minutos, aprovar automaticamente
 //     IF ABS(EXTRACT(EPOCH FROM v_diff) / 60) <= 5 THEN
 //       NEW.status := 'validado';
 //     ELSE
 //       NEW.status := 'pendente';
 //     END IF;
-//
+//   
 //     RETURN NEW;
 //   END;
 //   $function$
-//
+//   
 // FUNCTION auto_confirm_users()
 //   CREATE OR REPLACE FUNCTION public.auto_confirm_users()
 //    RETURNS trigger
@@ -2436,7 +2697,7 @@ export const Constants = {
 //     RETURN NEW;
 //   END;
 //   $function$
-//
+//   
 // FUNCTION check_periodo_fechado()
 //   CREATE OR REPLACE FUNCTION public.check_periodo_fechado()
 //    RETURNS trigger
@@ -2452,7 +2713,7 @@ export const Constants = {
 //       ELSE
 //           v_record := NEW;
 //       END IF;
-//
+//   
 //       IF TG_TABLE_NAME = 'registro_ponto' THEN
 //           v_data := (v_record.data_hora AT TIME ZONE 'America/Sao_Paulo')::DATE;
 //           SELECT EXISTS (
@@ -2472,18 +2733,18 @@ export const Constants = {
 //                 AND (v_record.data_inicio <= data_fim AND v_record.data_fim >= data_inicio)
 //           ) INTO v_fechado;
 //       END IF;
-//
+//       
 //       IF v_fechado THEN
 //           RAISE EXCEPTION 'Não é permitido alterar registros em um período fechado.';
 //       END IF;
-//
+//   
 //       IF TG_OP = 'DELETE' THEN
 //           RETURN OLD;
 //       END IF;
 //       RETURN NEW;
 //   END;
 //   $function$
-//
+//   
 // FUNCTION get_current_colaborador_id()
 //   CREATE OR REPLACE FUNCTION public.get_current_colaborador_id()
 //    RETURNS uuid
@@ -2492,7 +2753,7 @@ export const Constants = {
 //   AS $function$
 //     SELECT id FROM public.colaboradores WHERE user_id = auth.uid() LIMIT 1;
 //   $function$
-//
+//   
 // FUNCTION is_in_my_team(uuid)
 //   CREATE OR REPLACE FUNCTION public.is_in_my_team(target_colab_id uuid)
 //    RETURNS boolean
@@ -2505,22 +2766,22 @@ export const Constants = {
 //     target_dept TEXT;
 //   BEGIN
 //     SELECT role, departamento INTO my_role, my_dept FROM public.colaboradores WHERE user_id = auth.uid() LIMIT 1;
-//
+//     
 //     IF my_role ILIKE 'admin' OR my_role ILIKE 'administrador' THEN
 //       RETURN TRUE;
 //     END IF;
-//
+//   
 //     IF my_role ILIKE 'gerente' THEN
 //       SELECT departamento INTO target_dept FROM public.colaboradores WHERE id = target_colab_id;
 //       IF target_dept = my_dept THEN
 //         RETURN TRUE;
 //       END IF;
 //     END IF;
-//
+//   
 //     RETURN FALSE;
 //   END;
 //   $function$
-//
+//   
 // FUNCTION on_ajuste_ponto_invalidate_falta()
 //   CREATE OR REPLACE FUNCTION public.on_ajuste_ponto_invalidate_falta()
 //    RETURNS trigger
@@ -2529,13 +2790,13 @@ export const Constants = {
 //   AS $function$
 //   BEGIN
 //     IF NEW.status = 'aprovado' THEN
-//       DELETE FROM public.faltas
+//       DELETE FROM public.faltas 
 //       WHERE colaborador_id = NEW.colaborador_id AND data = NEW.data;
 //     END IF;
 //     RETURN NEW;
 //   END;
 //   $function$
-//
+//   
 // FUNCTION prevent_duplicate_entrada()
 //   CREATE OR REPLACE FUNCTION public.prevent_duplicate_entrada()
 //    RETURNS trigger
@@ -2548,7 +2809,7 @@ export const Constants = {
 //   BEGIN
 //     IF NEW.tipo_registro = 'entrada' THEN
 //       v_dia := (NEW.data_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date;
-//
+//       
 //       -- Busca o último registro do dia do colaborador
 //       SELECT * INTO v_last_registro
 //       FROM public.registro_ponto
@@ -2557,17 +2818,17 @@ export const Constants = {
 //         AND id != NEW.id
 //       ORDER BY data_hora DESC
 //       LIMIT 1;
-//
+//   
 //       -- Se encontrou um registro e o último NÃO for saída, o ponto ainda está aberto (em andamento)
 //       IF FOUND AND v_last_registro.tipo_registro != 'saida' THEN
 //         RAISE EXCEPTION 'Já existe uma marcação aberta para este colaborador no dia vigente.';
 //       END IF;
 //     END IF;
-//
+//     
 //     RETURN NEW;
 //   END;
 //   $function$
-//
+//   
 // FUNCTION prevent_unwanted_contracheques()
 //   CREATE OR REPLACE FUNCTION public.prevent_unwanted_contracheques()
 //    RETURNS trigger
@@ -2581,31 +2842,31 @@ export const Constants = {
 //     SELECT nome, role INTO v_nome, v_role
 //     FROM public.colaboradores
 //     WHERE id = NEW.colaborador_id;
-//
+//   
 //     -- Bloquear João Estagiário e variações (incluindo "Joã estagiaio")
 //     IF v_nome ILIKE '%joão%estagi%' OR v_nome ILIKE '%joao%estagi%' OR v_nome ILIKE '%joã%estagi%' THEN
 //       RETURN NULL;
 //     END IF;
-//
+//   
 //     -- Bloquear Brunella
 //     IF v_nome ILIKE '%brunella%' THEN
 //       RETURN NULL;
 //     END IF;
-//
+//   
 //     -- Bloquear Ismael Bomfim
 //     IF v_nome ILIKE '%ismael bomfim%' THEN
 //       RETURN NULL;
 //     END IF;
-//
+//   
 //     -- Bloquear Administradores e Gerentes, exceto Rodrigo
 //     IF (v_role ILIKE 'admin' OR v_role ILIKE 'gerente') AND v_nome NOT ILIKE '%rodrigo%' THEN
 //       RETURN NULL;
 //     END IF;
-//
+//   
 //     RETURN NEW;
 //   END;
 //   $function$
-//
+//   
 // FUNCTION sync_ticket_to_transporte()
 //   CREATE OR REPLACE FUNCTION public.sync_ticket_to_transporte()
 //    RETURNS trigger
@@ -2625,10 +2886,10 @@ export const Constants = {
 //     IF pg_trigger_depth() > 1 THEN
 //       RETURN NEW;
 //     END IF;
-//
+//   
 //     v_year := split_part(NEW.mes_ano, '-', 1)::integer;
 //     v_month := split_part(NEW.mes_ano, '-', 2)::integer;
-//
+//     
 //     -- Use PREVIOUS cycle dates for Home Office and Plantões as per rules
 //     IF v_month = 1 THEN
 //       v_start_date := make_date(v_year - 1, 12, 25);
@@ -2637,19 +2898,19 @@ export const Constants = {
 //       v_start_date := make_date(v_year, v_month - 1, 25);
 //       v_end_date := make_date(v_year, v_month, 24);
 //     END IF;
-//
+//   
 //     SELECT recebe_transporte INTO v_recebe
 //     FROM public.colaboradores
 //     WHERE id = NEW.colaborador_id;
-//
+//   
 //     SELECT count(*) INTO v_home_office_count
 //     FROM public.dias_home_office
 //     WHERE data >= v_start_date AND data <= v_end_date;
-//
+//   
 //     SELECT count(*) INTO v_plantoes_count
 //     FROM public.plantoes
 //     WHERE data >= v_start_date AND data <= v_end_date AND colaborador_id = NEW.colaborador_id;
-//
+//   
 //     IF v_recebe = true THEN
 //       INSERT INTO public.beneficios_transporte (
 //         colaborador_id, mes_ano, ferias, atestados, faltas, dias_uteis, home_office, plantoes
@@ -2663,11 +2924,11 @@ export const Constants = {
 //         home_office = EXCLUDED.home_office,
 //         plantoes = EXCLUDED.plantoes;
 //     END IF;
-//
+//       
 //     RETURN NEW;
 //   END;
 //   $function$
-//
+//   
 
 // --- TRIGGERS ---
 // Table: afastamentos
@@ -2694,6 +2955,8 @@ export const Constants = {
 //   CREATE UNIQUE INDEX beneficios_ticket_colaborador_id_mes_ano_key ON public.beneficios_ticket USING btree (colaborador_id, mes_ano)
 // Table: beneficios_transporte
 //   CREATE UNIQUE INDEX beneficios_transporte_colaborador_id_mes_ano_key ON public.beneficios_transporte USING btree (colaborador_id, mes_ano)
+// Table: colaborador_planos
+//   CREATE UNIQUE INDEX colaborador_planos_colaborador_id_key ON public.colaborador_planos USING btree (colaborador_id)
 // Table: colaboradores
 //   CREATE INDEX idx_colaboradores_organization_id ON public.colaboradores USING btree (organization_id)
 //   CREATE INDEX idx_colaboradores_user_id ON public.colaboradores USING btree (user_id)
@@ -2711,3 +2974,4 @@ export const Constants = {
 //   CREATE UNIQUE INDEX plantoes_colaborador_id_data_key ON public.plantoes USING btree (colaborador_id, data)
 // Table: solicitacoes_servico
 //   CREATE INDEX idx_solicitacoes_servico_cliente_id ON public.solicitacoes_servico USING btree (cliente_id)
+
