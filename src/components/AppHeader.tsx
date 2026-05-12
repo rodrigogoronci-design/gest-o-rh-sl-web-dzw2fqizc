@@ -52,7 +52,7 @@ export default function AppHeader() {
         <h1 className="text-lg font-semibold text-slate-800 hidden sm:block">Painel de Controle</h1>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="w-5 h-5 text-slate-600" />
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>

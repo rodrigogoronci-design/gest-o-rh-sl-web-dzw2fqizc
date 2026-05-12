@@ -95,7 +95,7 @@ export default function Index() {
     return (
       <div
         className={cn(
-          'flex flex-col mb-8',
+          'flex flex-col mb-6 sm:mb-8',
           alignLeft ? 'items-start text-left' : 'items-center text-center',
         )}
       >
@@ -103,25 +103,28 @@ export default function Index() {
           <img
             src={logoToUse}
             alt="Logo"
-            className={cn('h-16 w-auto object-contain mb-6', alignLeft && 'ml-0')}
+            className={cn('h-12 sm:h-16 w-auto object-contain mb-4 sm:mb-6', alignLeft && 'ml-0')}
           />
         ) : (
           <div
             className={cn(
-              'w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-lg',
+              'w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center mb-4 sm:mb-6 shadow-lg',
               isDark ? 'bg-white/20 shadow-black/20' : 'bg-primary shadow-primary/20',
             )}
           >
             <Building2
-              className={cn('w-8 h-8', isDark ? 'text-white' : 'text-primary-foreground')}
+              className={cn(
+                'w-6 h-6 sm:w-8 sm:h-8',
+                isDark ? 'text-white' : 'text-primary-foreground',
+              )}
             />
           </div>
         )}
         <h1
           className={cn(
-            'text-3xl font-bold tracking-tight',
+            'text-2xl sm:text-3xl font-bold tracking-tight',
             isDark ? 'text-white' : 'text-slate-900',
-            template === 'dark-split' && 'text-4xl',
+            template === 'dark-split' && 'text-3xl sm:text-4xl',
           )}
         >
           {template === 'dark-split' ? (
@@ -132,7 +135,7 @@ export default function Index() {
             appSettings.appName
           )}
         </h1>
-        <p className={cn('mt-2 text-base', isDark ? 'text-white/60' : 'text-slate-500')}>
+        <p className={cn('mt-2 text-sm sm:text-base', isDark ? 'text-white/60' : 'text-slate-500')}>
           Entre com suas credenciais para acessar o sistema
         </p>
       </div>
@@ -161,15 +164,15 @@ export default function Index() {
       labelClasses = 'text-white/80 text-sm font-normal'
     } else if (template === 'dark-split') {
       inputClasses =
-        'h-14 bg-[#1e1e24] border-0 text-white rounded-xl px-4 focus-visible:ring-1 focus-visible:ring-pink-500 placeholder:text-white/40'
+        'h-12 sm:h-14 bg-[#1e1e24] border-0 text-white rounded-xl px-4 focus-visible:ring-1 focus-visible:ring-pink-500 placeholder:text-white/40'
       buttonClasses =
-        'w-full h-14 text-base rounded-xl bg-gradient-to-r from-pink-500 to-orange-400 text-white font-semibold hover:opacity-90 border-0 shadow-lg hover:shadow-pink-500/25'
+        'w-full h-12 sm:h-14 text-base rounded-xl bg-gradient-to-r from-pink-500 to-orange-400 text-white font-semibold hover:opacity-90 border-0 shadow-lg hover:shadow-pink-500/25'
       labelClasses = 'text-white/70 text-sm font-normal mb-1'
     }
 
     return (
-      <form onSubmit={handleLogin} className="space-y-6">
-        <div className="space-y-2 text-left">
+      <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
+        <div className="space-y-1.5 sm:space-y-2 text-left">
           <Label htmlFor="email" className={labelClasses}>
             {template === 'dark-split' ? 'email' : 'Email corporativo'}
           </Label>
@@ -185,7 +188,7 @@ export default function Index() {
           />
         </div>
         {!isRecovering && (
-          <div className="space-y-2 animate-fade-in text-left">
+          <div className="space-y-1.5 sm:space-y-2 animate-fade-in text-left">
             <div className="flex items-center justify-between">
               <Label htmlFor="password" className={labelClasses}>
                 {template === 'dark-split' ? 'senha' : 'Senha'}
@@ -227,7 +230,7 @@ export default function Index() {
             )}
           </div>
         )}
-        <div className="pt-2 space-y-3">
+        <div className="pt-2 space-y-2 sm:space-y-3">
           <Button type="submit" className={buttonClasses} disabled={isLoading}>
             {isLoading
               ? isRecovering
@@ -244,7 +247,7 @@ export default function Index() {
               className={cn(
                 'w-full',
                 template === 'dark-split'
-                  ? 'h-14 text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'h-12 sm:h-14 text-white/60 hover:text-white hover:bg-white/5'
                   : 'h-11',
                 isDark &&
                   template !== 'dark-split' &&
@@ -280,7 +283,7 @@ export default function Index() {
           )}
           <div className="relative z-10 text-white p-12 text-center max-w-2xl"></div>
         </div>
-        <div className="w-full lg:w-[500px] xl:w-[600px] flex flex-col items-center justify-center p-8 bg-white shadow-[-20px_0_40px_-10px_rgba(0,0,0,0.05)] z-20">
+        <div className="w-full lg:w-[500px] xl:w-[600px] flex flex-col items-center justify-center p-6 sm:p-8 bg-white shadow-none sm:shadow-[-20px_0_40px_-10px_rgba(0,0,0,0.05)] z-20 min-h-screen">
           <div className="w-full max-w-sm">
             {renderHeader()}
             {renderForm()}
@@ -292,7 +295,7 @@ export default function Index() {
 
   if (template === 'glass') {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center p-4 relative animate-in fade-in duration-500">
+      <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6 relative animate-in fade-in duration-500">
         {bgUrl ? (
           <img
             src={bgUrl}
@@ -304,7 +307,7 @@ export default function Index() {
         )}
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
         <div className="relative z-10 w-full max-w-md">
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-2xl shadow-2xl text-white">
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 sm:p-8 rounded-2xl shadow-2xl text-white">
             {renderHeader(true)}
             {renderForm(true)}
           </div>
@@ -316,7 +319,7 @@ export default function Index() {
   if (template === 'modern-glass') {
     return (
       <div
-        className="min-h-screen w-full flex items-center justify-center p-4 relative animate-in fade-in duration-500"
+        className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6 relative animate-in fade-in duration-500"
         style={{
           background: bgUrl
             ? `url(${bgUrl}) center/cover no-repeat`
@@ -325,7 +328,7 @@ export default function Index() {
       >
         <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
         <div className="relative z-10 w-full max-w-[420px]">
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-10 rounded-[2.5rem] shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] text-white">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 sm:p-10 rounded-3xl sm:rounded-[2.5rem] shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] text-white">
             {renderHeader(true)}
             {renderForm(true)}
           </div>
@@ -337,7 +340,7 @@ export default function Index() {
   if (template === 'dark-split') {
     return (
       <div className="min-h-screen w-full flex bg-[#0A0A0B] animate-in fade-in duration-500">
-        <div className="w-full lg:w-1/2 xl:w-[45%] flex flex-col justify-center p-8 sm:p-12 md:p-20 z-20">
+        <div className="w-full lg:w-1/2 xl:w-[45%] flex flex-col justify-center p-6 sm:p-12 md:p-20 z-20 min-h-screen">
           <div className="w-full max-w-md mx-auto">
             {renderHeader(true, true)}
             {renderForm(true)}
@@ -361,8 +364,8 @@ export default function Index() {
 
   // Default Template
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 animate-in fade-in duration-500">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 sm:p-6 animate-in fade-in duration-500">
+      <div className="w-full max-w-md space-y-6 sm:space-y-8">
         {renderHeader()}
         <Card className="border-0 shadow-elevation">
           <CardContent className="pt-6">{renderForm()}</CardContent>
