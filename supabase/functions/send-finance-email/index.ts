@@ -7,7 +7,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    return new Response(JSON.stringify({ success: true, message: 'PDF parsed successfully' }), {
+    return new Response(JSON.stringify({ success: true, message: 'Email sent successfully' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
