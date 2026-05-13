@@ -3,8 +3,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, x-supabase-client-platform, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, x-supabase-client-platform, apikey, content-type',
 }
 
 Deno.serve(async (req: Request) => {
@@ -17,7 +16,7 @@ Deno.serve(async (req: Request) => {
     const { to, clientName, moduleName, type } = body
 
     let emailBody = ''
-
+    
     if (type === 'proposta_treinamento') {
       emailBody = `Boa tarde, ${clientName || 'Cliente'}!
 Conforme alinhado, segue em anexo a proposta referente ao treinamento do ${moduleName || 'Módulo'}.
@@ -30,17 +29,14 @@ Fico à disposição para quaisquer dúvidas.`
 
     // Email sending logic would go here (e.g. Resend, SendGrid)
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Email sent successfully',
-        preview: emailBody,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      },
-    )
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'Email sent successfully',
+      preview: emailBody 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
