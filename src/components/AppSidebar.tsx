@@ -95,6 +95,12 @@ export default function AppSidebar() {
           roles: ['admin', 'Admin', 'Gerente'],
         },
         {
+          title: 'Pessoas',
+          path: '/app/pessoas',
+          icon: Users,
+          roles: ['admin', 'Admin', 'Gerente'],
+        },
+        {
           title: 'Admissão',
           path: '/app/admissao',
           icon: UserPlus,

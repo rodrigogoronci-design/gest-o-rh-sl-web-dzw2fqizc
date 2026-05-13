@@ -28,6 +28,7 @@ import Meritocracia from './pages/Meritocracia'
 import MeritocraciaSetor from './pages/MeritocraciaSetor'
 import Admissao from './pages/Admissao'
 import Demissao from './pages/Demissao'
+import Pessoas from './pages/Pessoas'
 import Settings from './pages/Settings'
 import PlanoSaude from './pages/PlanoSaude'
 import Acessos from './pages/Acessos'
@@ -91,6 +92,7 @@ const App = () => (
                   <Route path="usuarios" element={<Users />} />
                   <Route path="ticket" element={<Ticket />} />
                   <Route path="transporte" element={<Transport />} />
+                  <Route path="pessoas" element={<Pessoas />} />
                   <Route path="admissao" element={<Admissao />} />
                   <Route path="demissao" element={<Demissao />} />
                   <Route path="configuracoes" element={<Settings />} />

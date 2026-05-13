@@ -308,6 +308,16 @@ export default function Demissao() {
                             {formatCurrency(u.salario)}
                           </span>
                         </div>
+                        {u.chave_pix && (
+                          <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-1">
+                            <span className="text-slate-500 flex items-center gap-1.5 text-[11px]">
+                              Chave PIX ({u.tipo_chave_pix || 'Chave'})
+                            </span>
+                            <span className="font-mono font-medium text-slate-700 text-right text-[11px]">
+                              {u.chave_pix}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

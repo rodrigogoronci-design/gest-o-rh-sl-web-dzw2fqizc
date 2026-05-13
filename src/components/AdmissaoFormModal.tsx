@@ -37,6 +37,8 @@ export function AdmissaoFormModal({
     departamento: '',
     data_admissao: '',
     salario: '',
+    chave_pix: '',
+    tipo_chave_pix: '',
   })
 
   const handleChange = (e: any) => setFormData((p) => ({ ...p, [e.target.name]: e.target.value }))
@@ -51,6 +53,7 @@ export function AdmissaoFormModal({
         tipo_contrato: 'CLT',
         recebe_transporte: true,
         sendInvite: true,
+        systemAccess: true,
       }
 
       const { data, error } = await supabase.functions.invoke('manage-user', {
@@ -75,6 +78,8 @@ export function AdmissaoFormModal({
         departamento: '',
         data_admissao: '',
         salario: '',
+        chave_pix: '',
+        tipo_chave_pix: '',
       })
     } catch (err: any) {
       toast({ title: 'Erro na admissão', description: err.message, variant: 'destructive' })
@@ -187,6 +192,27 @@ export function AdmissaoFormModal({
                 value={formData.salario}
                 onChange={handleChange}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo Chave PIX</Label>
+              <Select
+                value={formData.tipo_chave_pix}
+                onValueChange={(val) => setFormData((p) => ({ ...p, tipo_chave_pix: val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CPF/CNPJ">CPF/CNPJ</SelectItem>
+                  <SelectItem value="E-mail">E-mail</SelectItem>
+                  <SelectItem value="Telefone">Telefone</SelectItem>
+                  <SelectItem value="Aleatória">Aleatória</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Chave PIX</Label>
+              <Input name="chave_pix" value={formData.chave_pix} onChange={handleChange} />
             </div>
           </div>
           <Button type="submit" className="w-full" disabled={isSaving}>
