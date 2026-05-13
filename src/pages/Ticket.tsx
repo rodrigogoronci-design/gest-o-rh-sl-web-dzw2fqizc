@@ -779,49 +779,74 @@ export default function Ticket() {
       </div>
 
       {/* Impressão do Extrato */}
-      <div className="hidden print:block p-8 bg-white text-black min-h-screen">
-        <div className="mb-8 border-b pb-4">
-          <h1 className="text-2xl font-bold uppercase tracking-tight text-slate-800">
+      <div className="hidden print:block p-4 sm:p-8 bg-white text-black min-h-screen">
+        <div className="mb-6 border-b-2 border-slate-300 pb-4">
+          <h1 className="text-2xl font-black uppercase tracking-tight text-slate-800">
             Extrato de Apuração - Ticket Alimentação
           </h1>
-          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+          <div className="mt-4 flex justify-between items-end text-sm">
             <div>
-              <p>
-                <span className="font-bold text-slate-600">Referência:</span>{' '}
-                {months.find((m) => m.value === selectedMonth)?.label} ({selectedMonth})
+              <p className="mb-1">
+                <span className="font-bold text-slate-700">Referência:</span>{' '}
+                <span className="capitalize">
+                  {months.find((m) => m.value === selectedMonth)?.label}
+                </span>{' '}
+                ({selectedMonth})
               </p>
               <p>
-                <span className="font-bold text-slate-600">Período:</span>{' '}
+                <span className="font-bold text-slate-700">Período:</span>{' '}
                 {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
               </p>
             </div>
             <div className="text-right">
-              <p>
-                <span className="font-bold text-slate-600">Valor Base:</span> R${' '}
+              <p className="mb-1">
+                <span className="font-bold text-slate-700">Valor Base:</span> R${' '}
                 {ticketValue.toFixed(2).replace('.', ',')}
               </p>
               <p>
-                <span className="font-bold text-slate-600">Dias Úteis do Ciclo:</span>{' '}
+                <span className="font-bold text-slate-700">Dias Úteis do Ciclo:</span>{' '}
                 {totalBusinessDays}
               </p>
             </div>
           </div>
         </div>
 
-        <table className="w-full text-[11px] border-collapse">
+        <table className="w-full text-[10px] border-collapse">
           <thead>
-            <tr className="border-b-2 border-slate-300 text-left">
-              <th className="py-2 font-bold uppercase text-slate-600">Colaborador</th>
-              <th className="py-2 text-center font-bold uppercase text-slate-600">Dias Úteis</th>
-              <th className="py-2 text-center font-bold uppercase text-slate-600">Plantões</th>
-              <th className="py-2 text-center font-bold uppercase text-slate-600">Atestados</th>
-              <th className="py-2 text-center font-bold uppercase text-slate-600">Feriados</th>
-              <th className="py-2 text-center font-bold uppercase text-slate-600">Férias</th>
-              <th className="py-2 text-center font-bold uppercase text-slate-600">Faltas</th>
-              <th className="py-2 text-center font-bold uppercase text-slate-600">Crédito</th>
-              <th className="py-2 text-center font-bold uppercase text-slate-600">Desconto</th>
-              <th className="py-2 text-center font-bold uppercase text-slate-600">Total Dias</th>
-              <th className="py-2 text-right font-bold uppercase text-slate-600">Valor Final</th>
+            <tr className="border-b-2 border-slate-300 text-left bg-slate-50/50">
+              <th className="py-2.5 px-2 font-bold uppercase text-slate-700 whitespace-nowrap w-full">
+                Colaborador
+              </th>
+              <th className="py-2.5 px-1 text-center font-bold uppercase text-slate-700 whitespace-nowrap">
+                Úteis
+              </th>
+              <th className="py-2.5 px-1 text-center font-bold uppercase text-slate-700 whitespace-nowrap">
+                Plantões
+              </th>
+              <th className="py-2.5 px-1 text-center font-bold uppercase text-slate-700 whitespace-nowrap">
+                Atestados
+              </th>
+              <th className="py-2.5 px-1 text-center font-bold uppercase text-slate-700 whitespace-nowrap">
+                Feriados
+              </th>
+              <th className="py-2.5 px-1 text-center font-bold uppercase text-slate-700 whitespace-nowrap">
+                Férias
+              </th>
+              <th className="py-2.5 px-1 text-center font-bold uppercase text-slate-700 whitespace-nowrap">
+                Faltas
+              </th>
+              <th className="py-2.5 px-1 text-center font-bold uppercase text-slate-700 whitespace-nowrap">
+                Créd.
+              </th>
+              <th className="py-2.5 px-1 text-center font-bold uppercase text-slate-700 whitespace-nowrap">
+                Desc.
+              </th>
+              <th className="py-2.5 px-1 text-center font-bold uppercase text-slate-700 whitespace-nowrap">
+                Total
+              </th>
+              <th className="py-2.5 px-2 text-right font-bold uppercase text-slate-700 whitespace-nowrap">
+                Valor Final
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -847,18 +872,38 @@ export default function Ticket() {
               const totalValue = eligibleDays * ticketValue
 
               return (
-                <tr key={i} className="border-b border-slate-200">
-                  <td className="py-2 font-medium">{u.nome || u.name}</td>
-                  <td className="py-2 text-center">{data.regular}</td>
-                  <td className="py-2 text-center">{data.shifts}</td>
-                  <td className="py-2 text-center">{data.sick}</td>
-                  <td className="py-2 text-center">{data.holidaysWorked || 0}</td>
-                  <td className="py-2 text-center">{data.vacation}</td>
-                  <td className="py-2 text-center">{data.faltas || 0}</td>
-                  <td className="py-2 text-center">{data.credito || 0}</td>
-                  <td className="py-2 text-center">{data.desconto || 0}</td>
-                  <td className="py-2 text-center font-bold">{eligibleDays}</td>
-                  <td className="py-2 text-right font-bold">
+                <tr key={i} className="border-b border-slate-200 even:bg-slate-50/50">
+                  <td className="py-1.5 px-2 font-semibold text-slate-800 truncate max-w-[200px]">
+                    {u.nome || u.name}
+                  </td>
+                  <td className="py-1.5 px-1 text-center text-slate-600 whitespace-nowrap">
+                    {data.regular}
+                  </td>
+                  <td className="py-1.5 px-1 text-center text-slate-600 whitespace-nowrap">
+                    {data.shifts}
+                  </td>
+                  <td className="py-1.5 px-1 text-center text-slate-600 whitespace-nowrap">
+                    {data.sick}
+                  </td>
+                  <td className="py-1.5 px-1 text-center text-slate-600 whitespace-nowrap">
+                    {data.holidaysWorked || 0}
+                  </td>
+                  <td className="py-1.5 px-1 text-center text-slate-600 whitespace-nowrap">
+                    {data.vacation}
+                  </td>
+                  <td className="py-1.5 px-1 text-center text-slate-600 whitespace-nowrap">
+                    {data.faltas || 0}
+                  </td>
+                  <td className="py-1.5 px-1 text-center text-slate-600 whitespace-nowrap">
+                    {data.credito || 0}
+                  </td>
+                  <td className="py-1.5 px-1 text-center text-slate-600 whitespace-nowrap">
+                    {data.desconto || 0}
+                  </td>
+                  <td className="py-1.5 px-1 text-center font-bold text-slate-800 whitespace-nowrap">
+                    {eligibleDays}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-bold text-slate-800 whitespace-nowrap">
                     R$ {totalValue.toFixed(2).replace('.', ',')}
                   </td>
                 </tr>
@@ -867,14 +912,18 @@ export default function Ticket() {
           </tbody>
         </table>
 
-        <div className="mt-8 pt-4 border-t-2 border-slate-300 flex justify-between items-center">
-          <span className="font-bold text-slate-600 uppercase tracking-wider">Total a Pagar</span>
-          <span className="text-xl font-black">R$ {grandTotal.toFixed(2).replace('.', ',')}</span>
+        <div className="mt-6 pt-4 border-t-2 border-slate-300 flex justify-between items-center">
+          <span className="font-bold text-slate-700 uppercase tracking-wider text-sm">
+            Total a Pagar
+          </span>
+          <span className="text-xl font-black text-slate-900">
+            R$ {grandTotal.toFixed(2).replace('.', ',')}
+          </span>
         </div>
 
-        <div className="mt-16 text-center text-sm text-slate-500">
+        <div className="mt-12 text-center text-xs text-slate-500">
           <p>Documento gerado em {format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
-          {isClosed && <p className="font-bold text-slate-700 mt-1">Apuração Fechada</p>}
+          {isClosed && <p className="font-bold text-slate-700 mt-1 uppercase">Apuração Fechada</p>}
         </div>
       </div>
     </>
