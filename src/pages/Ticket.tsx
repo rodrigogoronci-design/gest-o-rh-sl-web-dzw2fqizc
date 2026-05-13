@@ -17,7 +17,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { Save, Info, Calendar as CalendarIcon } from 'lucide-react'
+import { Save, Info, Calendar as CalendarIcon, Lock, Unlock, Printer } from 'lucide-react'
+import { toggleBeneficiosFechamento } from '@/services/beneficios'
 import {
   Select,
   SelectContent,
@@ -81,6 +82,7 @@ export default function Ticket() {
   const [totalBusinessDays, setTotalBusinessDays] = useState(20)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isClosed, setIsClosed] = useState(false)
   const toastShownRef = useRef<Record<string, boolean>>({})
 
   const year = parseInt(selectedMonth.split('-')[0])
@@ -142,6 +144,7 @@ export default function Ticket() {
         { data: cols },
         { data: feriadosDb },
         { data: afastamentosDb },
+        { data: fechamento },
       ] = await Promise.all([
         supabase.from('ferias').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
         supabase
@@ -155,7 +158,14 @@ export default function Ticket() {
         supabase.from('colaboradores').select('*').order('nome'),
         supabase.from('feriados').select('*').gte('data', pStart).lte('data', pEnd),
         supabase.from('afastamentos').select('*').lte('data_inicio', pEnd).gte('data_fim', pStart),
+        supabase
+          .from('beneficios_fechamentos')
+          .select('status')
+          .eq('mes_ano', selectedMonth)
+          .maybeSingle(),
       ])
+
+      setIsClosed(fechamento?.status === 'fechado')
 
       const holidaysStrs = (feriadosDb || []).map((f: any) => f.data)
       const daysInPeriod = eachDayOfInterval({ start: parseISO(pStart), end: parseISO(pEnd) })
@@ -354,6 +364,7 @@ export default function Ticket() {
   }
 
   const handleInputChange = (userId: string, field: keyof TicketRecord, value: string) => {
+    if (isClosed) return
     if (field === 'shifts' || field === 'holidaysWorked' || field === 'regular') return
     if (field === 'credito_justificativa' || field === 'desconto_justificativa') {
       setLocalData((prev) => ({ ...prev, [userId]: { ...prev[userId], [field]: value } }))
@@ -395,6 +406,7 @@ export default function Ticket() {
   }
 
   const handleSave = async () => {
+    if (isClosed) return
     setIsSaving(true)
 
     const fullyAwayUsers = activeUsers.filter(
@@ -441,132 +453,170 @@ export default function Ticket() {
       })
   }
 
+  const handleToggleFechamento = async () => {
+    if (!currentUser?.id) return
+    const newState = !isClosed
+    await toggleBeneficiosFechamento(selectedMonth, newState, currentUser.id)
+    setIsClosed(newState)
+    toast({
+      title: newState ? 'Apuração Fechada' : 'Apuração Reaberta',
+      description: newState
+        ? 'O período foi fechado para edições.'
+        : 'O período está aberto para edições.',
+    })
+  }
+
   let grandTotal = 0
 
+  const filteredUsers = activeUsers.filter(
+    (u) =>
+      (u.role === 'user' || u.role === 'Colaborador') &&
+      u.status !== 'Inativo' &&
+      u.status !== 'Demitido' &&
+      (preCalculatedAfastamentos[u.id] || 0) < totalBusinessDays,
+  )
+
   return (
-    <div className="space-y-4 flex flex-col h-full">
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold tracking-tight text-slate-800">
-              Controle de Ticket Alimentação
-            </h1>
-            {selectedMonth > closedMonth && closedMonth !== '' && (
-              <div className="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold tracking-wide uppercase border border-amber-200">
-                Previsão
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground font-medium">Valor base: R$</span>
-              <Input
-                type="number"
-                step="0.01"
-                value={ticketValue === 0 ? '' : ticketValue}
-                onChange={(e) => setTicketValue(parseFloat(e.target.value) || 0)}
-                className="w-20 h-6 text-xs px-2 py-0 border-slate-200 focus-visible:ring-1 focus-visible:ring-offset-0 bg-white"
-              />
-              {ticketValue !== dbTicketValue && (
-                <Button
-                  size="sm"
-                  className="h-6 text-[10px] px-2 bg-blue-600 hover:bg-blue-700 text-white transition-all animate-in fade-in"
-                  onClick={handleSaveGlobalValue}
-                >
-                  Salvar Base
-                </Button>
+    <>
+      <div className="space-y-4 flex flex-col h-full print:hidden">
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold tracking-tight text-slate-800">
+                Controle de Ticket Alimentação
+              </h1>
+              {selectedMonth > closedMonth && closedMonth !== '' && (
+                <div className="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold tracking-wide uppercase border border-amber-200">
+                  Previsão
+                </div>
               )}
             </div>
-            <div className="h-3 w-px bg-slate-300 hidden sm:block"></div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-              <CalendarIcon className="w-3.5 h-3.5 text-slate-500" />
-              <span>Ciclo:</span>
-              <strong className="text-slate-700">
-                {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
-              </strong>
+            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Valor base: R$</span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={ticketValue === 0 ? '' : ticketValue}
+                  onChange={(e) => setTicketValue(parseFloat(e.target.value) || 0)}
+                  className="w-20 h-6 text-xs px-2 py-0 border-slate-200 focus-visible:ring-1 focus-visible:ring-offset-0 bg-white"
+                />
+                {ticketValue !== dbTicketValue && (
+                  <Button
+                    size="sm"
+                    className="h-6 text-[10px] px-2 bg-blue-600 hover:bg-blue-700 text-white transition-all animate-in fade-in"
+                    onClick={handleSaveGlobalValue}
+                  >
+                    Salvar Base
+                  </Button>
+                )}
+              </div>
+              <div className="h-3 w-px bg-slate-300 hidden sm:block"></div>
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                <CalendarIcon className="w-3.5 h-3.5 text-slate-500" />
+                <span>Ciclo:</span>
+                <strong className="text-slate-700">
+                  {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
+                </strong>
+              </div>
             </div>
           </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[160px] h-8 text-xs font-medium bg-white shadow-sm capitalize">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map((m) => (
+                  <SelectItem key={m.value} value={m.value} className="capitalize text-xs">
+                    {m.label}{' '}
+                    {m.value > closedMonth && closedMonth !== '' && (
+                      <span className="text-amber-600 ml-1 font-semibold">(Previsão)</span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isClosed ? (
+              <Button
+                onClick={handleToggleFechamento}
+                variant="outline"
+                className="gap-1.5 text-amber-600 border-amber-200 hover:bg-amber-50 h-8 text-xs"
+              >
+                <Unlock className="w-3.5 h-3.5" /> Reabrir Apuração
+              </Button>
+            ) : (
+              <Button
+                onClick={handleToggleFechamento}
+                variant="destructive"
+                className="gap-1.5 h-8 text-xs bg-red-600 hover:bg-red-700"
+              >
+                <Lock className="w-3.5 h-3.5" /> Fechar Apuração
+              </Button>
+            )}
+            <Button
+              onClick={() => window.print()}
+              variant="outline"
+              className="gap-1.5 h-8 text-xs"
+            >
+              <Printer className="w-3.5 h-3.5" /> Extrato
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving || isLoading || isClosed}
+              className="gap-1.5 bg-[#10b981] hover:bg-[#059669] text-white shadow-sm h-8 text-xs"
+            >
+              <Save className="w-3.5 h-3.5" /> {isSaving ? 'Salvando...' : 'Salvar Mês'}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[160px] h-8 text-xs font-medium bg-white shadow-sm capitalize">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {months.map((m) => (
-                <SelectItem key={m.value} value={m.value} className="capitalize text-xs">
-                  {m.label}{' '}
-                  {m.value > closedMonth && closedMonth !== '' && (
-                    <span className="text-amber-600 ml-1 font-semibold">(Previsão)</span>
-                  )}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            onClick={handleSave}
-            disabled={isSaving || isLoading}
-            className="gap-1.5 bg-[#10b981] hover:bg-[#059669] text-white shadow-sm h-8 text-xs"
-          >
-            <Save className="w-3.5 h-3.5" /> {isSaving ? 'Salvando...' : 'Salvar Mês'}
-          </Button>
-        </div>
-      </div>
 
-      <Card className="border border-slate-200 shadow-sm flex-1 overflow-hidden flex flex-col rounded-lg">
-        <CardContent className="p-0 overflow-auto flex-1 relative bg-white">
-          {isLoading && (
-            <div className="absolute inset-0 z-50 bg-white/50 backdrop-blur-sm flex items-center justify-center">
-              <div className="text-sm font-medium text-slate-500">Carregando dados...</div>
-            </div>
-          )}
-          <Table className="text-sm">
-            <TableHeader className="bg-slate-50/90 sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200">
-              <TableRow className="[&>th]:py-2 [&>th]:px-3 text-[11px] uppercase tracking-wider text-slate-500 font-semibold border-0 whitespace-nowrap">
-                <TableHead className="min-w-[160px]">Colaborador</TableHead>
-                <TableHead className="w-[110px] text-center">
-                  <div
-                    className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Padrão do ciclo (${format(parseISO(pStart), 'dd/MM')} a ${format(parseISO(pEnd), 'dd/MM')}): ${totalBusinessDays} dias. (Todos os dias menos sábados, domingos e feriados)`}
-                  >
-                    Dias Úteis <Info className="w-3 h-3 text-slate-400" />
-                  </div>
-                </TableHead>
-                <TableHead className="w-[90px] text-center">Plantões</TableHead>
-                <TableHead className="w-[100px] text-center">
-                  <div
-                    className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
-                  >
-                    Atestados <Info className="w-3 h-3 text-slate-400" />
-                  </div>
-                </TableHead>
-                <TableHead className="w-[90px] text-center">Feriados</TableHead>
-                <TableHead className="w-[90px] text-center">Férias</TableHead>
-                <TableHead className="w-[100px] text-center">
-                  <div
-                    className="flex items-center justify-center gap-1 cursor-help"
-                    title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
-                  >
-                    Faltas <Info className="w-3 h-3 text-slate-400" />
-                  </div>
-                </TableHead>
-                <TableHead className="w-[90px] text-center">Crédito</TableHead>
-                <TableHead className="w-[90px] text-center">Desconto</TableHead>
-                <TableHead className="text-center w-[80px]">Total</TableHead>
-                <TableHead className="text-right min-w-[110px]">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {activeUsers
-                .filter(
-                  (u) =>
-                    (u.role === 'user' || u.role === 'Colaborador') &&
-                    u.status !== 'Inativo' &&
-                    u.status !== 'Demitido' &&
-                    (preCalculatedAfastamentos[u.id] || 0) < totalBusinessDays,
-                )
-                .map((u) => {
+        <Card className="border border-slate-200 shadow-sm flex-1 overflow-hidden flex flex-col rounded-lg">
+          <CardContent className="p-0 overflow-auto flex-1 relative bg-white">
+            {isLoading && (
+              <div className="absolute inset-0 z-50 bg-white/50 backdrop-blur-sm flex items-center justify-center">
+                <div className="text-sm font-medium text-slate-500">Carregando dados...</div>
+              </div>
+            )}
+            <Table className="text-sm">
+              <TableHeader className="bg-slate-50/90 sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200">
+                <TableRow className="[&>th]:py-2 [&>th]:px-3 text-[11px] uppercase tracking-wider text-slate-500 font-semibold border-0 whitespace-nowrap">
+                  <TableHead className="min-w-[160px]">Colaborador</TableHead>
+                  <TableHead className="w-[110px] text-center">
+                    <div
+                      className="flex items-center justify-center gap-1 cursor-help"
+                      title={`Padrão do ciclo (${format(parseISO(pStart), 'dd/MM')} a ${format(parseISO(pEnd), 'dd/MM')}): ${totalBusinessDays} dias. (Todos os dias menos sábados, domingos e feriados)`}
+                    >
+                      Dias Úteis <Info className="w-3 h-3 text-slate-400" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[90px] text-center">Plantões</TableHead>
+                  <TableHead className="w-[100px] text-center">
+                    <div
+                      className="flex items-center justify-center gap-1 cursor-help"
+                      title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                    >
+                      Atestados <Info className="w-3 h-3 text-slate-400" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[90px] text-center">Feriados</TableHead>
+                  <TableHead className="w-[90px] text-center">Férias</TableHead>
+                  <TableHead className="w-[100px] text-center">
+                    <div
+                      className="flex items-center justify-center gap-1 cursor-help"
+                      title={`Ciclo anterior: ${format(parseISO(prevPStart), 'dd/MM/yyyy')} a ${format(parseISO(prevPEnd), 'dd/MM/yyyy')}`}
+                    >
+                      Faltas <Info className="w-3 h-3 text-slate-400" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[90px] text-center">Crédito</TableHead>
+                  <TableHead className="w-[90px] text-center">Desconto</TableHead>
+                  <TableHead className="text-center w-[80px]">Total</TableHead>
+                  <TableHead className="text-right min-w-[110px]">Valor</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map((u) => {
                   const data = localData[u.id] || {
                     regular: 0,
                     shifts: 0,
@@ -714,18 +764,119 @@ export default function Ticket() {
                     </TableRow>
                   )
                 })}
-            </TableBody>
-          </Table>
-        </CardContent>
-        <div className="bg-slate-50 p-3 border-t flex justify-between items-center shrink-0 z-20">
-          <span className="font-semibold text-slate-500 uppercase text-xs tracking-wider">
-            Total Pago pela Empresa
-          </span>
-          <span className="text-lg font-bold text-[#10b981]">
-            R$ {grandTotal.toFixed(2).replace('.', ',')}
-          </span>
+              </TableBody>
+            </Table>
+          </CardContent>
+          <div className="bg-slate-50 p-3 border-t flex justify-between items-center shrink-0 z-20">
+            <span className="font-semibold text-slate-500 uppercase text-xs tracking-wider">
+              Total Pago pela Empresa
+            </span>
+            <span className="text-lg font-bold text-[#10b981]">
+              R$ {grandTotal.toFixed(2).replace('.', ',')}
+            </span>
+          </div>
+        </Card>
+      </div>
+
+      {/* Impressão do Extrato */}
+      <div className="hidden print:block p-8 bg-white text-black min-h-screen">
+        <div className="mb-8 border-b pb-4">
+          <h1 className="text-2xl font-bold uppercase tracking-tight text-slate-800">
+            Extrato de Apuração - Ticket Alimentação
+          </h1>
+          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p>
+                <span className="font-bold text-slate-600">Referência:</span>{' '}
+                {months.find((m) => m.value === selectedMonth)?.label} ({selectedMonth})
+              </p>
+              <p>
+                <span className="font-bold text-slate-600">Período:</span>{' '}
+                {format(parseISO(pStart), 'dd/MM/yyyy')} a {format(parseISO(pEnd), 'dd/MM/yyyy')}
+              </p>
+            </div>
+            <div className="text-right">
+              <p>
+                <span className="font-bold text-slate-600">Valor Base:</span> R${' '}
+                {ticketValue.toFixed(2).replace('.', ',')}
+              </p>
+              <p>
+                <span className="font-bold text-slate-600">Dias Úteis do Ciclo:</span>{' '}
+                {totalBusinessDays}
+              </p>
+            </div>
+          </div>
         </div>
-      </Card>
-    </div>
+
+        <table className="w-full text-[11px] border-collapse">
+          <thead>
+            <tr className="border-b-2 border-slate-300 text-left">
+              <th className="py-2 font-bold uppercase text-slate-600">Colaborador</th>
+              <th className="py-2 text-center font-bold uppercase text-slate-600">Dias Úteis</th>
+              <th className="py-2 text-center font-bold uppercase text-slate-600">Plantões</th>
+              <th className="py-2 text-center font-bold uppercase text-slate-600">Atestados</th>
+              <th className="py-2 text-center font-bold uppercase text-slate-600">Feriados</th>
+              <th className="py-2 text-center font-bold uppercase text-slate-600">Férias</th>
+              <th className="py-2 text-center font-bold uppercase text-slate-600">Faltas</th>
+              <th className="py-2 text-center font-bold uppercase text-slate-600">Crédito</th>
+              <th className="py-2 text-center font-bold uppercase text-slate-600">Desconto</th>
+              <th className="py-2 text-center font-bold uppercase text-slate-600">Total Dias</th>
+              <th className="py-2 text-right font-bold uppercase text-slate-600">Valor Final</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredUsers.map((u, i) => {
+              const data = localData[u.id] || {
+                regular: 0,
+                shifts: 0,
+                sick: 0,
+                holidaysWorked: 0,
+                vacation: 0,
+                faltas: 0,
+                credito: 0,
+                desconto: 0,
+              }
+              const eligibleDays = Math.max(
+                0,
+                data.regular +
+                  data.shifts +
+                  (data.holidaysWorked || 0) +
+                  (data.credito || 0) -
+                  (data.sick + data.vacation + (data.faltas || 0) + (data.desconto || 0)),
+              )
+              const totalValue = eligibleDays * ticketValue
+
+              return (
+                <tr key={i} className="border-b border-slate-200">
+                  <td className="py-2 font-medium">{u.nome || u.name}</td>
+                  <td className="py-2 text-center">{data.regular}</td>
+                  <td className="py-2 text-center">{data.shifts}</td>
+                  <td className="py-2 text-center">{data.sick}</td>
+                  <td className="py-2 text-center">{data.holidaysWorked || 0}</td>
+                  <td className="py-2 text-center">{data.vacation}</td>
+                  <td className="py-2 text-center">{data.faltas || 0}</td>
+                  <td className="py-2 text-center">{data.credito || 0}</td>
+                  <td className="py-2 text-center">{data.desconto || 0}</td>
+                  <td className="py-2 text-center font-bold">{eligibleDays}</td>
+                  <td className="py-2 text-right font-bold">
+                    R$ {totalValue.toFixed(2).replace('.', ',')}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        <div className="mt-8 pt-4 border-t-2 border-slate-300 flex justify-between items-center">
+          <span className="font-bold text-slate-600 uppercase tracking-wider">Total a Pagar</span>
+          <span className="text-xl font-black">R$ {grandTotal.toFixed(2).replace('.', ',')}</span>
+        </div>
+
+        <div className="mt-16 text-center text-sm text-slate-500">
+          <p>Documento gerado em {format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
+          {isClosed && <p className="font-bold text-slate-700 mt-1">Apuração Fechada</p>}
+        </div>
+      </div>
+    </>
   )
 }

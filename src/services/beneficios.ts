@@ -35,6 +35,37 @@ export const saveTransportBatch = async (rows: any[], month: string) => {
     .upsert(rows, { onConflict: 'colaborador_id,mes_ano' })
 }
 
+export const getBeneficiosFechamento = async (mesAno: string) => {
+  const { data } = await supabase
+    .from('beneficios_fechamentos')
+    .select('*')
+    .eq('mes_ano', mesAno)
+    .maybeSingle()
+  return data
+}
+
+export const toggleBeneficiosFechamento = async (
+  mesAno: string,
+  fechar: boolean,
+  userId: string,
+) => {
+  if (fechar) {
+    await supabase.from('beneficios_fechamentos').upsert({
+      mes_ano: mesAno,
+      status: 'fechado',
+      fechado_em: new Date().toISOString(),
+      fechado_por: userId,
+    })
+  } else {
+    await supabase.from('beneficios_fechamentos').upsert({
+      mes_ano: mesAno,
+      status: 'aberto',
+      fechado_em: null,
+      fechado_por: null,
+    })
+  }
+}
+
 export const createDbUser = async (payload: {
   email: string
   name: string

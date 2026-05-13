@@ -42,6 +42,7 @@ import {
   ChevronRight,
   Clock,
   Users as UsersIcon,
+  Lock,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
@@ -83,6 +84,7 @@ export default function Mural() {
   const [isLoteSaving, setIsLoteSaving] = useState(false)
   const [allowedEscalaUsers, setAllowedEscalaUsers] = useState<string[]>([])
   const [activeUsers, setActiveUsers] = useState<any[]>([])
+  const [isBeneficiosClosed, setIsBeneficiosClosed] = useState(false)
 
   const mesAno = format(selectedDate, 'yyyy-MM')
 
@@ -122,6 +124,7 @@ export default function Mural() {
         { data: faltasData },
         { data: plantoesData },
         { data: cols },
+        { data: fechamentoData },
       ] = await Promise.all([
         supabase.from('feriados').select('data').gte('data', start).lte('data', end),
         supabase.from('dias_home_office').select('data').gte('data', start).lte('data', end),
@@ -129,7 +132,14 @@ export default function Mural() {
         supabase.from('faltas').select('*').gte('data', start).lte('data', end),
         supabase.from('plantoes').select('*').gte('data', start).lte('data', end),
         supabase.from('colaboradores').select('*'),
+        supabase
+          .from('beneficios_fechamentos')
+          .select('status')
+          .eq('mes_ano', mesAno)
+          .maybeSingle(),
       ])
+
+      setIsBeneficiosClosed(fechamentoData?.status === 'fechado')
 
       if (cols) setActiveUsers(cols)
 
@@ -185,7 +195,8 @@ export default function Mural() {
 
   const isAdmin = currentUser?.role === 'admin'
   const isAllowedToEdit = allowedEscalaUsers.includes(currentUser?.id || '')
-  const canEdit = isAdmin || (isAllowedToEdit && escalaStatus === 'Rascunho')
+  const canEdit =
+    (isAdmin || (isAllowedToEdit && escalaStatus === 'Rascunho')) && !isBeneficiosClosed
 
   const toggleHomeOffice = async (dateStr: string, isHO: boolean) => {
     if (isHO) {
@@ -284,6 +295,19 @@ export default function Mural() {
 
   return (
     <div className="space-y-6">
+      {isBeneficiosClosed && (
+        <Alert className="bg-red-50 border-red-200 text-red-800">
+          <AlertTitle className="font-bold flex items-center gap-2">
+            <Lock className="w-4 h-4" /> Apuração de Benefícios Fechada
+          </AlertTitle>
+          <AlertDescription>
+            A apuração de benefícios (Ticket/Vale Transporte) para este ciclo está fechada. O
+            lançamento de plantões, faltas, férias e home office não é permitido. Para editar a
+            escala, a apuração deve ser reaberta no painel correspondente.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {!isAdmin && escalaStatus === 'Aprovada' && (
         <Alert className="bg-emerald-50 border-emerald-200 text-emerald-800">
           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
