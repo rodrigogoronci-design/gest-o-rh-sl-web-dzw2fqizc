@@ -1626,7 +1626,9 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
     if (colaborador && selectedMonth && isMonthLoaded) {
       supabase
         .from('contracheques')
-        .select('*')
+        .select(
+          'id, colaborador_id, mes_ano, valor_liquido, dados_extraidos, assinado, assinatura_nome, data_assinatura, created_at',
+        )
         .eq('colaborador_id', colaborador.id)
         .eq('mes_ano', selectedMonth)
         .single()
@@ -1720,7 +1722,6 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
                     departamento: colaborador?.departamento,
                     data_admissao: colaborador?.data_admissao,
                     mes_ano: selectedMonth,
-                    arquivo_url: contracheque.arquivo_url,
                     dados_extraidos: contracheque.dados_extraidos,
                     assinado: contracheque.assinado,
                     data_assinatura: contracheque.data_assinatura,
@@ -1731,13 +1732,6 @@ function EmployeeContraCheque({ colaborador }: { colaborador: any }) {
               >
                 <Eye className="w-4 h-4 mr-2" /> Visualizar Holerite
               </Button>
-              {contracheque.arquivo_url && (
-                <Button variant="outline" asChild>
-                  <a href={contracheque.arquivo_url} target="_blank" rel="noreferrer">
-                    <Download className="w-4 h-4 mr-2" /> Exportar Origem
-                  </a>
-                </Button>
-              )}
             </div>
           </div>
         ) : (
