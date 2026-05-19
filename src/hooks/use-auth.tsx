@@ -80,19 +80,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true)
 
       try {
-        let { data, error } = await supabase
-          .from('colaboradores')
-          .select('*')
-          .eq('user_id', user.id)
-          .single()
+        const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+          setTimeout(() => reject(new Error('Tempo limite esgotado ao carregar perfil')), 10000),
+        )
+
+        let { data, error } = await Promise.race([
+          supabase.from('colaboradores').select('*').eq('user_id', user.id).single(),
+          timeoutPromise,
+        ])
 
         // Auto-heal: If user has no auth link but exists by email, link them
         if (error && error.code === 'PGRST116' && user.email) {
-          const { data: colabByEmail, error: emailErr } = await supabase
-            .from('colaboradores')
-            .select('*')
-            .ilike('email', user.email)
-            .single()
+          const timeoutPromiseEmail = new Promise<{ data: any; error: any }>((_, reject) =>
+            setTimeout(() => reject(new Error('Tempo limite esgotado ao buscar por email')), 10000),
+          )
+
+          const { data: colabByEmail, error: emailErr } = await Promise.race([
+            supabase.from('colaboradores').select('*').ilike('email', user.email).single(),
+            timeoutPromiseEmail,
+          ])
 
           if (!emailErr && colabByEmail) {
             await supabase

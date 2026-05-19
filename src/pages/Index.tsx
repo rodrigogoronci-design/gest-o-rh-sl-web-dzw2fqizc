@@ -95,6 +95,10 @@ export default function Index() {
   const logoToUse = appSettings.loginSettings.logoUrl || appSettings.appLogo
   const template = appSettings.loginSettings.template
 
+  if (session && user) {
+    return null // Previne flash da tela de login ou renders pesados durante redirecionamento
+  }
+
   const renderHeader = (isDark = false, alignLeft = false) => {
     return (
       <div

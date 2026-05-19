@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { AppProvider } from '@/stores/useAppStore'
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
 
 import Index from './pages/Index'
 import NotFound from './pages/NotFound'
@@ -37,10 +38,26 @@ import BancoHoras from './pages/BancoHoras'
 import ConfiguracoesPonto from './pages/ConfiguracoesPonto'
 
 const ProtectedRoute = () => {
-  const { user, loading } = useAuth()
+  const { user, colaborador, loading, signOut } = useAuth()
+
   if (loading)
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+
   if (!user) return <Navigate to="/" replace />
+
+  if (!colaborador) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center">
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Perfil não encontrado</h2>
+        <p className="text-slate-600 mb-6 max-w-md">
+          Sua conta de usuário foi autenticada, mas não encontramos um perfil de colaborador
+          vinculado. Por favor, entre em contato com o suporte ou administrador.
+        </p>
+        <Button onClick={() => signOut('logout')}>Sair</Button>
+      </div>
+    )
+  }
+
   return <Outlet />
 }
 
