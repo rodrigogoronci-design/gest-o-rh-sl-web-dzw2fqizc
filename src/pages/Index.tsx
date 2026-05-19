@@ -31,24 +31,43 @@ export default function Index() {
   })
 
   useEffect(() => {
+    let isMounted = true
+
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) {
+        setAppSettings((s: any) => (s.loaded ? s : { ...s, loaded: true }))
+      }
+    }, 800)
+
     supabase
       .from('configuracoes')
       .select('*')
       .in('chave', ['app_name', 'app_logo', 'app_login_settings'])
-      .then(({ data }) => {
-        if (data) {
-          const settings = { ...appSettings, loaded: true }
-          data.forEach((d) => {
-            if (d.chave === 'app_name') settings.appName = d.valor?.text || settings.appName
-            if (d.chave === 'app_logo') settings.appLogo = d.valor?.url || ''
-            if (d.chave === 'app_login_settings')
-              settings.loginSettings = { ...settings.loginSettings, ...d.valor }
+      .then(({ data, error }) => {
+        if (!isMounted) return
+        if (data && !error) {
+          setAppSettings((prev: any) => {
+            const settings = { ...prev, loaded: true }
+            data.forEach((d) => {
+              if (d.chave === 'app_name') settings.appName = d.valor?.text || settings.appName
+              if (d.chave === 'app_logo') settings.appLogo = d.valor?.url || ''
+              if (d.chave === 'app_login_settings')
+                settings.loginSettings = { ...settings.loginSettings, ...d.valor }
+            })
+            return settings
           })
-          setAppSettings(settings)
         } else {
           setAppSettings((s: any) => ({ ...s, loaded: true }))
         }
       })
+      .catch(() => {
+        if (isMounted) setAppSettings((s: any) => ({ ...s, loaded: true }))
+      })
+
+    return () => {
+      isMounted = false
+      clearTimeout(fallbackTimer)
+    }
   }, [])
 
   useEffect(() => {
@@ -265,7 +284,11 @@ export default function Index() {
   }
 
   if (!appSettings.loaded) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-50" />
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin opacity-50" />
+      </div>
+    )
   }
 
   if (template === 'split') {
