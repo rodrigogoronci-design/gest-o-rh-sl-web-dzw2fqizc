@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLocation, Navigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,8 +15,9 @@ export default function Index() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isRecovering, setIsRecovering] = useState(false)
-  const { signIn, resetPassword, session, user, loading } = useAuth()
+  const { signIn, resetPassword, session, user } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
 
   const [appSettings, setAppSettings] = useState<any>({
     appName: 'Gestão RH SL Web',
@@ -28,6 +29,15 @@ export default function Index() {
     },
     loaded: true,
   })
+
+  useEffect(() => {
+    // Redirecionamento forçado de alta prioridade (ignora estados locais de loading)
+    if (session && user) {
+      let from = location.state?.from?.pathname || '/app/dashboard'
+      if (from === '/') from = '/app/dashboard'
+      navigate(from, { replace: true })
+    }
+  }, [session, user, navigate, location.state])
 
   useEffect(() => {
     supabase
@@ -53,20 +63,6 @@ export default function Index() {
       })
   }, [])
 
-  if (session && user) {
-    let from = location.state?.from?.pathname || '/app/dashboard'
-    if (from === '/') from = '/app/dashboard'
-    return <Navigate to={from} replace />
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin opacity-50" />
-      </div>
-    )
-  }
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isRecovering) {
@@ -88,8 +84,7 @@ export default function Index() {
     try {
       const { error } = await signIn(email, password)
       if (error) throw error
-      // A navegação ocorrerá automaticamente via <Navigate />
-      // quando session e user forem populados no contexto
+      // A navegação ocorrerá automaticamente via useEffect de alta prioridade
     } catch (error: any) {
       toast.error('Erro ao fazer login. Verifique suas credenciais.')
       setIsLoading(false)

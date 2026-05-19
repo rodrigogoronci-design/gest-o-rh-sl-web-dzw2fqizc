@@ -80,11 +80,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true)
 
       try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('colaboradores')
           .select('*')
           .eq('user_id', user.id)
           .single()
+
+        // Auto-heal: If user has no auth link but exists by email, link them
+        if (error && error.code === 'PGRST116' && user.email) {
+          const { data: colabByEmail, error: emailErr } = await supabase
+            .from('colaboradores')
+            .select('*')
+            .ilike('email', user.email)
+            .single()
+
+          if (!emailErr && colabByEmail) {
+            await supabase
+              .from('colaboradores')
+              .update({ user_id: user.id })
+              .eq('id', colabByEmail.id)
+
+            data = { ...colabByEmail, user_id: user.id }
+            error = null as any
+          }
+        }
 
         if (!mounted) return
 
