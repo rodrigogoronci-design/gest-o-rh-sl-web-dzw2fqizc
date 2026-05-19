@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase/client'
 interface AuthContextType {
   user: User | null
   session: Session | null
+  colaborador: any | null
+  isAdmin: boolean
   signUp: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: (reason?: 'logout' | 'timeout') => Promise<{ error: any }>
@@ -23,15 +25,49 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
+  const [colaborador, setColaborador] = useState<any | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const fetchProfile = (sessionObj: Session | null) => {
+      if (!sessionObj?.user) {
+        setColaborador(null)
+        setIsAdmin(false)
+        setLoading(false)
+        return
+      }
+
+      supabase
+        .from('colaboradores')
+        .select('*')
+        .eq('user_id', sessionObj.user.id)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setColaborador(data)
+            const role = data.role?.toLowerCase() || ''
+            setIsAdmin(role === 'admin' || role === 'administrador' || role === 'gerente')
+          } else {
+            setColaborador(null)
+            setIsAdmin(false)
+          }
+          setLoading(false)
+        })
+        .catch(() => {
+          setColaborador(null)
+          setIsAdmin(false)
+          setLoading(false)
+        })
+    }
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
+    } = supabase.auth.onAuthStateChange((event, sessionObj) => {
+      setSession(sessionObj)
+      setUser(sessionObj?.user ?? null)
+
+      fetchProfile(sessionObj)
 
       if (event === 'PASSWORD_RECOVERY') {
         setTimeout(() => {
@@ -39,11 +75,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }, 100)
       }
     })
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: sessionObj } }) => {
+        setSession(sessionObj)
+        setUser(sessionObj?.user ?? null)
+        fetchProfile(sessionObj)
+      })
+      .catch(() => {
+        setLoading(false)
+      })
+
     return () => subscription.unsubscribe()
   }, [])
 
@@ -83,7 +126,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, signUp, signIn, signOut, resetPassword, loading }}
+      value={{
+        user,
+        session,
+        colaborador,
+        isAdmin,
+        signUp,
+        signIn,
+        signOut,
+        resetPassword,
+        loading,
+      }}
     >
       {children}
     </AuthContext.Provider>

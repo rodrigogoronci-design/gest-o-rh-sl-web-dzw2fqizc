@@ -45,28 +45,13 @@ const ProtectedRoute = () => {
 }
 
 const AdminRoute = () => {
-  const { user, loading } = useAuth()
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
+  const { user, isAdmin, loading } = useAuth()
 
-  useEffect(() => {
-    if (user) {
-      supabase
-        .from('colaboradores')
-        .select('role')
-        .eq('user_id', user.id)
-        .single()
-        .then(({ data }) => {
-          const role = data?.role?.toLowerCase() || ''
-          setIsAdmin(role === 'admin' || role === 'administrador' || role === 'gerente')
-        })
-    }
-  }, [user])
-
-  if (loading || (user && isAdmin === null))
+  if (loading)
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
 
   if (!user) return <Navigate to="/" replace />
-  if (isAdmin === false) return <Navigate to="/app/mural" replace />
+  if (!isAdmin) return <Navigate to="/app/mural" replace />
 
   return <Outlet />
 }

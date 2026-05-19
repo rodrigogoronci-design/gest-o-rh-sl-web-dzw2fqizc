@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,7 +15,7 @@ export default function Index() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isRecovering, setIsRecovering] = useState(false)
-  const { signIn, resetPassword, session, user } = useAuth()
+  const { signIn, resetPassword, session, user, loading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -27,27 +27,18 @@ export default function Index() {
       logoUrl: '',
       bgUrl: '',
     },
-    loaded: false,
+    loaded: true,
   })
 
   useEffect(() => {
-    let isMounted = true
-
-    const fallbackTimer = setTimeout(() => {
-      if (isMounted) {
-        setAppSettings((s: any) => (s.loaded ? s : { ...s, loaded: true }))
-      }
-    }, 800)
-
     supabase
       .from('configuracoes')
       .select('*')
       .in('chave', ['app_name', 'app_logo', 'app_login_settings'])
       .then(({ data, error }) => {
-        if (!isMounted) return
         if (data && !error) {
           setAppSettings((prev: any) => {
-            const settings = { ...prev, loaded: true }
+            const settings = { ...prev }
             data.forEach((d) => {
               if (d.chave === 'app_name') settings.appName = d.valor?.text || settings.appName
               if (d.chave === 'app_logo') settings.appLogo = d.valor?.url || ''
@@ -56,26 +47,25 @@ export default function Index() {
             })
             return settings
           })
-        } else {
-          setAppSettings((s: any) => ({ ...s, loaded: true }))
         }
       })
       .catch(() => {
-        if (isMounted) setAppSettings((s: any) => ({ ...s, loaded: true }))
+        // Ignored
       })
-
-    return () => {
-      isMounted = false
-      clearTimeout(fallbackTimer)
-    }
   }, [])
 
-  useEffect(() => {
-    if (session && user) {
-      const from = location.state?.from?.pathname || '/app/dashboard'
-      navigate(from, { replace: true })
-    }
-  }, [session, user, navigate, location])
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin opacity-50" />
+      </div>
+    )
+  }
+
+  if (session && user) {
+    const from = location.state?.from?.pathname || '/app/dashboard'
+    return <Navigate to={from} replace />
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -280,14 +270,6 @@ export default function Index() {
           )}
         </div>
       </form>
-    )
-  }
-
-  if (!appSettings.loaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin opacity-50" />
-      </div>
     )
   }
 
