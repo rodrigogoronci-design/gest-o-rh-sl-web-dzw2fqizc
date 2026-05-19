@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase/client'
 
@@ -28,66 +28,90 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [colaborador, setColaborador] = useState<any | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
+  const fetchedUserId = useRef<string | null>(null)
 
   useEffect(() => {
-    const fetchProfile = (sessionObj: Session | null) => {
-      if (!sessionObj?.user) {
+    let mounted = true
+
+    const handleSession = async (sessionObj: Session | null) => {
+      if (!mounted) return
+
+      setSession(sessionObj)
+      setUser(sessionObj?.user ?? null)
+
+      const userId = sessionObj?.user?.id ?? null
+
+      if (!userId) {
         setColaborador(null)
         setIsAdmin(false)
+        fetchedUserId.current = null
         setLoading(false)
         return
       }
 
-      supabase
-        .from('colaboradores')
-        .select('*')
-        .eq('user_id', sessionObj.user.id)
-        .single()
-        .then(({ data, error }) => {
-          if (!error && data) {
-            setColaborador(data)
-            const role = data.role?.toLowerCase() || ''
-            setIsAdmin(role === 'admin' || role === 'administrador' || role === 'gerente')
-          } else {
-            setColaborador(null)
-            setIsAdmin(false)
-          }
-          setLoading(false)
-        })
-        .catch(() => {
+      if (fetchedUserId.current === userId) {
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+
+      try {
+        const { data, error } = await supabase
+          .from('colaboradores')
+          .select('*')
+          .eq('user_id', userId)
+          .single()
+
+        if (!mounted) return
+
+        if (!error && data) {
+          setColaborador(data)
+          const role = data.role?.toLowerCase() || ''
+          setIsAdmin(role === 'admin' || role === 'administrador' || role === 'gerente')
+          fetchedUserId.current = userId
+        } else {
           setColaborador(null)
           setIsAdmin(false)
+          fetchedUserId.current = userId
+        }
+      } catch (err) {
+        if (!mounted) return
+        setColaborador(null)
+        setIsAdmin(false)
+        fetchedUserId.current = userId
+      } finally {
+        if (mounted) {
           setLoading(false)
-        })
-    }
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, sessionObj) => {
-      setSession(sessionObj)
-      setUser(sessionObj?.user ?? null)
-
-      fetchProfile(sessionObj)
-
-      if (event === 'PASSWORD_RECOVERY') {
-        setTimeout(() => {
-          window.location.href = '/app/perfil'
-        }, 100)
+        }
       }
-    })
+    }
 
     supabase.auth
       .getSession()
       .then(({ data: { session: sessionObj } }) => {
-        setSession(sessionObj)
-        setUser(sessionObj?.user ?? null)
-        fetchProfile(sessionObj)
+        handleSession(sessionObj)
       })
       .catch(() => {
-        setLoading(false)
+        if (mounted) setLoading(false)
       })
 
-    return () => subscription.unsubscribe()
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, sessionObj) => {
+      handleSession(sessionObj)
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setTimeout(() => {
+          if (mounted) window.location.href = '/app/perfil'
+        }, 100)
+      }
+    })
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signUp = async (email: string, password: string) => {

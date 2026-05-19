@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useLocation, Navigate } from 'react-router-dom'
+import { useLocation, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,6 @@ export default function Index() {
   const [isLoading, setIsLoading] = useState(false)
   const [isRecovering, setIsRecovering] = useState(false)
   const { signIn, resetPassword, session, user, loading } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
 
   const [appSettings, setAppSettings] = useState<any>({
@@ -63,7 +62,8 @@ export default function Index() {
   }
 
   if (session && user) {
-    const from = location.state?.from?.pathname || '/app/dashboard'
+    let from = location.state?.from?.pathname || '/app/dashboard'
+    if (from === '/') from = '/app/dashboard'
     return <Navigate to={from} replace />
   }
 
@@ -88,10 +88,10 @@ export default function Index() {
     try {
       const { error } = await signIn(email, password)
       if (error) throw error
-      navigate('/app/dashboard', { replace: true })
+      // A navegação ocorrerá automaticamente via <Navigate />
+      // quando session e user forem populados no contexto
     } catch (error: any) {
       toast.error('Erro ao fazer login. Verifique suas credenciais.')
-    } finally {
       setIsLoading(false)
     }
   }
