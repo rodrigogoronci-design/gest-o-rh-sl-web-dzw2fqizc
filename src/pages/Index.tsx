@@ -53,18 +53,18 @@ export default function Index() {
       })
   }, [])
 
+  if (session && user) {
+    let from = location.state?.from?.pathname || '/app/dashboard'
+    if (from === '/') from = '/app/dashboard'
+    return <Navigate to={from} replace />
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin opacity-50" />
       </div>
     )
-  }
-
-  if (session && user) {
-    let from = location.state?.from?.pathname || '/app/dashboard'
-    if (from === '/') from = '/app/dashboard'
-    return <Navigate to={from} replace />
   }
 
   const handleLogin = async (e: React.FormEvent) => {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase/client'
 
@@ -28,29 +28,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [colaborador, setColaborador] = useState<any | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
-  const fetchedUserId = useRef<string | null>(null)
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, sessionObj) => {
+      setSession(sessionObj)
+      setUser(sessionObj?.user ?? null)
+      if (!sessionObj?.user) {
+        setLoading(false)
+      }
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setTimeout(() => {
+          window.location.href = '/app/perfil'
+        }, 100)
+      }
+    })
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: sessionObj } }) => {
+        setSession(sessionObj)
+        setUser(sessionObj?.user ?? null)
+        if (!sessionObj?.user) {
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        setLoading(false)
+      })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
 
   useEffect(() => {
     let mounted = true
 
-    const handleSession = async (sessionObj: Session | null) => {
-      if (!mounted) return
-
-      setSession(sessionObj)
-      setUser(sessionObj?.user ?? null)
-
-      const userId = sessionObj?.user?.id ?? null
-
-      if (!userId) {
-        setColaborador(null)
-        setIsAdmin(false)
-        fetchedUserId.current = null
-        setLoading(false)
-        return
-      }
-
-      if (fetchedUserId.current === userId) {
-        setLoading(false)
+    const fetchColaborador = async () => {
+      if (!user?.id) {
+        if (mounted) {
+          setColaborador(null)
+          setIsAdmin(false)
+          setLoading(false)
+        }
         return
       }
 
@@ -60,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { data, error } = await supabase
           .from('colaboradores')
           .select('*')
-          .eq('user_id', userId)
+          .eq('user_id', user.id)
           .single()
 
         if (!mounted) return
@@ -69,50 +92,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setColaborador(data)
           const role = data.role?.toLowerCase() || ''
           setIsAdmin(role === 'admin' || role === 'administrador' || role === 'gerente')
-          fetchedUserId.current = userId
         } else {
           setColaborador(null)
           setIsAdmin(false)
-          fetchedUserId.current = userId
         }
       } catch (err) {
         if (!mounted) return
         setColaborador(null)
         setIsAdmin(false)
-        fetchedUserId.current = userId
       } finally {
-        if (mounted) {
-          setLoading(false)
-        }
+        if (mounted) setLoading(false)
       }
     }
 
-    supabase.auth
-      .getSession()
-      .then(({ data: { session: sessionObj } }) => {
-        handleSession(sessionObj)
-      })
-      .catch(() => {
-        if (mounted) setLoading(false)
-      })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, sessionObj) => {
-      handleSession(sessionObj)
-
-      if (event === 'PASSWORD_RECOVERY') {
-        setTimeout(() => {
-          if (mounted) window.location.href = '/app/perfil'
-        }, 100)
-      }
-    })
+    fetchColaborador()
 
     return () => {
       mounted = false
-      subscription.unsubscribe()
     }
-  }, [])
+  }, [user?.id])
 
   const signUp = async (email: string, password: string) => {
     const { error } = await supabase.auth.signUp({
