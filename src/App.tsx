@@ -47,13 +47,41 @@ const ProtectedRoute = () => {
 
   if (!colaborador) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">Perfil não encontrado</h2>
-        <p className="text-slate-600 mb-6 max-w-md">
-          Sua conta de usuário foi autenticada, mas não encontramos um perfil de colaborador
-          vinculado. Por favor, entre em contato com o suporte ou administrador.
-        </p>
-        <Button onClick={() => signOut('logout')}>Sair</Button>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center animate-in fade-in duration-500">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 max-w-md w-full">
+          <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <path d="M12 9v4" />
+              <path d="M12 17h.01" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Perfil não encontrado</h2>
+          <p className="text-slate-600 mb-8 leading-relaxed">
+            Sua conta de usuário foi autenticada, mas não encontramos um perfil de colaborador
+            vinculado ao seu email. Por favor, entre em contato com o suporte ou administrador do
+            sistema.
+          </p>
+          <Button
+            className="w-full h-11 text-base"
+            onClick={async () => {
+              await signOut('logout')
+              window.location.href = '/'
+            }}
+          >
+            Voltar para o login
+          </Button>
+        </div>
       </div>
     )
   }

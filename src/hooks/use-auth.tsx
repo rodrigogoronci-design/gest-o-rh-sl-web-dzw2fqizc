@@ -36,6 +36,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(sessionObj)
       setUser(sessionObj?.user ?? null)
       if (!sessionObj?.user) {
+        setColaborador(null)
+        setIsAdmin(false)
         setLoading(false)
       }
 
@@ -52,6 +54,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(sessionObj)
         setUser(sessionObj?.user ?? null)
         if (!sessionObj?.user) {
+          setColaborador(null)
+          setIsAdmin(false)
           setLoading(false)
         }
       })
@@ -84,13 +88,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setTimeout(() => reject(new Error('Tempo limite esgotado ao carregar perfil')), 10000),
         )
 
-        let { data, error } = await Promise.race([
+        let queryResult = await Promise.race([
           supabase.from('colaboradores').select('*').eq('user_id', user.id).single(),
           timeoutPromise,
         ])
 
+        let data = queryResult.data
+        let error = queryResult.error
+
         // Auto-heal: If user has no auth link but exists by email, link them
-        if (error && error.code === 'PGRST116' && user.email) {
+        if ((error?.code === 'PGRST116' || !data) && user.email) {
           const timeoutPromiseEmail = new Promise<{ data: any; error: any }>((_, reject) =>
             setTimeout(() => reject(new Error('Tempo limite esgotado ao buscar por email')), 10000),
           )
@@ -113,7 +120,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (!mounted) return
 
-        if (!error && data) {
+        if (data && !error) {
           setColaborador(data)
           const role = data.role?.toLowerCase() || ''
           setIsAdmin(role === 'admin' || role === 'administrador' || role === 'gerente')
